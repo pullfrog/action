@@ -1,0 +1,17 @@
+name: 'Simple Message Action'
+description: 'A simple GitHub Action that prints a message to the console'
+author: 'Pullfrog'
+
+inputs:
+  message:
+    description: 'Message to print to console'
+    required: true
+    default: 'Hello from Pullfrog Action!'
+
+runs:
+  using: 'node20'
+  main: 'index.js'
+
+branding:
+  icon: 'message-circle'
+  color: 'blue'
