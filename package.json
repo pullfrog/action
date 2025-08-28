@@ -1,16 +1,14 @@
 {
   "name": "action",
-  "version": "1.0.0",
-  "description": "<h1 align=\"center\"><img width=\"317\" height=\"156\" alt=\"Frame 10 (8)\" src=\"https://github.com/user-attachments/assets/77f3e5e7-cf28-4d75-b41a-1359015fd07c\" /></h1>",
+  "version": "0.0.1",
   "main": "index.js",
   "directories": {
     "example": "examples"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rolldown -c && mv dist/index.js . && rmdir dist",
-    "dev": "rolldown -c --watch",
-    "package": "npm run build && npm prune --production"
+    "build": "rolldown -c rolldown.config.js",
+    "dev": "rolldown -c --watch"
   },
   "dependencies": {
     "@actions/core": "^1.10.1"
