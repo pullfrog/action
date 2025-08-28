@@ -19861,7 +19861,7 @@ var ClaudeAgent = class {
     core.info("Executing Claude Code...");
     try {
       const promptFile = createTempFile(prompt, "prompt.txt");
-      const command = `$HOME/.local/bin/claude --dangerously-skip-permissions "${promptFile}"`;
+      const command = `$HOME/.local/bin/claude -p "${promptFile}" --output-format json --permission-mode acceptEdits`;
       core.info(`Executing: ${command}`);
       const { stdout, stderr } = await executeCommand(command, {
         ANTHROPIC_API_KEY: this.apiKey
@@ -19869,18 +19869,29 @@ var ClaudeAgent = class {
       if (stderr) {
         core.warning(`Claude Code stderr: ${stderr}`);
       }
-      if (stdout) {
+      let claudeResponse;
+      try {
+        claudeResponse = JSON.parse(stdout);
+      } catch {
+        core.warning("Failed to parse Claude Code JSON response, using raw output");
+        claudeResponse = { result: stdout };
+      }
+      if (claudeResponse.result) {
         core.info("Claude Code output:");
-        console.log(stdout);
+        console.log(claudeResponse.result);
       }
       core.info("Claude Code executed successfully");
       return {
-        success: true,
-        output: stdout,
-        error: stderr || void 0,
+        success: !claudeResponse.is_error,
+        output: claudeResponse.result || stdout,
+        error: claudeResponse.is_error ? claudeResponse.result : stderr || void 0,
         metadata: {
           promptFile,
-          command
+          command,
+          session_id: claudeResponse.session_id,
+          cost_usd: claudeResponse.total_cost_usd,
+          duration_ms: claudeResponse.duration_ms,
+          num_turns: claudeResponse.num_turns
         }
       };
     } catch (error) {

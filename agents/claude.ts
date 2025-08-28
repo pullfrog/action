@@ -39,8 +39,8 @@ export class ClaudeAgent implements Agent {
       // Create a temporary file for the prompt
       const promptFile = createTempFile(prompt, "prompt.txt");
 
-      // Execute Claude Code with the prompt
-      const command = `$HOME/.local/bin/claude --dangerously-skip-permissions "${promptFile}"`;
+      // Execute Claude Code with the prompt using proper headless mode
+      const command = `$HOME/.local/bin/claude -p "${promptFile}" --output-format json --permission-mode acceptEdits`;
       core.info(`Executing: ${command}`);
 
       const { stdout, stderr } = await executeCommand(command, {
@@ -51,20 +51,33 @@ export class ClaudeAgent implements Agent {
         core.warning(`Claude Code stderr: ${stderr}`);
       }
 
-      if (stdout) {
+      // Parse JSON response from Claude Code
+      let claudeResponse: any;
+      try {
+        claudeResponse = JSON.parse(stdout);
+      } catch {
+        core.warning("Failed to parse Claude Code JSON response, using raw output");
+        claudeResponse = { result: stdout };
+      }
+
+      if (claudeResponse.result) {
         core.info("Claude Code output:");
-        console.log(stdout);
+        console.log(claudeResponse.result);
       }
 
       core.info("Claude Code executed successfully");
 
       return {
-        success: true,
-        output: stdout,
-        error: stderr || undefined,
+        success: !claudeResponse.is_error,
+        output: claudeResponse.result || stdout,
+        error: claudeResponse.is_error ? claudeResponse.result : (stderr || undefined),
         metadata: {
           promptFile,
           command,
+          session_id: claudeResponse.session_id,
+          cost_usd: claudeResponse.total_cost_usd,
+          duration_ms: claudeResponse.duration_ms,
+          num_turns: claudeResponse.num_turns,
         },
       };
     } catch (error) {
