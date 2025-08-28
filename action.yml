@@ -1,17 +1,20 @@
-name: 'Simple Message Action'
-description: 'A simple GitHub Action that prints a message to the console'
+name: 'Pullfrog Claude Code Action'
+description: 'Execute Claude Code with a prompt using Anthropic API'
 author: 'Pullfrog'
 
 inputs:
-  message:
-    description: 'Message to print to console'
+  prompt:
+    description: 'Prompt to send to Claude Code'
     required: true
-    default: 'Hello from Pullfrog Action!'
+    default: 'Hello from Claude Code!'
+  anthropic_api_key:
+    description: 'Anthropic API key for Claude Code authentication'
+    required: false
 
 runs:
   using: 'node20'
   main: 'index.cjs'
 
 branding:
-  icon: 'message-circle'
-  color: 'blue'
+  icon: 'code'
+  color: 'orange'

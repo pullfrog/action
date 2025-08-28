@@ -1,17 +1,39 @@
 import * as core from "@actions/core";
+import { createAgent } from "./agents/factory";
 
-try {
-  // Get the message input parameter, with a default fallback
-  const message = core.getInput("message") || "Hello from Pullfrog Action!";
+async function main(): Promise<void> {
+  try {
+    // Get inputs
+    const prompt = core.getInput("prompt", { required: true });
+    const anthropicApiKey = core.getInput("anthropic_api_key", { required: true });
 
-  // Print the message to console and GitHub Actions logs
-  console.log(`🐸 Pullfrog says: ${message}`);
-  core.info(`Action executed successfully with message: ${message}`);
+    if (!anthropicApiKey) {
+      throw new Error("anthropic_api_key is required");
+    }
 
-  // Set an output for potential use by other actions
-  core.setOutput("message", message);
-} catch (error) {
-  // Handle any errors and fail the action
-  const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-  core.setFailed(`Action failed: ${errorMessage}`);
+    core.info(`🐸 Pullfrog Claude Code Action starting...`);
+    core.info(`Prompt: ${prompt}`);
+
+    // Create and install the Claude agent
+    const agent = createAgent("claude", { apiKey: anthropicApiKey });
+    await agent.install();
+
+    // Execute the agent with the prompt
+    const result = await agent.execute(prompt);
+
+    if (!result.success) {
+      throw new Error(result.error || "Agent execution failed");
+    }
+
+    // Set outputs
+    core.setOutput("status", "success");
+    core.setOutput("prompt", prompt);
+    core.setOutput("output", result.output || "");
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    core.setFailed(`Action failed: ${errorMessage}`);
+  }
 }
+
+// Execute main function
+main();
