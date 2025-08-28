@@ -79,7 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          release_name: Action Release ${{ steps.version.outputs.tag }}
+          release_name: ${{ steps.version.outputs.tag }}
           body: |
             Automated release for action version ${{ steps.version.outputs.version }}
             
