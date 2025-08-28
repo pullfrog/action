@@ -19812,8 +19812,8 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
 var core = __toESM(require_core(), 1);
 try {
   const message = core.getInput("message") || "Hello from Pullfrog Action!";
-  console.log(`\u{1F438} ${message}`);
-  core.info(`Action executed successfully: ${message}`);
+  console.log(`\u{1F438} Pullfrog says: ${message}`);
+  core.info(`Action executed successfully with message: ${message}`);
   core.setOutput("message", message);
 } catch (error) {
   const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";

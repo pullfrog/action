@@ -5,8 +5,8 @@ try {
   const message = core.getInput('message') || 'Hello from Pullfrog Action!';
   
   // Print the message to console and GitHub Actions logs
-  console.log(`🐸 ${message}`);
-  core.info(`Action executed successfully: ${message}`);
+  console.log(`🐸 Pullfrog says: ${message}`);
+  core.info(`Action executed successfully with message: ${message}`);
   
   // Set an output for potential use by other actions
   core.setOutput('message', message);
