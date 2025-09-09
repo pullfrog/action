@@ -174,7 +174,7 @@ program
   .argument(
     "[file]",
     "Prompt file to use (.txt, .json, or .ts)",
-    "fixtures/play.txt",
+    "fixtures/basic.txt",
   )
   .option(
     "--act",

@@ -34,7 +34,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Get package version
         id: version
@@ -103,14 +103,14 @@ jobs:
 
             Use the major version tag for automatic updates:
             ```yaml
-            - uses: pullfrog/pullfrog@${{ steps.version.outputs.major_tag }}
+            - uses: pullfrog/action@${{ steps.version.outputs.major_tag }}
               with:
                 message: "Your message here"
             ```
 
             Or pin to this specific version:
             ```yaml
-            - uses: pullfrog/pullfrog@${{ steps.version.outputs.tag }}
+            - uses: pullfrog/action@${{ steps.version.outputs.tag }}
               with:
                 message: "Your message here"
             ```

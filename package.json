@@ -17,7 +17,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "pnpm install && node esbuild.config.js && rm -rf node_modules",
+    "build": "node esbuild.config.js",
     "build:npm": "zshy",
     "build:dev": "node esbuild.config.js",
     "prepare": "husky",
@@ -39,16 +39,26 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pullfrog/pullfrog.git"
+    "url": "git+https://github.com/pullfrog/action.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/pullfrog/pullfrog/issues"
+    "url": "https://github.com/pullfrog/action/issues"
   },
-  "homepage": "https://github.com/pullfrog/pullfrog#readme",
+  "homepage": "https://github.com/pullfrog/action#readme",
   "zshy": {
     "exports": "./index.ts"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   }
 }

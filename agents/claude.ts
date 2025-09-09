@@ -364,14 +364,15 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
 
       case "result":
         if (parsedChunk.subtype === "success") {
-          if (parsedChunk.result) {
-            core.info(
-              boxString(parsedChunk.result.trim(), {
-                title: "🤖 Claude Code",
-                maxWidth: 70,
-              }),
-            );
-          }
+          // Claude already prints something almost identical to this, so skip for now
+          // if (parsedChunk.result) {
+          //   core.info(
+          //     boxString(parsedChunk.result.trim(), {
+          //       title: "🤖 Claude Code",
+          //       maxWidth: 70,
+          //     }),
+          //   );
+          // }
 
           core.info(
             tableString([

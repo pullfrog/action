@@ -76,7 +76,7 @@ export function runAct(prompt: string): void {
       "--input",
       `prompt='${escapedPrompt}'`,
       "--local-repository",
-      `pullfrog/pullfrog@v0=${distPath}`, // Use minimal dist without symlinks
+      `pullfrog/action@v0=${distPath}`, // Use minimal dist without symlinks
     ];
 
     // Add all environment variables as secrets (without values)

@@ -25913,14 +25913,6 @@ function processJSONChunk(chunk, agent) {
         break;
       case "result":
         if (parsedChunk.subtype === "success") {
-          if (parsedChunk.result) {
-            core.info(
-              boxString(parsedChunk.result.trim(), {
-                title: "\u{1F916} Claude Code",
-                maxWidth: 70
-              })
-            );
-          }
           core.info(
             tableString([
               [

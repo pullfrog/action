@@ -8,8 +8,8 @@ export interface MainParams {
 
 export interface MainResult {
   success: boolean;
-  output?: string;
-  error?: string;
+  output?: string | undefined;
+  error?: string | undefined;
 }
 
 export async function main(params: MainParams): Promise<MainResult> {
@@ -35,7 +35,7 @@ export async function main(params: MainParams): Promise<MainResult> {
       return {
         success: false,
         error: result.error || "Agent execution failed",
-        output: result.output,
+        output: result.output!,
       };
     }
 
