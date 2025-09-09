@@ -123,11 +123,11 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Publish to npm
-        if: steps.check_tag.outputs.exists == 'false'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish to npm
+      #   if: steps.check_tag.outputs.exists == 'false'
+      #   run: npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Summary
         if: always()
