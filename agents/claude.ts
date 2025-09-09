@@ -51,12 +51,24 @@ export class ClaudeAgent implements Agent {
     core.info("Installing Claude Code...");
     try {
       // Use shell execution to properly handle the pipe
-      await spawn({
+      const result = await spawn({
         cmd: "bash",
-        args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
-        onStdout: (chunk) => console.log(chunk),
-        onStderr: (chunk) => console.error(chunk),
+        args: [
+          "-c",
+          "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93",
+        ],
+        env: { ANTHROPIC_API_KEY: this.apiKey },
+        timeout: 120000, // 2 minute timeout
+        onStdout: (chunk) => process.stdout.write(chunk),
+        onStderr: (chunk) => process.stderr.write(chunk),
       });
+
+      if (result.exitCode !== 0) {
+        throw new Error(
+          `Installation failed with exit code ${result.exitCode}: ${result.stderr}`,
+        );
+      }
+
       core.info("Claude Code installed successfully");
     } catch (error) {
       throw new Error(`Failed to install Claude Code: ${error}`);
@@ -124,7 +136,7 @@ export class ClaudeAgent implements Agent {
       // throw on non-zero exit code
       if (result.exitCode !== 0) {
         throw new Error(
-          `Command failed with exit code ${result.exitCode}\n\nStdout: ${result.stdout}\n\nStderr: ${result.stderr}`
+          `Command failed with exit code ${result.exitCode}\n\nStdout: ${result.stdout}\n\nStderr: ${result.stderr}`,
         );
       }
 
@@ -143,7 +155,7 @@ export class ClaudeAgent implements Agent {
       // Log run summary
       const duration = Date.now() - this.runStats.startTime;
       core.info(
-        `📊 Run Summary: ${this.runStats.toolsUsed} tools used, ${this.runStats.turns} turns, ${duration}ms duration`
+        `📊 Run Summary: ${this.runStats.toolsUsed} tools used, ${this.runStats.turns} turns, ${duration}ms duration`,
       );
 
       core.info("✅ Task complete.");
@@ -166,7 +178,8 @@ export class ClaudeAgent implements Agent {
       } catch {
         // Group might not have been started, ignore
       }
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
         error: `Failed to execute Claude Code: ${errorMessage}`,
@@ -217,7 +230,12 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               ["model", parsedChunk.model],
               ["cwd", parsedChunk.cwd],
               ["permission_mode", parsedChunk.permissionMode],
-              ["tools", parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"],
+              [
+                "tools",
+                parsedChunk.tools?.length
+                  ? `${parsedChunk.tools.length} tools`
+                  : "none",
+              ],
               [
                 "mcp_servers",
                 parsedChunk.mcp_servers?.length
@@ -230,7 +248,7 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
                   ? `${parsedChunk.slash_commands.length} commands`
                   : "none",
               ],
-            ])
+            ]),
           );
         }
         break;
@@ -246,7 +264,9 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
             if (content.type === "text") {
               // Skip empty text content
               if (content.text.trim()) {
-                core.info(boxString(content.text.trim(), { title: "Claude Code" }));
+                core.info(
+                  boxString(content.text.trim(), { title: "Claude Code" }),
+                );
               }
             } else if (content.type === "tool_use") {
               // Track tools used
@@ -349,18 +369,21 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               boxString(parsedChunk.result.trim(), {
                 title: "🤖 Claude Code",
                 maxWidth: 70,
-              })
+              }),
             );
           }
 
           core.info(
             tableString([
-              ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
+              [
+                "Cost",
+                `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`,
+              ],
               ["Input Tokens", parsedChunk.usage?.input_tokens || 0],
               ["Output Tokens", parsedChunk.usage?.output_tokens || 0],
               ["Duration", `${parsedChunk.duration_ms}ms`],
               ["Turns", parsedChunk.num_turns || 1],
-            ])
+            ]),
           );
         } else {
           core.error(`❌ Failed: ${parsedChunk.error || "Unknown error"}`);

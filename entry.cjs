@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -7,10 +8,6 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -28,7 +25,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // ../node_modules/.pnpm/@actions+core@1.11.1/node_modules/@actions/core/lib/utils.js
 var require_utils = __commonJS({
@@ -25497,12 +25493,8 @@ var require_src = __commonJS({
   }
 });
 
-// index.ts
-var index_exports = {};
-__export(index_exports, {
-  main: () => main
-});
-module.exports = __toCommonJS(index_exports);
+// entry.ts
+var core3 = __toESM(require_core(), 1);
 
 // main.ts
 var core2 = __toESM(require_core(), 1);
@@ -25713,12 +25705,23 @@ var ClaudeAgent = class {
     }
     core.info("Installing Claude Code...");
     try {
-      await spawn({
+      const result = await spawn({
         cmd: "bash",
-        args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
-        onStdout: (chunk) => console.log(chunk),
-        onStderr: (chunk) => console.error(chunk)
+        args: [
+          "-c",
+          "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"
+        ],
+        env: { ANTHROPIC_API_KEY: this.apiKey },
+        timeout: 12e4,
+        // 2 minute timeout
+        onStdout: (chunk) => process.stdout.write(chunk),
+        onStderr: (chunk) => process.stderr.write(chunk)
       });
+      if (result.exitCode !== 0) {
+        throw new Error(
+          `Installation failed with exit code ${result.exitCode}: ${result.stderr}`
+        );
+      }
       core.info("Claude Code installed successfully");
     } catch (error2) {
       throw new Error(`Failed to install Claude Code: ${error2}`);
@@ -25818,7 +25821,10 @@ function processJSONChunk(chunk, agent) {
               ["model", parsedChunk.model],
               ["cwd", parsedChunk.cwd],
               ["permission_mode", parsedChunk.permissionMode],
-              ["tools", parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"],
+              [
+                "tools",
+                parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"
+              ],
               [
                 "mcp_servers",
                 parsedChunk.mcp_servers?.length ? `${parsedChunk.mcp_servers.length} servers` : "none"
@@ -25839,7 +25845,9 @@ function processJSONChunk(chunk, agent) {
           for (const content of parsedChunk.message.content) {
             if (content.type === "text") {
               if (content.text.trim()) {
-                core.info(boxString(content.text.trim(), { title: "Claude Code" }));
+                core.info(
+                  boxString(content.text.trim(), { title: "Claude Code" })
+                );
               }
             } else if (content.type === "tool_use") {
               if (agent) {
@@ -25915,7 +25923,10 @@ function processJSONChunk(chunk, agent) {
           }
           core.info(
             tableString([
-              ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
+              [
+                "Cost",
+                `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`
+              ],
               ["Input Tokens", parsedChunk.usage?.input_tokens || 0],
               ["Output Tokens", parsedChunk.usage?.output_tokens || 0],
               ["Duration", `${parsedChunk.duration_ms}ms`],
@@ -25937,36 +25948,68 @@ function processJSONChunk(chunk, agent) {
 }
 
 // main.ts
-async function main() {
+async function main(params) {
   try {
-    const prompt = core2.getInput("prompt", { required: true });
-    const anthropicApiKey = core2.getInput("anthropic_api_key", { required: true });
+    const anthropicApiKey = params.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
     if (!anthropicApiKey) {
       throw new Error("anthropic_api_key is required");
     }
     core2.info(`\u2192 Starting agent run with Claude Code`);
     const agent = new ClaudeAgent({ apiKey: anthropicApiKey });
     await agent.install();
-    const result = await agent.execute(prompt);
+    const result = await agent.execute(params.prompt);
     if (!result.success) {
-      throw new Error(result.error || "Agent execution failed");
+      return {
+        success: false,
+        error: result.error || "Agent execution failed",
+        output: result.output
+      };
     }
-    core2.setOutput("status", "success");
-    core2.setOutput("prompt", prompt);
-    core2.setOutput("output", result.output || "");
+    return {
+      success: true,
+      output: result.output || ""
+    };
   } catch (error2) {
     const errorMessage = error2 instanceof Error ? error2.message : "Unknown error occurred";
-    core2.setFailed(`Action failed: ${errorMessage}`);
+    return {
+      success: false,
+      error: errorMessage
+    };
   }
 }
 
-// index.ts
-if (true) {
-  main();
+// entry.ts
+async function run() {
+  try {
+    const prompt = core3.getInput("prompt", { required: true });
+    const anthropicApiKey = core3.getInput("anthropic_api_key", {
+      required: true
+    });
+    if (!anthropicApiKey) {
+      throw new Error("anthropic_api_key is required");
+    }
+    if (!prompt) {
+      throw new Error("prompt is required");
+    }
+    const params = {
+      prompt,
+      anthropicApiKey
+    };
+    const result = await main(params);
+    core3.setOutput("status", result.success ? "success" : "failed");
+    core3.setOutput("prompt", prompt);
+    core3.setOutput("output", result.output || "");
+    if (!result.success) {
+      throw new Error(result.error || "Agent execution failed");
+    }
+  } catch (error2) {
+    const errorMessage = error2 instanceof Error ? error2.message : "Unknown error occurred";
+    core3.setFailed(`Action failed: ${errorMessage}`);
+  }
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  main
+run().catch((error2) => {
+  console.error("Action failed:", error2);
+  process.exit(1);
 });
 /*! Bundled license information:
 

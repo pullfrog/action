@@ -1,14 +1,16 @@
-import { build } from 'esbuild';
+import { build } from "esbuild";
 
+// Build the GitHub Action bundle only
+// For npm package builds, use zshy (pnpm build:npm)
 await build({
-  entryPoints: ['./index.ts'],
+  entryPoints: ["./entry.ts"],
   bundle: true,
-  outfile: './index.cjs',
-  format: 'cjs',
-  platform: 'node',
-  target: 'node20',
+  outfile: "./entry.cjs",
+  format: "cjs",
+  platform: "node",
+  target: "node20",
   minify: false,
   sourcemap: false,
 });
 
-console.log('✅ Build completed successfully!');
+console.log("✅ Build completed successfully!");

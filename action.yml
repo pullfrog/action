@@ -1,20 +1,20 @@
-name: 'Pullfrog Claude Code Action'
-description: 'Execute Claude Code with a prompt using Anthropic API'
-author: 'Pullfrog'
+name: "Pullfrog Claude Code Action"
+description: "Execute Claude Code with a prompt using Anthropic API"
+author: "Pullfrog"
 
 inputs:
   prompt:
-    description: 'Prompt to send to Claude Code'
+    description: "Prompt to send to Claude Code"
     required: true
-    default: 'Hello from Claude Code!'
+    default: "Hello from Claude Code!"
   anthropic_api_key:
-    description: 'Anthropic API key for Claude Code authentication'
+    description: "Anthropic API key for Claude Code authentication"
     required: false
 
 runs:
-  using: 'node20'
-  main: 'index.cjs'
+  using: "node20"
+  main: "entry.cjs"
 
 branding:
-  icon: 'code'
-  color: 'orange'
+  icon: "code"
+  color: "orange"

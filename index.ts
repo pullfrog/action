@@ -1,3 +1,8 @@
-import { main } from "./main";
+/**
+ * Library entry point for npm package
+ * This exports the main function for programmatic usage
+ */
 
-main();
+export { main } from "./main";
+export { ClaudeAgent } from "./agents";
+export type { Agent, AgentConfig, AgentResult } from "./agents/types";

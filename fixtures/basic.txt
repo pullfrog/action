@@ -1,0 +1,1 @@
+Print the list of tools available. Then create a new file called test.txt with the content "Hello from Pullfrog!".

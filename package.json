@@ -1,14 +1,25 @@
 {
-  "name": "action",
-  "version": "0.0.5",
-  "main": "index.js",
+  "name": "@pullfrog/action",
+  "version": "0.0.6",
+  "type": "module",
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
+    "index.d.cts",
+    "agents",
+    "utils",
+    "main.js",
+    "main.d.ts"
+  ],
   "directories": {
     "example": "examples"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node esbuild.config.js",
-    "dev": "node esbuild.config.js --watch",
+    "build": "pnpm install && node esbuild.config.js && rm -rf node_modules",
+    "build:npm": "zshy",
+    "build:dev": "node esbuild.config.js",
     "prepare": "husky",
     "play": "tsx --env-file=../.env play.ts"
   },
@@ -19,9 +30,12 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "commander": "^14.0.0",
+    "dotenv": "^17.2.2",
     "esbuild": "^0.25.9",
     "husky": "^9.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "zshy": "^0.4.1"
   },
   "repository": {
     "type": "git",
@@ -30,9 +44,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/pullfrog/pullfrog/issues"
   },
-  "homepage": "https://github.com/pullfrog/pullfrog#readme"
+  "homepage": "https://github.com/pullfrog/pullfrog#readme",
+  "zshy": {
+    "exports": "./index.ts"
+  }
 }

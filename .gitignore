@@ -1,4 +1,4 @@
-# macOS settings file 
+# macOS settings file
 .DS_Store
 
 # Contains all your dependencies
@@ -35,3 +35,13 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 examples
+
+# Act temporary distribution directory
+.act-dist/
+
+# Temporary backup of node_modules
+.node_modules_backup/
+
+# Temporary directory for cloned repos
+.temp/
+dist
