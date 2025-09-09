@@ -1,4 +1,4 @@
-name: Publish
+name: Publish & Release
 
 on:
   push:
@@ -8,23 +8,26 @@ on:
       - "package.json"
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: latest
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
@@ -33,32 +36,114 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build for npm with zshy
+      - name: Get package version
+        id: version
         run: |
-          cd action
-          pnpm build:npm
-
-      - name: Get version from package.json
-        id: get_version
-        run: |
-          cd action
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(npm pkg get version | tr -d '"')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing version: $VERSION"
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+          # Extract major version (e.g., "0" from "0.0.1")
+          MAJOR_VERSION=$(echo $VERSION | cut -d. -f1)
+          echo "major_tag=v$MAJOR_VERSION" >> $GITHUB_OUTPUT
+
+          echo "📦 Package version: $VERSION"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Tag ${{ steps.version.outputs.tag }} already exists - skipping release"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag ${{ steps.version.outputs.tag }} does not exist - will create release"
+          fi
+
+      - name: Verify built files are up to date
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          # Check if there are any uncommitted changes
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "❌ Error: There are uncommitted changes. Built files should be committed via pre-commit hook."
+            git status
+            exit 1
+          fi
+          echo "✅ All built files are up to date"
+
+      - name: Build for npm with zshy
+        if: steps.check_tag.outputs.exists == 'false'
+        run: pnpm build:npm
+
+      - name: Create and push tags
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          # Create specific version tag
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+          # Create/update major version tag (moving tag)
+          git tag -f ${{ steps.version.outputs.major_tag }}
+          git push origin ${{ steps.version.outputs.major_tag }} --force
+
+          echo "🏷️ Created tags: ${{ steps.version.outputs.tag }} and ${{ steps.version.outputs.major_tag }}"
 
       - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
-          release_name: "@pullfrog/action v${{ steps.get_version.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: "@pullfrog/action ${{ steps.version.outputs.tag }}"
+          body: |
+            ## 📦 @pullfrog/action ${{ steps.version.outputs.version }}
+
+            ### Usage in GitHub Actions
+
+            Use the major version tag for automatic updates:
+            ```yaml
+            - uses: pullfrog/pullfrog@${{ steps.version.outputs.major_tag }}
+              with:
+                message: "Your message here"
+            ```
+
+            Or pin to this specific version:
+            ```yaml
+            - uses: pullfrog/pullfrog@${{ steps.version.outputs.tag }}
+              with:
+                message: "Your message here"
+            ```
+
+            ### Installation via npm
+
+            ```bash
+            npm install @pullfrog/action@${{ steps.version.outputs.version }}
+            ```
           draft: false
           prerelease: false
 
       - name: Publish to npm
-        run: |
-          cd action
-          npm publish --access public
+        if: steps.check_tag.outputs.exists == 'false'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📊 Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.check_tag.outputs.exists }}" == "true" ]]; then
+            echo "⚠️ Version ${{ steps.version.outputs.version }} already exists - no action taken" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Successfully published version ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🏷️ Tags Created" >> $GITHUB_STEP_SUMMARY
+            echo "- \`${{ steps.version.outputs.tag }}\` (specific version)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`${{ steps.version.outputs.major_tag }}\` (major version, auto-updating)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Published to" >> $GITHUB_STEP_SUMMARY
+            echo "- GitHub Release: [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+            echo "- npm Registry: [@pullfrog/action@${{ steps.version.outputs.version }}](https://www.npmjs.com/package/@pullfrog/action/v/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          fi
