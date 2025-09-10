@@ -9,8 +9,11 @@ importers:
   .:
     dependencies:
       '@actions/core':
-        specifier: ^1.10.1
+        specifier: ^1.11.1
         version: 1.11.1
+      dotenv:
+        specifier: ^17.2.2
+        version: 17.2.2
       execa:
         specifier: ^9.6.0
         version: 9.6.0
@@ -24,9 +27,6 @@ importers:
       commander:
         specifier: ^14.0.0
         version: 14.0.0
-      dotenv:
-        specifier: ^17.2.2
-        version: 17.2.2
       esbuild:
         specifier: ^0.25.9
         version: 0.25.9
