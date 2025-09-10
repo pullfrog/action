@@ -95,24 +95,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          release_name: "@pullfrog/action ${{ steps.version.outputs.tag }}"
+          release_name: "${{ steps.version.outputs.tag }}"
           body: |
             ## 📦 @pullfrog/action ${{ steps.version.outputs.version }}
 
             ### Usage in GitHub Actions
 
-            Use the major version tag for automatic updates:
             ```yaml
             - uses: pullfrog/action@${{ steps.version.outputs.major_tag }}
-              with:
-                message: "Your message here"
-            ```
-
-            Or pin to this specific version:
-            ```yaml
-            - uses: pullfrog/action@${{ steps.version.outputs.tag }}
-              with:
-                message: "Your message here"
             ```
 
             ### Installation via npm

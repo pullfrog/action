@@ -59,7 +59,10 @@ export class ClaudeAgent implements Agent {
         ],
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 120000, // 2 minute timeout
-        onStdout: (chunk) => process.stdout.write(chunk),
+        onStdout: (chunk) => {
+          // no logs
+          // process.stdout.write(chunk)
+        },
         onStderr: (chunk) => process.stderr.write(chunk),
       });
 

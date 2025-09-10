@@ -25714,7 +25714,8 @@ var ClaudeAgent = class {
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 12e4,
         // 2 minute timeout
-        onStdout: (chunk) => process.stdout.write(chunk),
+        onStdout: (chunk) => {
+        },
         onStderr: (chunk) => process.stderr.write(chunk)
       });
       if (result.exitCode !== 0) {
