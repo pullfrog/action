@@ -17,21 +17,22 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "build:npm": "zshy",
     "build:dev": "node esbuild.config.js",
     "prepare": "husky",
-    "play": "tsx --env-file=../.env play.ts"
+    "play": "tsx play.ts"
   },
   "dependencies": {
-    "@actions/core": "^1.10.1",
+    "@actions/core": "^1.11.1",
+    "dotenv": "^17.2.2",
     "execa": "^9.6.0",
     "table": "^6.9.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "commander": "^14.0.0",
-    "dotenv": "^17.2.2",
     "esbuild": "^0.25.9",
     "husky": "^9.0.0",
     "typescript": "^5.3.0",

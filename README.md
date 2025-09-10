@@ -55,6 +55,14 @@ pnpm dev          # Watch mode
 
 The action is bundled into `entry.cjs` with all dependencies included, eliminating runtime dependency on node_modules.
 
+## Environment Variables
+
+Create `.env` in `/action`:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # Claude API key
+```
+
 ## Architecture
 
 - **entry.cjs**: Bundled action entry point (self-contained)

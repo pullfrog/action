@@ -7,43 +7,55 @@
 
 import * as core from "@actions/core";
 import { main } from "./main";
+import { setupGitHubInstallationToken } from "./utils";
 
 async function run(): Promise<void> {
   try {
     // Get inputs from GitHub Actions
     const prompt = core.getInput("prompt", { required: true });
-    const anthropicApiKey = core.getInput("anthropic_api_key", {
-      required: true,
-    });
-
-    if (!anthropicApiKey) {
-      throw new Error("anthropic_api_key is required");
-    }
+    const anthropicApiKey = core.getInput("anthropic_api_key");
 
     if (!prompt) {
       throw new Error("prompt is required");
     }
 
-    // Create params object
-    const params = {
+    // Create params object with new structure
+    const inputs: any = {
       prompt,
-      anthropicApiKey,
+      anthropic_api_key: anthropicApiKey,
+    };
+
+    // Add optional properties only if they exist
+    const githubToken = core.getInput("github_token") || process.env.GITHUB_TOKEN;
+    if (githubToken) {
+      inputs.github_token = githubToken;
+    }
+
+    const githubInstallationToken =
+      core.getInput("github_installation_token") || process.env.GITHUB_INSTALLATION_TOKEN;
+    if (githubInstallationToken) {
+      inputs.github_installation_token = githubInstallationToken;
+    } else {
+      // Setup GitHub installation token
+      await setupGitHubInstallationToken();
+    }
+
+    const params = {
+      inputs,
+      env: {} as Record<string, string>,
+      cwd: process.cwd(),
     };
 
     // Run the main function
     const result = await main(params);
 
-    // Set outputs
-    core.setOutput("status", result.success ? "success" : "failed");
-    core.setOutput("prompt", prompt);
-    core.setOutput("output", result.output || "");
+    // TODO: Set outputs
 
     if (!result.success) {
       throw new Error(result.error || "Agent execution failed");
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     core.setFailed(`Action failed: ${errorMessage}`);
   }
 }

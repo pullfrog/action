@@ -1,9 +1,24 @@
 import * as core from "@actions/core";
 import { ClaudeAgent } from "./agents";
 
-export interface MainParams {
+// Expected environment variables that should be passed as inputs
+export const EXPECTED_INPUTS: string[] = [
+  "ANTHROPIC_API_KEY",
+  "GITHUB_TOKEN", 
+  "GITHUB_INSTALLATION_TOKEN"
+];
+
+export interface ExecutionInputs {
   prompt: string;
-  anthropicApiKey?: string;
+  anthropic_api_key: string;
+  github_token?: string;
+  github_installation_token?: string;
+}
+
+export interface MainParams {
+  inputs: ExecutionInputs;
+  env: Record<string, string>;
+  cwd: string;
 }
 
 export interface MainResult {
@@ -12,24 +27,28 @@ export interface MainResult {
   error?: string | undefined;
 }
 
+
 export async function main(params: MainParams): Promise<MainResult> {
   try {
-    // Use provided API key or fall back to environment variable
-    const anthropicApiKey =
-      params.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    // Extract inputs from params
+    const { inputs, env, cwd } = params;
 
-    if (!anthropicApiKey) {
-      throw new Error("anthropic_api_key is required");
+    // Set working directory if different from current
+    if (cwd !== process.cwd()) {
+      process.chdir(cwd);
     }
+
+    // Set environment variables
+    Object.assign(process.env, env);
 
     core.info(`→ Starting agent run with Claude Code`);
 
     // Create and install the Claude agent
-    const agent = new ClaudeAgent({ apiKey: anthropicApiKey });
+    const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key });
     await agent.install();
 
     // Execute the agent with the prompt
-    const result = await agent.execute(params.prompt);
+    const result = await agent.execute(inputs.prompt);
 
     if (!result.success) {
       return {
@@ -44,8 +63,7 @@ export async function main(params: MainParams): Promise<MainResult> {
       output: result.output || "",
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     return {
       success: false,
       error: errorMessage,

@@ -3,6 +3,11 @@
  * This exports the main function for programmatic usage
  */
 
-export { main } from "./main";
 export { ClaudeAgent } from "./agents";
 export type { Agent, AgentConfig, AgentResult } from "./agents/types";
+export {
+  type ExecutionInputs,
+  type MainParams,
+  type MainResult,
+  main,
+} from "./main";
