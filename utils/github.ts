@@ -7,14 +7,16 @@ export async function setupGitHubInstallationToken(): Promise<string> {
   // Check if we have an installation token from inputs or environment
   const inputToken = core.getInput("github_installation_token");
   const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  
+
   const existingToken = inputToken || envToken;
   if (existingToken) {
+    // Mask the existing token in logs for security
+    core.setSecret(existingToken);
     core.info("Using provided GitHub installation token");
     return existingToken;
   }
 
-  core.info("No cached installation token found, generating OIDC token...");
+  core.info("Generating OIDC token...");
 
   try {
     // Generate OIDC token for our API
@@ -24,6 +26,7 @@ export async function setupGitHubInstallationToken(): Promise<string> {
     // Exchange OIDC token for installation token
     const apiUrl = process.env.API_URL || "https://pullfrog.ai";
 
+    core.info("Exchanging OIDC token for installation token...");
     const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
       method: "POST",
       headers: {
@@ -40,9 +43,10 @@ export async function setupGitHubInstallationToken(): Promise<string> {
     }
 
     const tokenData = await tokenResponse.json();
-    core.info(
-      `Installation token obtained for ${tokenData.owner}/${tokenData.repository || "all repositories"}`
-    );
+    core.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+
+    // Mask the token in logs for security
+    core.setSecret(tokenData.token);
 
     // Set the token as an environment variable for this run
     process.env.GITHUB_INSTALLATION_TOKEN = tokenData.token;
