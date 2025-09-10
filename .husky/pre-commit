@@ -3,4 +3,4 @@ echo "🔨 Building action..."
 npm run build
 
 # Add the built files to the commit
-git add index.cjs entry.cjs
+git add entry.cjs
