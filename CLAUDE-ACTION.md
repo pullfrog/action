@@ -1,6 +1,6 @@
 # Claude Code Action Architecture & Flow
 
-This document provides a comprehensive overview of how the Claude Code Action works, from token exchange through post-run cleanup.
+This document provides a comprehensive overview of how the official (Anthropic) Claude Code Action works, from token exchange through post-run cleanup.
 
 ## Overview
 
