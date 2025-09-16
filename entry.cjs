@@ -25749,10 +25749,7 @@ var ClaudeAgent = class {
     try {
       const result = await spawn({
         cmd: "bash",
-        args: [
-          "-c",
-          "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"
-        ],
+        args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 12e4,
         // 2 minute timeout
@@ -25761,9 +25758,7 @@ var ClaudeAgent = class {
         onStderr: (chunk) => process.stderr.write(chunk)
       });
       if (result.exitCode !== 0) {
-        throw new Error(
-          `Installation failed with exit code ${result.exitCode}: ${result.stderr}`
-        );
+        throw new Error(`Installation failed with exit code ${result.exitCode}: ${result.stderr}`);
       }
       core2.info("Claude Code installed successfully");
     } catch (error2) {
@@ -25864,10 +25859,7 @@ function processJSONChunk(chunk, agent) {
               ["model", parsedChunk.model],
               ["cwd", parsedChunk.cwd],
               ["permission_mode", parsedChunk.permissionMode],
-              [
-                "tools",
-                parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"
-              ],
+              ["tools", parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"],
               [
                 "mcp_servers",
                 parsedChunk.mcp_servers?.length ? `${parsedChunk.mcp_servers.length} servers` : "none"
@@ -25888,9 +25880,7 @@ function processJSONChunk(chunk, agent) {
           for (const content of parsedChunk.message.content) {
             if (content.type === "text") {
               if (content.text.trim()) {
-                core2.info(
-                  boxString(content.text.trim(), { title: "Claude Code" })
-                );
+                core2.info(boxString(content.text.trim(), { title: "Claude Code" }));
               }
             } else if (content.type === "tool_use") {
               if (agent) {
@@ -25958,10 +25948,7 @@ function processJSONChunk(chunk, agent) {
         if (parsedChunk.subtype === "success") {
           core2.info(
             tableString([
-              [
-                "Cost",
-                `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`
-              ],
+              ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
               ["Input Tokens", parsedChunk.usage?.input_tokens || 0],
               ["Output Tokens", parsedChunk.usage?.output_tokens || 0],
               ["Duration", `${parsedChunk.duration_ms}ms`],
