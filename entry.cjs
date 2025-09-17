@@ -25927,18 +25927,427 @@ function processJSONChunk(chunk, agent) {
   }
 }
 
+// github/context.ts
+var ENTITY_EVENT_NAMES = [
+  "issues",
+  "issue_comment",
+  "pull_request",
+  "pull_request_review",
+  "pull_request_review_comment"
+];
+var AUTOMATION_EVENT_NAMES = [
+  "workflow_dispatch",
+  "schedule",
+  "workflow_run"
+];
+function parseGitHubContext(mockContext) {
+  let context;
+  if (mockContext) {
+    context = {
+      eventName: mockContext.eventName,
+      actor: mockContext.actor,
+      repo: mockContext.repo,
+      payload: mockContext.payload
+    };
+  } else {
+    context = {
+      eventName: process.env.GITHUB_EVENT_NAME || "workflow_dispatch",
+      actor: process.env.GITHUB_ACTOR || "unknown",
+      repo: {
+        owner: process.env.GITHUB_REPOSITORY_OWNER || "unknown",
+        repo: process.env.GITHUB_REPOSITORY?.split("/")[1] || "unknown"
+      },
+      payload: {}
+    };
+  }
+  const commonFields = {
+    runId: process.env.GITHUB_RUN_ID || mockContext?.runId || "test-run",
+    eventAction: context.payload.action,
+    repository: {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      full_name: `${context.repo.owner}/${context.repo.repo}`
+    },
+    actor: context.actor,
+    inputs: {
+      prompt: process.env.INPUT_PROMPT || "",
+      triggerPhrase: process.env.INPUT_TRIGGER_PHRASE || "@pullfrog",
+      baseBranch: process.env.INPUT_BASE_BRANCH
+    }
+  };
+  switch (context.eventName) {
+    case "issues": {
+      const payload = context.payload;
+      return {
+        ...commonFields,
+        eventName: "issues",
+        payload,
+        entityNumber: payload.issue?.number || 1,
+        isPR: false
+      };
+    }
+    case "issue_comment": {
+      const payload = context.payload;
+      return {
+        ...commonFields,
+        eventName: "issue_comment",
+        payload,
+        entityNumber: payload.issue?.number || 1,
+        isPR: Boolean(payload.issue?.pull_request)
+      };
+    }
+    case "pull_request": {
+      const payload = context.payload;
+      return {
+        ...commonFields,
+        eventName: "pull_request",
+        payload,
+        entityNumber: payload.pull_request?.number || 1,
+        isPR: true
+      };
+    }
+    case "pull_request_review": {
+      const payload = context.payload;
+      return {
+        ...commonFields,
+        eventName: "pull_request_review",
+        payload,
+        entityNumber: payload.pull_request?.number || 1,
+        isPR: true
+      };
+    }
+    case "pull_request_review_comment": {
+      const payload = context.payload;
+      return {
+        ...commonFields,
+        eventName: "pull_request_review_comment",
+        payload,
+        entityNumber: payload.pull_request?.number || 1,
+        isPR: true
+      };
+    }
+    case "workflow_dispatch": {
+      return {
+        ...commonFields,
+        eventName: "workflow_dispatch",
+        payload: context.payload
+      };
+    }
+    case "schedule": {
+      return {
+        ...commonFields,
+        eventName: "schedule",
+        payload: context.payload
+      };
+    }
+    case "workflow_run": {
+      return {
+        ...commonFields,
+        eventName: "workflow_run",
+        payload: context.payload
+      };
+    }
+    default:
+      throw new Error(`Unsupported event type: ${context.eventName}`);
+  }
+}
+function isIssuesEvent(context) {
+  return context.eventName === "issues";
+}
+function isIssueCommentEvent(context) {
+  return context.eventName === "issue_comment";
+}
+function isPullRequestEvent(context) {
+  return context.eventName === "pull_request";
+}
+function isPullRequestReviewEvent(context) {
+  return context.eventName === "pull_request_review";
+}
+function isPullRequestReviewCommentEvent(context) {
+  return context.eventName === "pull_request_review_comment";
+}
+function isEntityContext(context) {
+  return ENTITY_EVENT_NAMES.includes(context.eventName);
+}
+function isAutomationContext(context) {
+  return AUTOMATION_EVENT_NAMES.includes(
+    context.eventName
+  );
+}
+
+// github/modes.ts
+function detectMode(context) {
+  if (context.inputs?.prompt) {
+    return "agent";
+  }
+  if (isEntityContext(context)) {
+    if (isIssueCommentEvent(context) || isPullRequestReviewCommentEvent(context)) {
+      if (checkContainsTrigger(context)) {
+        return "tag";
+      }
+    }
+    if (isIssuesEvent(context)) {
+      if (checkContainsTrigger(context)) {
+        return "tag";
+      }
+    }
+  }
+  return "agent";
+}
+function checkContainsTrigger(context) {
+  if (!isEntityContext(context)) {
+    return false;
+  }
+  const triggerPhrase = context.inputs.triggerPhrase;
+  if (isIssueCommentEvent(context) || isPullRequestReviewCommentEvent(context)) {
+    const comment = context.payload.comment;
+    return comment?.body?.includes(triggerPhrase) || false;
+  }
+  if (isIssuesEvent(context)) {
+    const issue = context.payload.issue;
+    return issue?.body?.includes(triggerPhrase) || false;
+  }
+  return false;
+}
+function getModeDescription(mode) {
+  switch (mode) {
+    case "tag":
+      return "Interactive mode triggered by @pullfrog mentions";
+    case "agent":
+      return "Direct automation mode for explicit prompts";
+    default:
+      return "Unknown mode";
+  }
+}
+
+// github/prompt-enhancer.ts
+function enhancePromptWithContext(basePrompt, context) {
+  const metadata = {
+    eventType: context.eventName,
+    entityNumber: isEntityContext(context) ? context.entityNumber : void 0,
+    isPR: isEntityContext(context) ? context.isPR : void 0,
+    hasContext: true
+  };
+  if (!basePrompt.trim()) {
+    return {
+      originalPrompt: basePrompt,
+      contextualPrompt: basePrompt,
+      metadata: { ...metadata, hasContext: false }
+    };
+  }
+  let contextualPrompt = basePrompt;
+  if (isEntityContext(context)) {
+    contextualPrompt = enhanceEntityEventPrompt(basePrompt, context);
+  } else if (isAutomationContext(context)) {
+    contextualPrompt = enhanceAutomationEventPrompt(basePrompt, context);
+  }
+  return {
+    originalPrompt: basePrompt,
+    contextualPrompt,
+    metadata
+  };
+}
+function enhanceEntityEventPrompt(basePrompt, context) {
+  const repo = context.repository.full_name;
+  const entityType = context.isPR ? "PR" : "Issue";
+  const entityNumber = context.entityNumber;
+  let contextSection = `
+## GitHub Context
+**Repository:** ${repo}
+**Event:** ${context.eventName}
+**${entityType}:** #${entityNumber}
+**Actor:** ${context.actor}
+`;
+  if (isIssuesEvent(context)) {
+    const issue = context.payload.issue;
+    contextSection += `
+**Issue Title:** ${issue?.title || "N/A"}
+**Issue State:** ${issue?.state || "N/A"}
+**Labels:** ${issue?.labels?.map((l) => l.name).join(", ") || "None"}
+**Assignees:** ${issue?.assignees?.map((a) => a.login).join(", ") || "None"}
+**Created:** ${issue?.created_at || "N/A"}
+
+**Issue Body:**
+\`\`\`
+${issue?.body || "No description provided"}
+\`\`\`
+`;
+  } else if (isIssueCommentEvent(context)) {
+    const issue = context.payload.issue;
+    const comment = context.payload.comment;
+    contextSection += `
+**Issue Title:** ${issue?.title || "N/A"}
+**Comment Author:** ${comment?.user?.login || "N/A"}
+**Comment Created:** ${comment?.created_at || "N/A"}
+
+**Comment Body:**
+\`\`\`
+${comment?.body || "No comment content"}
+\`\`\`
+
+**Issue Body:**
+\`\`\`
+${issue?.body || "No description provided"}
+\`\`\`
+`;
+  } else if (isPullRequestEvent(context)) {
+    const pr = context.payload.pull_request;
+    contextSection += `
+**PR Title:** ${pr?.title || "N/A"}
+**PR State:** ${pr?.state || "N/A"}
+**Base Branch:** ${pr?.base?.ref || "N/A"}
+**Head Branch:** ${pr?.head?.ref || "N/A"}
+**Labels:** ${pr?.labels?.map((l) => l.name).join(", ") || "None"}
+**Assignees:** ${pr?.assignees?.map((a) => a.login).join(", ") || "None"}
+**Draft:** ${pr?.draft ? "Yes" : "No"}
+**Mergeable:** ${pr?.mergeable !== null ? pr?.mergeable ? "Yes" : "No" : "Unknown"}
+
+**PR Description:**
+\`\`\`
+${pr?.body || "No description provided"}
+\`\`\`
+`;
+  } else if (isPullRequestReviewEvent(context)) {
+    const pr = context.payload.pull_request;
+    const review = context.payload.review;
+    contextSection += `
+**PR Title:** ${pr?.title || "N/A"}
+**Review State:** ${review?.state || "N/A"}
+**Reviewer:** ${review?.user?.login || "N/A"}
+**Review Submitted:** ${review?.submitted_at || "N/A"}
+
+**Review Body:**
+\`\`\`
+${review?.body || "No review comment"}
+\`\`\`
+
+**PR Description:**
+\`\`\`
+${pr?.body || "No description provided"}
+\`\`\`
+`;
+  } else if (isPullRequestReviewCommentEvent(context)) {
+    const pr = context.payload.pull_request;
+    const comment = context.payload.comment;
+    contextSection += `
+**PR Title:** ${pr?.title || "N/A"}
+**Comment Author:** ${comment?.user?.login || "N/A"}
+**File:** ${comment?.path || "N/A"}
+**Line:** ${comment?.line || comment?.original_line || "N/A"}
+
+**Review Comment:**
+\`\`\`
+${comment?.body || "No comment content"}
+\`\`\`
+
+**Code Context:**
+\`\`\`
+${comment?.diff_hunk || "No diff available"}
+\`\`\`
+`;
+  }
+  return `${basePrompt}
+
+${contextSection}
+
+---
+
+Please analyze the above GitHub context and respond appropriately to the user's request.`;
+}
+function enhanceAutomationEventPrompt(basePrompt, context) {
+  const repo = context.repository.full_name;
+  let contextSection = `
+## GitHub Context
+**Repository:** ${repo}
+**Event:** ${context.eventName}
+**Actor:** ${context.actor}
+**Run ID:** ${context.runId}
+`;
+  if (context.eventName === "workflow_dispatch") {
+    const payload = context.payload;
+    if (payload.inputs && Object.keys(payload.inputs).length > 0) {
+      contextSection += `
+**Workflow Inputs:**
+${Object.entries(payload.inputs).map(([key, value]) => `- **${key}:** ${value}`).join("\n")}
+`;
+    }
+  } else if (context.eventName === "schedule") {
+    contextSection += `
+**Schedule:** Automated cron trigger
+`;
+  }
+  return `${basePrompt}
+
+${contextSection}
+
+---
+
+Please analyze the above GitHub context and respond appropriately to the automation request.`;
+}
+function extractTriggerPrompt(context) {
+  if (!isEntityContext(context)) {
+    return null;
+  }
+  const triggerPhrase = context.inputs.triggerPhrase;
+  let content = "";
+  if (isIssueCommentEvent(context) || isPullRequestReviewCommentEvent(context)) {
+    content = context.payload.comment?.body || "";
+  } else if (isIssuesEvent(context)) {
+    content = context.payload.issue?.body || "";
+  }
+  const triggerIndex = content.indexOf(triggerPhrase);
+  if (triggerIndex === -1) {
+    return null;
+  }
+  const afterTrigger = content.substring(triggerIndex + triggerPhrase.length).trim();
+  if (afterTrigger) {
+    return afterTrigger;
+  }
+  return "Please help with this issue/PR";
+}
+
 // main.ts
 async function main(params) {
   try {
     const { inputs, env, cwd } = params;
+    const mockContext = params.mockContext;
     if (cwd !== process.cwd()) {
       process.chdir(cwd);
     }
     Object.assign(process.env, env);
-    core2.info(`\u2192 Starting agent run with Claude Code`);
+    const context = parseGitHubContext(mockContext);
+    const mode = detectMode(context);
+    core2.info(`\u2192 GitHub Event: ${context.eventName}`);
+    core2.info(`\u2192 Mode: ${mode} (${getModeDescription(mode)})`);
+    core2.info(`\u2192 Repository: ${context.repository.full_name}`);
+    core2.info(`\u2192 Actor: ${context.actor}`);
+    let effectivePrompt = inputs.prompt;
+    if (mode === "tag") {
+      const extractedPrompt = extractTriggerPrompt(context);
+      if (extractedPrompt) {
+        effectivePrompt = extractedPrompt;
+        core2.info(`\u2192 Extracted prompt from ${context.eventName}: ${extractedPrompt.substring(0, 100)}...`);
+      } else {
+        core2.info(`\u2192 No trigger phrase found, skipping execution`);
+        return {
+          success: true,
+          output: "No trigger phrase found in the context"
+        };
+      }
+    }
+    if (!effectivePrompt?.trim()) {
+      core2.info(`\u2192 No prompt provided, skipping execution`);
+      return {
+        success: true,
+        output: "No prompt provided"
+      };
+    }
+    const enhanced = enhancePromptWithContext(effectivePrompt, context);
+    core2.info(`\u2192 Enhanced prompt with ${context.eventName} context`);
+    core2.info(`\u2192 Starting Claude Code execution`);
     const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key });
     await agent.install();
-    const result = await agent.execute(inputs.prompt);
+    const result = await agent.execute(enhanced.contextualPrompt);
     if (!result.success) {
       return {
         success: false,
