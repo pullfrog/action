@@ -1,11 +1,11 @@
 import * as core from "@actions/core";
-import { ClaudeAgent } from "./agents";
+import { ClaudeAgent } from "./agents/claude.ts";
 
 // Expected environment variables that should be passed as inputs
 export const EXPECTED_INPUTS: string[] = [
   "ANTHROPIC_API_KEY",
-  "GITHUB_TOKEN", 
-  "GITHUB_INSTALLATION_TOKEN"
+  "GITHUB_TOKEN",
+  "GITHUB_INSTALLATION_TOKEN",
 ];
 
 export interface ExecutionInputs {
@@ -26,7 +26,6 @@ export interface MainResult {
   output?: string | undefined;
   error?: string | undefined;
 }
-
 
 export async function main(params: MainParams): Promise<MainResult> {
   try {

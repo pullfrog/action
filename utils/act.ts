@@ -3,19 +3,19 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { buildAction, setupTestRepo } from "./setup";
+import { buildAction, setupTestRepo } from "./setup.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const tempDir = join(__dirname, "..", ".temp");
+const actionPath = join(__dirname, "..");
+const envPath = join(__dirname, "..", "..", ".env");
 
 // Environment variables that should be passed as secrets to the workflow
 const ENV_VARS = ["ANTHROPIC_API_KEY", "GITHUB_INSTALLATION_TOKEN"];
 
 export function runAct(prompt: string): void {
-  const tempDir = join(__dirname, "..", ".temp");
-  const actionPath = join(__dirname, "..");
-  const envPath = join(__dirname, "..", "..", ".env");
-
   // Setup test repository
   setupTestRepo({ tempDir });
 

@@ -22,7 +22,7 @@
     "build:npm": "zshy",
     "build:dev": "node esbuild.config.js",
     "prepare": "husky",
-    "play": "tsx play.ts"
+    "play": "node play.ts"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

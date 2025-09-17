@@ -1,4 +1,4 @@
-import type { MainParams } from "../main";
+import type { MainParams } from "../main.ts";
 
 const testParams = {
   inputs: {

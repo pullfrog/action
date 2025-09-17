@@ -3,13 +3,12 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Command } from "commander";
 import { config } from "dotenv";
-import { main } from "./main";
-import { runAct } from "./utils/act";
-import { setupTestRepo } from "./utils/setup";
+import { main } from "./main.ts";
+import { runAct } from "./utils/act.ts";
+import { setupTestRepo } from "./utils/setup.ts";
 
 // Load environment variables from .env file
 config();
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -95,7 +94,7 @@ async function runPlay(filePath: string, options: { act?: boolean }): Promise<vo
       console.log("─".repeat(50));
 
       // Set environment variables from our .env for the action to use
-      const { EXPECTED_INPUTS } = await import("./main");
+      const { EXPECTED_INPUTS } = await import("./main.ts");
       EXPECTED_INPUTS.forEach((inputName) => {
         const value = process.env[inputName];
         if (value) {
@@ -108,12 +107,12 @@ async function runPlay(filePath: string, options: { act?: boolean }): Promise<vo
         prompt,
         anthropic_api_key: process.env.ANTHROPIC_API_KEY || "",
       };
-      
+
       // Add optional properties only if they exist
       if (process.env.GITHUB_TOKEN) {
         inputs.github_token = process.env.GITHUB_TOKEN;
       }
-      
+
       if (process.env.GITHUB_INSTALLATION_TOKEN) {
         inputs.github_installation_token = process.env.GITHUB_INSTALLATION_TOKEN;
       }

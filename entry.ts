@@ -6,8 +6,8 @@
  */
 
 import * as core from "@actions/core";
-import { main } from "./main";
-import { setupGitHubInstallationToken } from "./utils";
+import { type MainParams, main } from "./main.ts";
+import { setupGitHubInstallationToken } from "./utils/github.ts";
 
 async function run(): Promise<void> {
   try {
@@ -40,9 +40,9 @@ async function run(): Promise<void> {
       await setupGitHubInstallationToken();
     }
 
-    const params = {
+    const params: MainParams = {
       inputs,
-      env: {} as Record<string, string>,
+      env: {},
       cwd: process.cwd(),
     };
 
