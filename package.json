@@ -16,10 +16,7 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "build:npm": "zshy",
