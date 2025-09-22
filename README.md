@@ -2,6 +2,8 @@
 
 GitHub Action for running Claude Code and other agents via Pullfrog.
 
+> **📖 Claude Code Action Architecture**: For a detailed technical overview of how the Claude Code Action works (token exchange, modes, data fetching, execution flow), see [CLAUDE-ACTION.md](./CLAUDE-ACTION.md).
+
 ## Quick Start
 
 ```bash
