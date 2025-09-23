@@ -1,5 +1,15 @@
 import * as core from "@actions/core";
 
+export interface InstallationToken {
+  token: string;
+  expires_at: string;
+  installation_id: number;
+  repository: string;
+  ref: string;
+  runner_environment: string;
+  owner?: string;
+}
+
 /**
  * Setup GitHub installation token for the action
  */
@@ -42,7 +52,8 @@ export async function setupGitHubInstallationToken(): Promise<string> {
       );
     }
 
-    const tokenData = await tokenResponse.json();
+    // This type is enforced by us when the response is created
+    const tokenData = (await tokenResponse.json()) as InstallationToken;
     core.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
 
     // Mask the token in logs for security

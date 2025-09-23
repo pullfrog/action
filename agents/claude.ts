@@ -1,8 +1,8 @@
 import { access, constants } from "node:fs/promises";
 import * as core from "@actions/core";
-import { boxString, tableString } from "../utils";
-import { spawn } from "../utils/subprocess";
-import type { Agent, AgentConfig, AgentResult } from "./types";
+import { spawn } from "../utils/subprocess.ts";
+import { boxString, tableString } from "../utils/table.ts";
+import type { Agent, AgentConfig, AgentResult } from "./types.ts";
 
 /**
  * Claude Code agent implementation

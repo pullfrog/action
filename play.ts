@@ -3,9 +3,9 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import arg from "arg";
 import { config } from "dotenv";
-import { main } from "./main";
-import { runAct } from "./utils/act";
-import { setupTestRepo } from "./utils/setup";
+import { main } from "./main.ts";
+import { runAct } from "./utils/act.ts";
+import { setupTestRepo } from "./utils/setup.ts";
 
 // Load environment variables from .env file
 config();
@@ -40,7 +40,7 @@ export async function run(
     console.log("─".repeat(50));
 
     // Set environment variables from our .env for the action to use
-    const { EXPECTED_INPUTS } = await import("./main");
+    const { EXPECTED_INPUTS } = await import("./main.ts");
     EXPECTED_INPUTS.forEach((inputName) => {
       const value = process.env[inputName];
       if (value) {

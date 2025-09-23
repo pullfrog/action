@@ -25497,53 +25497,11 @@ var require_src = __commonJS({
 var core4 = __toESM(require_core(), 1);
 
 // main.ts
-var core3 = __toESM(require_core(), 1);
+var core2 = __toESM(require_core(), 1);
 
 // agents/claude.ts
 var import_promises = require("node:fs/promises");
-var core2 = __toESM(require_core(), 1);
-
-// utils/github.ts
 var core = __toESM(require_core(), 1);
-async function setupGitHubInstallationToken() {
-  const inputToken = core.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  const existingToken = inputToken || envToken;
-  if (existingToken) {
-    core.setSecret(existingToken);
-    core.info("Using provided GitHub installation token");
-    return existingToken;
-  }
-  core.info("Generating OIDC token...");
-  try {
-    const oidcToken = await core.getIDToken("pullfrog-api");
-    core.info("OIDC token generated successfully");
-    const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-    core.info("Exchanging OIDC token for installation token...");
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${oidcToken}`,
-        "Content-Type": "application/json"
-      }
-    });
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      throw new Error(
-        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`
-      );
-    }
-    const tokenData = await tokenResponse.json();
-    core.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-    core.setSecret(tokenData.token);
-    process.env.GITHUB_INSTALLATION_TOKEN = tokenData.token;
-    return tokenData.token;
-  } catch (error2) {
-    throw new Error(
-      `Failed to setup GitHub installation token: ${error2 instanceof Error ? error2.message : "Unknown error"}`
-    );
-  }
-}
 
 // utils/subprocess.ts
 var import_node_child_process = require("node:child_process");
@@ -25742,10 +25700,10 @@ var ClaudeAgent = class {
    */
   async install() {
     if (await this.isClaudeInstalled()) {
-      core2.info("Claude Code is already installed, skipping installation");
+      core.info("Claude Code is already installed, skipping installation");
       return;
     }
-    core2.info("Installing Claude Code...");
+    core.info("Installing Claude Code...");
     try {
       const result = await spawn({
         cmd: "bash",
@@ -25760,7 +25718,7 @@ var ClaudeAgent = class {
       if (result.exitCode !== 0) {
         throw new Error(`Installation failed with exit code ${result.exitCode}: ${result.stderr}`);
       }
-      core2.info("Claude Code installed successfully");
+      core.info("Claude Code installed successfully");
     } catch (error2) {
       throw new Error(`Failed to install Claude Code: ${error2}`);
     }
@@ -25769,7 +25727,7 @@ var ClaudeAgent = class {
    * Execute Claude Code with the given prompt
    */
   async execute(prompt) {
-    core2.info("Running Claude Code...");
+    core.info("Running Claude Code...");
     try {
       const claudePath = `${process.env.HOME}/.local/bin/claude`;
       console.log(boxString(prompt, { title: "Prompt" }));
@@ -25784,7 +25742,7 @@ var ClaudeAgent = class {
       const env = {
         ANTHROPIC_API_KEY: this.apiKey
       };
-      core2.startGroup("\u{1F504} Run details");
+      core.startGroup("\u{1F504} Run details");
       this.runStats = {
         toolsUsed: 0,
         turns: 0,
@@ -25818,11 +25776,11 @@ Stderr: ${result.stderr}`
         );
       }
       const duration = Date.now() - this.runStats.startTime;
-      core2.info(
+      core.info(
         `\u{1F4CA} Run Summary: ${this.runStats.toolsUsed} tools used, ${this.runStats.turns} turns, ${duration}ms duration`
       );
-      core2.info("\u2705 Task complete.");
-      core2.endGroup();
+      core.info("\u2705 Task complete.");
+      core.endGroup();
       return {
         success: true,
         output: finalResult,
@@ -25835,7 +25793,7 @@ Stderr: ${result.stderr}`
       };
     } catch (error2) {
       try {
-        core2.endGroup();
+        core.endGroup();
       } catch {
       }
       const errorMessage = error2 instanceof Error ? error2.message : "Unknown error";
@@ -25853,8 +25811,8 @@ function processJSONChunk(chunk, agent) {
     switch (parsedChunk.type) {
       case "system":
         if (parsedChunk.subtype === "init") {
-          core2.info(`\u{1F680} Starting Claude Code session...`);
-          core2.info(
+          core.info(`\u{1F680} Starting Claude Code session...`);
+          core.info(
             tableString([
               ["model", parsedChunk.model],
               ["cwd", parsedChunk.cwd],
@@ -25880,51 +25838,51 @@ function processJSONChunk(chunk, agent) {
           for (const content of parsedChunk.message.content) {
             if (content.type === "text") {
               if (content.text.trim()) {
-                core2.info(boxString(content.text.trim(), { title: "Claude Code" }));
+                core.info(boxString(content.text.trim(), { title: "Claude Code" }));
               }
             } else if (content.type === "tool_use") {
               if (agent) {
                 agent.runStats.toolsUsed++;
               }
               const toolName = content.name;
-              core2.info(`\u2192 ${toolName}`);
+              core.info(`\u2192 ${toolName}`);
               if (content.input) {
                 const input = content.input;
                 if (input.description) {
-                  core2.info(`   \u2514\u2500 ${input.description}`);
+                  core.info(`   \u2514\u2500 ${input.description}`);
                 }
                 if (input.command) {
-                  core2.info(`   \u2514\u2500 command: ${input.command}`);
+                  core.info(`   \u2514\u2500 command: ${input.command}`);
                 }
                 if (input.file_path) {
-                  core2.info(`   \u2514\u2500 file: ${input.file_path}`);
+                  core.info(`   \u2514\u2500 file: ${input.file_path}`);
                 }
                 if (input.content) {
                   const contentPreview = input.content.length > 100 ? `${input.content.substring(0, 100)}...` : input.content;
-                  core2.info(`   \u2514\u2500 content: ${contentPreview}`);
+                  core.info(`   \u2514\u2500 content: ${contentPreview}`);
                 }
                 if (input.query) {
-                  core2.info(`   \u2514\u2500 query: ${input.query}`);
+                  core.info(`   \u2514\u2500 query: ${input.query}`);
                 }
                 if (input.pattern) {
-                  core2.info(`   \u2514\u2500 pattern: ${input.pattern}`);
+                  core.info(`   \u2514\u2500 pattern: ${input.pattern}`);
                 }
                 if (input.url) {
-                  core2.info(`   \u2514\u2500 url: ${input.url}`);
+                  core.info(`   \u2514\u2500 url: ${input.url}`);
                 }
                 if (input.edits && Array.isArray(input.edits)) {
-                  core2.info(`   \u2514\u2500 edits: ${input.edits.length} changes`);
+                  core.info(`   \u2514\u2500 edits: ${input.edits.length} changes`);
                   input.edits.forEach((edit, index) => {
                     if (edit.file_path) {
-                      core2.info(`      ${index + 1}. ${edit.file_path}`);
+                      core.info(`      ${index + 1}. ${edit.file_path}`);
                     }
                   });
                 }
                 if (input.task) {
-                  core2.info(`   \u2514\u2500 task: ${input.task}`);
+                  core.info(`   \u2514\u2500 task: ${input.task}`);
                 }
                 if (input.bash_command) {
-                  core2.info(`   \u2514\u2500 bash_command: ${input.bash_command}`);
+                  core.info(`   \u2514\u2500 bash_command: ${input.bash_command}`);
                 }
               }
             }
@@ -25936,7 +25894,7 @@ function processJSONChunk(chunk, agent) {
           for (const content of parsedChunk.message.content) {
             if (content.type === "tool_result") {
               if (content.is_error) {
-                core2.warning(`\u274C Tool error: ${content.content}`);
+                core.warning(`\u274C Tool error: ${content.content}`);
               } else {
                 const _resultContent = content.content.trim();
               }
@@ -25946,7 +25904,7 @@ function processJSONChunk(chunk, agent) {
         break;
       case "result":
         if (parsedChunk.subtype === "success") {
-          core2.info(
+          core.info(
             tableString([
               ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
               ["Input Tokens", parsedChunk.usage?.input_tokens || 0],
@@ -25956,16 +25914,16 @@ function processJSONChunk(chunk, agent) {
             ])
           );
         } else {
-          core2.error(`\u274C Failed: ${parsedChunk.error || "Unknown error"}`);
+          core.error(`\u274C Failed: ${parsedChunk.error || "Unknown error"}`);
         }
         break;
       default:
-        core2.debug(`\u{1F4E6} Unknown chunk type: ${parsedChunk.type}`);
+        core.debug(`\u{1F4E6} Unknown chunk type: ${parsedChunk.type}`);
         break;
     }
   } catch (error2) {
-    core2.debug(`Failed to parse chunk: ${error2}`);
-    core2.debug(`Raw chunk: ${chunk.substring(0, 200)}...`);
+    core.debug(`Failed to parse chunk: ${error2}`);
+    core.debug(`Raw chunk: ${chunk.substring(0, 200)}...`);
   }
 }
 
@@ -25977,7 +25935,7 @@ async function main(params) {
       process.chdir(cwd);
     }
     Object.assign(process.env, env);
-    core3.info(`\u2192 Starting agent run with Claude Code`);
+    core2.info(`\u2192 Starting agent run with Claude Code`);
     const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key });
     await agent.install();
     const result = await agent.execute(inputs.prompt);
@@ -25998,6 +25956,48 @@ async function main(params) {
       success: false,
       error: errorMessage
     };
+  }
+}
+
+// utils/github.ts
+var core3 = __toESM(require_core(), 1);
+async function setupGitHubInstallationToken() {
+  const inputToken = core3.getInput("github_installation_token");
+  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
+  const existingToken = inputToken || envToken;
+  if (existingToken) {
+    core3.setSecret(existingToken);
+    core3.info("Using provided GitHub installation token");
+    return existingToken;
+  }
+  core3.info("Generating OIDC token...");
+  try {
+    const oidcToken = await core3.getIDToken("pullfrog-api");
+    core3.info("OIDC token generated successfully");
+    const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+    core3.info("Exchanging OIDC token for installation token...");
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oidcToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new Error(
+        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`
+      );
+    }
+    const tokenData = await tokenResponse.json();
+    core3.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    core3.setSecret(tokenData.token);
+    process.env.GITHUB_INSTALLATION_TOKEN = tokenData.token;
+    return tokenData.token;
+  } catch (error2) {
+    throw new Error(
+      `Failed to setup GitHub installation token: ${error2 instanceof Error ? error2.message : "Unknown error"}`
+    );
   }
 }
 

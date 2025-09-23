@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { ClaudeAgent } from "./agents";
+import { ClaudeAgent } from "./agents/claude.ts";
 
 // Expected environment variables that should be passed as inputs
 export const EXPECTED_INPUTS: string[] = [
