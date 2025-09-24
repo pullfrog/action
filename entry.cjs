@@ -26005,13 +26005,13 @@ async function setupGitHubInstallationToken() {
 async function run() {
   try {
     const prompt = core4.getInput("prompt", { required: true });
-    const anthropicApiKey = core4.getInput("anthropic_api_key");
+    const anthropic_api_key = core4.getInput("anthropic_api_key");
     if (!prompt) {
       throw new Error("prompt is required");
     }
     const inputs = {
       prompt,
-      anthropic_api_key: anthropicApiKey
+      anthropic_api_key
     };
     const githubToken = core4.getInput("github_token") || process.env.GITHUB_TOKEN;
     if (githubToken) {
