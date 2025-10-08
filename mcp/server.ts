@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
+import { z } from "zod";
 
 // Get repository information from environment variables
 const REPO_OWNER = process.env.REPO_OWNER;
@@ -25,14 +26,13 @@ const Comment = type({
   body: type.string.describe("the comment body content"),
 });
 
-function annotations(t: type<Record<string, unknown>>): Record<string, unknown> {
-  return Object.fromEntries(t.props.map((prop) => [prop.key, prop.value.toJsonSchema()]));
-}
-
 server.tool(
   "create_issue_comment",
   "Create a comment on a GitHub issue",
-  annotations(Comment),
+  {
+    issueNumber: z.number().describe("the issue number to comment on"),
+    body: z.string().describe("the comment body content"),
+  },
   async ({ issueNumber, body }) => {
     try {
       // Validate input using arktype
@@ -41,13 +41,13 @@ server.tool(
         throw new Error(`Invalid input: ${validation.summary}`);
       }
 
-      const githubToken = process.env.GITHUB_TOKEN;
-      if (!githubToken) {
-        throw new Error("GITHUB_TOKEN environment variable is required");
+      const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
+      if (!githubInstallationToken) {
+        throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
       }
 
       const octokit = new Octokit({
-        auth: githubToken,
+        auth: githubInstallationToken,
       });
 
       const result = await octokit.rest.issues.createComment({

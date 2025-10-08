@@ -3,7 +3,11 @@
  */
 const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
 
-export function createMcpConfig(githubToken: string, repoOwner: string, repoName: string) {
+export function createMcpConfig(
+  githubInstallationToken: string,
+  repoOwner: string,
+  repoName: string
+) {
   return JSON.stringify(
     {
       mcpServers: {
@@ -11,7 +15,7 @@ export function createMcpConfig(githubToken: string, repoOwner: string, repoName
           command: "node",
           args: [`${actionPath}/mcp/server.ts`],
           env: {
-            GITHUB_TOKEN: githubToken,
+            GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
             REPO_OWNER: repoOwner,
             REPO_NAME: repoName,
           },

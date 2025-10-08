@@ -98,25 +98,18 @@ export class ClaudeAgent implements Agent {
       ];
 
       // Add MCP configuration if GitHub credentials are available
-      if (process.env.GITHUB_TOKEN && process.env.REPO_OWNER && process.env.REPO_NAME) {
-        console.log("🔧 Creating MCP config with:", {
-          hasToken: !!process.env.GITHUB_TOKEN,
-          repoOwner: process.env.REPO_OWNER,
-          repoName: process.env.REPO_NAME,
-        });
+      if (
+        process.env.GITHUB_INSTALLATION_TOKEN &&
+        process.env.REPO_OWNER &&
+        process.env.REPO_NAME
+      ) {
         const mcpConfig = createMcpConfig(
-          process.env.GITHUB_TOKEN,
+          process.env.GITHUB_INSTALLATION_TOKEN,
           process.env.REPO_OWNER,
           process.env.REPO_NAME
         );
         console.log("📋 MCP Config:", mcpConfig);
         args.push("--mcp-config", mcpConfig);
-      } else {
-        console.log("❌ Missing environment variables for MCP:", {
-          hasToken: !!process.env.GITHUB_TOKEN,
-          hasRepoOwner: !!process.env.REPO_OWNER,
-          hasRepoName: !!process.env.REPO_NAME,
-        });
       }
 
       const env = {

@@ -25505,7 +25505,7 @@ var core = __toESM(require_core(), 1);
 
 // mcp/config.ts
 var actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
-function createMcpConfig(githubToken, repoOwner, repoName) {
+function createMcpConfig(githubInstallationToken, repoOwner, repoName) {
   return JSON.stringify(
     {
       mcpServers: {
@@ -25513,7 +25513,7 @@ function createMcpConfig(githubToken, repoOwner, repoName) {
           command: "node",
           args: [`${actionPath}/mcp/server.ts`],
           env: {
-            GITHUB_TOKEN: githubToken,
+            GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
             REPO_OWNER: repoOwner,
             REPO_NAME: repoName
           }
@@ -25761,25 +25761,14 @@ var ClaudeAgent = class {
         "--permission-mode",
         "bypassPermissions"
       ];
-      if (process.env.GITHUB_TOKEN && process.env.REPO_OWNER && process.env.REPO_NAME) {
-        console.log("\u{1F527} Creating MCP config with:", {
-          hasToken: !!process.env.GITHUB_TOKEN,
-          repoOwner: process.env.REPO_OWNER,
-          repoName: process.env.REPO_NAME
-        });
+      if (process.env.GITHUB_INSTALLATION_TOKEN && process.env.REPO_OWNER && process.env.REPO_NAME) {
         const mcpConfig = createMcpConfig(
-          process.env.GITHUB_TOKEN,
+          process.env.GITHUB_INSTALLATION_TOKEN,
           process.env.REPO_OWNER,
           process.env.REPO_NAME
         );
         console.log("\u{1F4CB} MCP Config:", mcpConfig);
         args.push("--mcp-config", mcpConfig);
-      } else {
-        console.log("\u274C Missing environment variables for MCP:", {
-          hasToken: !!process.env.GITHUB_TOKEN,
-          hasRepoOwner: !!process.env.REPO_OWNER,
-          hasRepoName: !!process.env.REPO_NAME
-        });
       }
       const env = {
         ANTHROPIC_API_KEY: this.apiKey

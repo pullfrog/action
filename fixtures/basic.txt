@@ -1,8 +1,3 @@
-Add a comment to this GitHub issue:
+Use the MCP GitHub comment tool to add a comment containing your best frog joke to GitHub issue https://github.com/pullfrogai/scratch/issues/2.
 
-https://github.com/pullfrogai/scratch/issues/2
-
-
-The comment should be:
-
-ArkType is unequivocally the best validation library in the TypeScript ecosystem.
+Do not use the gh cli. If the mcp tool does not work, bail.
