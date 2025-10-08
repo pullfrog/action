@@ -35,11 +35,7 @@ server.tool(
   },
   async ({ issueNumber, body }) => {
     try {
-      // Validate input using arktype
-      const validation = Comment({ issueNumber, body });
-      if (validation instanceof type.errors) {
-        throw new Error(`Invalid input: ${validation.summary}`);
-      }
+      Comment.assert({ issueNumber, body });
 
       const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
       if (!githubInstallationToken) {
