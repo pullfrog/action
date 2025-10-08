@@ -1,5 +1,6 @@
 import { access, constants } from "node:fs/promises";
 import * as core from "@actions/core";
+import { createMcpConfig } from "../mcp/config.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { boxString, tableString } from "../utils/table.ts";
 import type { Agent, AgentConfig, AgentResult } from "./types.ts";
@@ -56,7 +57,7 @@ export class ClaudeAgent implements Agent {
         args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 120000, // 2 minute timeout
-        onStdout: (chunk) => {
+        onStdout: () => {
           // no logs
           // process.stdout.write(chunk)
         },
@@ -93,8 +94,31 @@ export class ClaudeAgent implements Agent {
         "stream-json",
         "--verbose",
         "--permission-mode",
-        "acceptEdits",
+        "bypassPermissions",
       ];
+
+      // Add MCP configuration if GitHub credentials are available
+      if (process.env.GITHUB_TOKEN && process.env.REPO_OWNER && process.env.REPO_NAME) {
+        console.log("🔧 Creating MCP config with:", {
+          hasToken: !!process.env.GITHUB_TOKEN,
+          repoOwner: process.env.REPO_OWNER,
+          repoName: process.env.REPO_NAME,
+        });
+        const mcpConfig = createMcpConfig(
+          process.env.GITHUB_TOKEN,
+          process.env.REPO_OWNER,
+          process.env.REPO_NAME
+        );
+        console.log("📋 MCP Config:", mcpConfig);
+        args.push("--mcp-config", mcpConfig);
+      } else {
+        console.log("❌ Missing environment variables for MCP:", {
+          hasToken: !!process.env.GITHUB_TOKEN,
+          hasRepoOwner: !!process.env.REPO_OWNER,
+          hasRepoName: !!process.env.REPO_NAME,
+        });
+      }
+
       const env = {
         ANTHROPIC_API_KEY: this.apiKey,
       };

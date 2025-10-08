@@ -25503,6 +25503,28 @@ var core2 = __toESM(require_core(), 1);
 var import_promises = require("node:fs/promises");
 var core = __toESM(require_core(), 1);
 
+// mcp/config.ts
+var actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
+function createMcpConfig(githubToken, repoOwner, repoName) {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        minimal_github_comment: {
+          command: "node",
+          args: [`${actionPath}/mcp/server.ts`],
+          env: {
+            GITHUB_TOKEN: githubToken,
+            REPO_OWNER: repoOwner,
+            REPO_NAME: repoName
+          }
+        }
+      }
+    },
+    null,
+    2
+  );
+}
+
 // utils/subprocess.ts
 var import_node_child_process = require("node:child_process");
 async function spawn(options) {
@@ -25711,7 +25733,7 @@ var ClaudeAgent = class {
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 12e4,
         // 2 minute timeout
-        onStdout: (chunk) => {
+        onStdout: () => {
         },
         onStderr: (chunk) => process.stderr.write(chunk)
       });
@@ -25737,8 +25759,28 @@ var ClaudeAgent = class {
         "stream-json",
         "--verbose",
         "--permission-mode",
-        "acceptEdits"
+        "bypassPermissions"
       ];
+      if (process.env.GITHUB_TOKEN && process.env.REPO_OWNER && process.env.REPO_NAME) {
+        console.log("\u{1F527} Creating MCP config with:", {
+          hasToken: !!process.env.GITHUB_TOKEN,
+          repoOwner: process.env.REPO_OWNER,
+          repoName: process.env.REPO_NAME
+        });
+        const mcpConfig = createMcpConfig(
+          process.env.GITHUB_TOKEN,
+          process.env.REPO_OWNER,
+          process.env.REPO_NAME
+        );
+        console.log("\u{1F4CB} MCP Config:", mcpConfig);
+        args.push("--mcp-config", mcpConfig);
+      } else {
+        console.log("\u274C Missing environment variables for MCP:", {
+          hasToken: !!process.env.GITHUB_TOKEN,
+          hasRepoOwner: !!process.env.REPO_OWNER,
+          hasRepoName: !!process.env.REPO_NAME
+        });
+      }
       const env = {
         ANTHROPIC_API_KEY: this.apiKey
       };

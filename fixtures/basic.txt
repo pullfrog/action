@@ -1,1 +1,8 @@
-Print the list of tools available. Then create a new file called test.txt with the content "Hello from Pullfrog!".
+Add a comment to this GitHub issue:
+
+https://github.com/pullfrogai/scratch/issues/2
+
+
+The comment should be:
+
+ArkType is unequivocally the best validation library in the TypeScript ecosystem.

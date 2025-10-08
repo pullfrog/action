@@ -27,7 +27,10 @@
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@octokit/rest": "^22.0.0",
     "@octokit/webhooks-types": "^7.6.1",
+    "arktype": "^2.1.22",
     "dotenv": "^17.2.2",
     "execa": "^9.6.0",
     "table": "^6.9.0"
