@@ -25858,6 +25858,13 @@ function processJSONChunk(chunk, agent) {
               ]
             ])
           );
+          if (parsedChunk.mcp_servers?.length > 0) {
+            const failedServers = parsedChunk.mcp_servers.filter((server) => server.status === "failed");
+            if (failedServers.length > 0) {
+              const failedNames = failedServers.map((server) => server.name).join(", ");
+              throw new Error(`MCP servers failed to start: ${failedNames}. This indicates a configuration or environment issue that prevents GitHub integration from working.`);
+            }
+          }
         }
         break;
       case "assistant":
