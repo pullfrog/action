@@ -16,7 +16,6 @@ export class ClaudeAgent implements Agent {
     startTime: 0,
   };
 
-
   constructor(config: AgentConfig) {
     if (!config.apiKey) {
       throw new Error("Claude agent requires an API key");
@@ -74,7 +73,6 @@ export class ClaudeAgent implements Agent {
     core.info("Running Claude Code...");
 
     try {
-
       const claudePath = `${process.env.HOME}/.local/bin/claude`;
       console.log(boxString(prompt, { title: "Prompt" }));
       const args = [
@@ -152,8 +150,7 @@ export class ClaudeAgent implements Agent {
     } catch (error: any) {
       try {
         core.endGroup();
-      } catch {
-      }
+      } catch {}
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
@@ -195,15 +192,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               ],
             ])
           );
-
-          // Check if MCP servers are expected but failed
-          if (parsedChunk.mcp_servers?.length > 0) {
-            const failedServers = parsedChunk.mcp_servers.filter((server: any) => server.status === "failed");
-            if (failedServers.length > 0) {
-              const failedNames = failedServers.map((server: any) => server.name).join(", ");
-              throw new Error(`MCP servers failed to start: ${failedNames}. This indicates a configuration or environment issue that prevents GitHub integration from working.`);
-            }
-          }
         }
         break;
 
@@ -279,7 +267,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
                   core.info(`   └─ bash_command: ${input.bash_command}`);
                 }
               }
-
             }
           }
         }
@@ -300,7 +287,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
 
       case "result":
         if (parsedChunk.subtype === "success") {
-
           core.info(
             tableString([
               ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
