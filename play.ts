@@ -5,6 +5,7 @@ import arg from "arg";
 import { config } from "dotenv";
 import { main } from "./main.ts";
 import { runAct } from "./utils/act.ts";
+import { generateInstallationToken } from "./utils/generate-installation-token.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 // Load environment variables from .env file
@@ -59,13 +60,20 @@ export async function run(
       inputs.github_token = process.env.GITHUB_TOKEN;
     }
 
-    if (process.env.GITHUB_INSTALLATION_TOKEN) {
-      inputs.github_installation_token = process.env.GITHUB_INSTALLATION_TOKEN;
-    }
+    console.log("🔑 Generating GitHub installation token...");
+    const installationToken = await generateInstallationToken();
+    inputs.github_installation_token = installationToken;
+    console.log("✅ GitHub installation token generated successfully");
+
+    // Set installation token in environment for Claude agent MCP configuration
+    const envWithToken = {
+      ...process.env,
+      GITHUB_INSTALLATION_TOKEN: installationToken,
+    } as Record<string, string>;
 
     const result = await main({
       inputs,
-      env: process.env as Record<string, string>,
+      env: envWithToken,
       cwd: process.cwd(),
     });
 
