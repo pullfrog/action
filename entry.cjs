@@ -25984,45 +25984,167 @@ async function main(params) {
 }
 
 // utils/github.ts
+var import_node_crypto = require("node:crypto");
 var core3 = __toESM(require_core(), 1);
-async function setupGitHubInstallationToken() {
+
+// utils/repo-context.ts
+function resolveRepoContext() {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+  return { owner, name };
+}
+
+// utils/github.ts
+function checkExistingToken() {
   const inputToken = core3.getInput("github_installation_token");
   const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  const existingToken = inputToken || envToken;
+  return inputToken || envToken || null;
+}
+function isGitHubActionsEnvironment() {
+  return Boolean(process.env.GITHUB_ACTIONS);
+}
+async function acquireTokenViaOIDC() {
+  core3.info("Generating OIDC token...");
+  const oidcToken = await core3.getIDToken("pullfrog-api");
+  core3.info("OIDC token generated successfully");
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  core3.info("Exchanging OIDC token for installation token...");
+  const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${oidcToken}`,
+      "Content-Type": "application/json"
+    }
+  });
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(
+      `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`
+    );
+  }
+  const tokenData = await tokenResponse.json();
+  core3.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+  return tokenData.token;
+}
+var base64UrlEncode = (str) => {
+  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+};
+var generateJWT = (appId, privateKey) => {
+  const now = Math.floor(Date.now() / 1e3);
+  const payload = {
+    iat: now - 60,
+    exp: now + 5 * 60,
+    iss: appId
+  };
+  const header = {
+    alg: "RS256",
+    typ: "JWT"
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signaturePart = `${encodedHeader}.${encodedPayload}`;
+  const signature = (0, import_node_crypto.createSign)("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return `${signaturePart}.${signature}`;
+};
+var githubRequest = async (path, options = {}) => {
+  const { method = "GET", headers = {}, body } = options;
+  const url = `https://api.github.com${path}`;
+  const requestHeaders = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
+    ...headers
+  };
+  const response = await fetch(url, {
+    method,
+    headers: requestHeaders,
+    ...body && { body }
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${response.statusText}
+${errorText}`
+    );
+  }
+  return response.json();
+};
+var checkRepositoryAccess = async (token, repoOwner, repoName) => {
+  try {
+    const response = await githubRequest("/installation/repositories", {
+      headers: { Authorization: `token ${token}` }
+    });
+    return response.repositories.some(
+      (repo) => repo.owner.login === repoOwner && repo.name === repoName
+    );
+  } catch {
+    return false;
+  }
+};
+var createInstallationToken = async (jwt, installationId) => {
+  const response = await githubRequest(
+    `/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwt}` }
+    }
+  );
+  return response.token;
+};
+var findInstallationId = async (jwt, repoOwner, repoName) => {
+  const installations = await githubRequest("/app/installations", {
+    headers: { Authorization: `Bearer ${jwt}` }
+  });
+  for (const installation of installations) {
+    try {
+      const tempToken = await createInstallationToken(jwt, installation.id);
+      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
+      if (hasAccess) {
+        return installation.id;
+      }
+    } catch {
+    }
+  }
+  throw new Error(
+    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
+  );
+};
+async function acquireTokenViaGitHubApp() {
+  const repoContext = resolveRepoContext();
+  const config = {
+    appId: process.env.GITHUB_APP_ID,
+    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    repoOwner: repoContext.owner,
+    repoName: repoContext.name
+  };
+  const jwt = generateJWT(config.appId, config.privateKey);
+  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
+  const token = await createInstallationToken(jwt, installationId);
+  return token;
+}
+async function acquireNewToken() {
+  if (isGitHubActionsEnvironment()) {
+    return await acquireTokenViaOIDC();
+  } else {
+    return await acquireTokenViaGitHubApp();
+  }
+}
+async function setupGitHubInstallationToken() {
+  const existingToken = checkExistingToken();
   if (existingToken) {
     core3.setSecret(existingToken);
     core3.info("Using provided GitHub installation token");
     return existingToken;
   }
-  core3.info("Generating OIDC token...");
-  try {
-    const oidcToken = await core3.getIDToken("pullfrog-api");
-    core3.info("OIDC token generated successfully");
-    const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-    core3.info("Exchanging OIDC token for installation token...");
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${oidcToken}`,
-        "Content-Type": "application/json"
-      }
-    });
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      throw new Error(
-        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`
-      );
-    }
-    const tokenData = await tokenResponse.json();
-    core3.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-    core3.setSecret(tokenData.token);
-    process.env.GITHUB_INSTALLATION_TOKEN = tokenData.token;
-    return tokenData.token;
-  } catch (error2) {
-    throw new Error(
-      `Failed to setup GitHub installation token: ${error2 instanceof Error ? error2.message : "Unknown error"}`
-    );
-  }
+  const token = await acquireNewToken();
+  core3.setSecret(token);
+  process.env.GITHUB_INSTALLATION_TOKEN = token;
+  return token;
 }
 
 // entry.ts

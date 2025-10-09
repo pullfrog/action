@@ -5,7 +5,7 @@ import arg from "arg";
 import { config } from "dotenv";
 import { main } from "./main.ts";
 import { runAct } from "./utils/act.ts";
-import { generateInstallationToken } from "./utils/generate-installation-token.ts";
+import { setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
@@ -53,10 +53,10 @@ export async function run(
       inputs.github_token = process.env.GITHUB_TOKEN;
     }
 
-    console.log("🔑 Generating GitHub installation token...");
-    const installationToken = await generateInstallationToken();
+    console.log("🔑 Setting up GitHub installation token...");
+    const installationToken = await setupGitHubInstallationToken();
     inputs.github_installation_token = installationToken;
-    console.log("✅ GitHub installation token generated successfully");
+    console.log("✅ GitHub installation token setup successfully");
 
     const envWithToken = {
       ...process.env,
