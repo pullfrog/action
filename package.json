@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "type": "module",
   "files": [
     "index.js",
@@ -23,7 +23,8 @@
     "build:dev": "node esbuild.config.js",
     "prepare": "husky",
     "play": "node play.ts",
-    "upDeps": "pnpm up --latest"
+    "upDeps": "pnpm up --latest",
+    "createLockfile": "pnpm --ignore-workspace install"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

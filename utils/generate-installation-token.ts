@@ -1,5 +1,6 @@
 import { createSign } from "node:crypto";
 import { config } from "dotenv";
+import { resolveRepoContext } from "./repo-context.ts";
 
 config();
 
@@ -33,26 +34,6 @@ interface InstallationTokenResponse {
 interface RepositoriesResponse {
   repositories: Repository[];
 }
-
-const validateConfig = (config: GitHubAppConfig): void => {
-  const { appId, privateKey, repoOwner, repoName } = config;
-
-  if (!appId) {
-    throw new Error("GITHUB_APP_ID environment variable is required");
-  }
-
-  if (!privateKey) {
-    throw new Error("GITHUB_PRIVATE_KEY environment variable is required");
-  }
-
-  if (!repoOwner || !repoName) {
-    throw new Error("REPO_OWNER and REPO_NAME environment variables are required");
-  }
-
-  if (!privateKey.includes("BEGIN") || !privateKey.includes("END")) {
-    throw new Error("GITHUB_PRIVATE_KEY must be in PEM format");
-  }
-};
 
 const base64UrlEncode = (str: string): string => {
   return Buffer.from(str)
@@ -122,14 +103,15 @@ const githubRequest = async <T>(
   return response.json() as T;
 };
 
-const checkRepositoryAccess = async (token: string, repoOwner: string, repoName: string): Promise<boolean> => {
+const checkRepositoryAccess = async (
+  token: string,
+  repoOwner: string,
+  repoName: string
+): Promise<boolean> => {
   try {
-    const response = await githubRequest<RepositoriesResponse>(
-      "/installation/repositories",
-      {
-        headers: { Authorization: `token ${token}` },
-      }
-    );
+    const response = await githubRequest<RepositoriesResponse>("/installation/repositories", {
+      headers: { Authorization: `token ${token}` },
+    });
 
     return response.repositories.some(
       (repo) => repo.owner.login === repoOwner && repo.name === repoName
@@ -151,7 +133,11 @@ const createInstallationToken = async (jwt: string, installationId: number): Pro
   return response.token;
 };
 
-const findInstallationId = async (jwt: string, repoOwner: string, repoName: string): Promise<number> => {
+const findInstallationId = async (
+  jwt: string,
+  repoOwner: string,
+  repoName: string
+): Promise<number> => {
   const installations = await githubRequest<Installation[]>("/app/installations", {
     headers: { Authorization: `Bearer ${jwt}` },
   });
@@ -164,8 +150,7 @@ const findInstallationId = async (jwt: string, repoOwner: string, repoName: stri
       if (hasAccess) {
         return installation.id;
       }
-    } catch {
-    }
+    } catch {}
   }
 
   throw new Error(
@@ -174,18 +159,15 @@ const findInstallationId = async (jwt: string, repoOwner: string, repoName: stri
   );
 };
 
-export const generateInstallationToken = async (
-  repoOwner?: string,
-  repoName?: string
-): Promise<string> => {
+export const generateInstallationToken = async (): Promise<string> => {
+  const repoContext = resolveRepoContext();
+
   const config: GitHubAppConfig = {
     appId: process.env.GITHUB_APP_ID!,
     privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n")!,
-    repoOwner: repoOwner || process.env.REPO_OWNER || "pullfrogai",
-    repoName: repoName || process.env.REPO_NAME || "scratch",
+    repoOwner: repoContext.owner,
+    repoName: repoContext.name,
   };
-
-  validateConfig(config);
 
   const jwt = generateJWT(config.appId, config.privateKey);
   const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);

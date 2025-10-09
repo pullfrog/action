@@ -86,19 +86,13 @@ export class ClaudeAgent implements Agent {
         "bypassPermissions",
       ];
 
-      if (
-        process.env.GITHUB_INSTALLATION_TOKEN &&
-        process.env.REPO_OWNER &&
-        process.env.REPO_NAME
-      ) {
-        const mcpConfig = createMcpConfig(
-          process.env.GITHUB_INSTALLATION_TOKEN,
-          process.env.REPO_OWNER,
-          process.env.REPO_NAME
-        );
-        console.log("📋 MCP Config:", mcpConfig);
-        args.push("--mcp-config", mcpConfig);
+      if (!process.env.GITHUB_INSTALLATION_TOKEN) {
+        throw new Error("GITHUB_INSTALLATION_TOKEN is required for GitHub integration");
       }
+
+      const mcpConfig = createMcpConfig(process.env.GITHUB_INSTALLATION_TOKEN);
+      console.log("📋 MCP Config:", mcpConfig);
+      args.push("--mcp-config", mcpConfig);
 
       const env = {
         ANTHROPIC_API_KEY: this.apiKey,

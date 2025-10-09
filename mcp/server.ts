@@ -5,15 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
 import { z } from "zod";
-
-// Get repository information from environment variables
-const REPO_OWNER = process.env.REPO_OWNER;
-const REPO_NAME = process.env.REPO_NAME;
-
-if (!REPO_OWNER || !REPO_NAME) {
-  console.error("Error: REPO_OWNER and REPO_NAME environment variables are required");
-  process.exit(1);
-}
+import { resolveRepoContext } from "../utils/repo-context.ts";
 
 const server = new McpServer({
   name: "Minimal GitHub Issue Comment Server",
@@ -42,13 +34,16 @@ server.tool(
         throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
       }
 
+      // Resolve repository context from environment
+      const repoContext = resolveRepoContext();
+
       const octokit = new Octokit({
         auth: githubInstallationToken,
       });
 
       const result = await octokit.rest.issues.createComment({
-        owner: REPO_OWNER,
-        repo: REPO_NAME,
+        owner: repoContext.owner,
+        repo: repoContext.name,
         issue_number: issueNumber,
         body: body,
       });
