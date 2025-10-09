@@ -25500,6 +25500,7 @@ var core4 = __toESM(require_core(), 1);
 var core2 = __toESM(require_core(), 1);
 
 // agents/claude.ts
+var import_node_fs = require("node:fs");
 var import_promises = require("node:fs/promises");
 var core = __toESM(require_core(), 1);
 
@@ -25514,7 +25515,7 @@ function createMcpConfig(githubInstallationToken) {
     {
       mcpServers: {
         minimal_github_comment: {
-          command: "node",
+          command: `${actionPath}/mcp/debug-server.sh`,
           args: [`${actionPath}/mcp/server.ts`],
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
@@ -25858,6 +25859,24 @@ function processJSONChunk(chunk, agent) {
               ]
             ])
           );
+          if (parsedChunk.mcp_servers?.length > 0) {
+            const failedServers = parsedChunk.mcp_servers.filter(
+              (server) => server.status === "failed"
+            );
+            if (failedServers.length > 0) {
+              const failedNames = failedServers.map((server) => server.name).join(", ");
+              let debugInfo = "";
+              try {
+                const logContent = (0, import_node_fs.readFileSync)("/tmp/mcp-server.log", "utf-8");
+                core.error("MCP Server Debug Log:");
+                core.error(logContent);
+                debugInfo = " (see debug log above)";
+              } catch (logError) {
+                debugInfo = ` (could not read debug log: ${logError instanceof Error ? logError.message : String(logError)})`;
+              }
+              throw new Error(`MCP servers failed to start: ${failedNames}${debugInfo}`);
+            }
+          }
         }
         break;
       case "assistant":
