@@ -8,7 +8,6 @@ import { runAct } from "./utils/act.ts";
 import { generateInstallationToken } from "./utils/generate-installation-token.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
-// Load environment variables from .env file
 config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,17 +19,14 @@ export async function run(
 ): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
   try {
     if (options.act) {
-      // Use Docker/act to run the action
       console.log("🐳 Running with Docker/act...");
       runAct(prompt);
       return { success: true };
     }
 
-    // Setup test repository and run directly
     const tempDir = join(process.cwd(), ".temp");
     setupTestRepo({ tempDir, forceClean: true });
 
-    // Change to the temp directory
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
@@ -40,7 +36,6 @@ export async function run(
     console.log(prompt);
     console.log("─".repeat(50));
 
-    // Set environment variables from our .env for the action to use
     const { EXPECTED_INPUTS } = await import("./main.ts");
     EXPECTED_INPUTS.forEach((inputName) => {
       const value = process.env[inputName];
@@ -49,13 +44,11 @@ export async function run(
       }
     });
 
-    // Run main with the new params structure
     const inputs: any = {
       prompt,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY || "",
     };
 
-    // Add optional properties only if they exist
     if (process.env.GITHUB_TOKEN) {
       inputs.github_token = process.env.GITHUB_TOKEN;
     }
@@ -65,7 +58,6 @@ export async function run(
     inputs.github_installation_token = installationToken;
     console.log("✅ GitHub installation token generated successfully");
 
-    // Set installation token in environment for Claude agent MCP configuration
     const envWithToken = {
       ...process.env,
       GITHUB_INSTALLATION_TOKEN: installationToken,
@@ -77,7 +69,6 @@ export async function run(
       cwd: process.cwd(),
     });
 
-    // Change back to original directory
     process.chdir(originalCwd);
 
     if (result.success) {
@@ -97,7 +88,6 @@ export async function run(
   }
 }
 
-// CLI execution when run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = arg({
     "--help": Boolean,
@@ -133,15 +123,12 @@ Examples:
   let prompt: string;
 
   if (args["--raw"]) {
-    // Use raw prompt string
     prompt = args["--raw"];
   } else {
-    // Load prompt from file
     const filePath = args._[0] || "fixtures/basic.txt";
     const ext = extname(filePath).toLowerCase();
     let resolvedPath: string;
 
-    // First try as fixtures path
     const fixturesPath = join(__dirname, "fixtures", filePath);
     if (existsSync(fixturesPath)) {
       resolvedPath = fixturesPath;
@@ -153,13 +140,11 @@ Examples:
 
     switch (ext) {
       case ".txt": {
-        // Plain text - pass directly as prompt
         prompt = readFileSync(resolvedPath, "utf8").trim();
         break;
       }
 
       case ".json": {
-        // JSON - stringify and pass as prompt
         const content = readFileSync(resolvedPath, "utf8");
         const parsed = JSON.parse(content);
         prompt = JSON.stringify(parsed, null, 2);
@@ -167,7 +152,6 @@ Examples:
       }
 
       case ".ts": {
-        // TypeScript - dynamic import and stringify default export
         const fileUrl = pathToFileURL(resolvedPath).href;
         const module = await import(fileUrl);
 
@@ -175,14 +159,11 @@ Examples:
           throw new Error(`TypeScript file ${filePath} must have a default export`);
         }
 
-        // If it's a string, use it directly
         if (typeof module.default === "string") {
           prompt = module.default;
         } else if (typeof module.default === "object" && module.default.prompt) {
-          // If it's a MainParams object with a prompt field, extract the prompt
           prompt = module.default.prompt;
         } else {
-          // Otherwise stringify it
           prompt = JSON.stringify(module.default, null, 2);
         }
         break;

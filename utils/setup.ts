@@ -17,13 +17,11 @@ export function setupTestRepo(options: SetupOptions): void {
     forceClean = false,
   } = options;
 
-  // Handle existing temp directory
   if (existsSync(tempDir)) {
     if (forceClean) {
       console.log("🗑️  Removing existing .temp directory...");
       rmSync(tempDir, { recursive: true, force: true });
 
-      // Clone the repository
       console.log("📦 Cloning pullfrogai/scratch into .temp...");
       execSync(`git clone ${repoUrl} ${tempDir}`, { stdio: "inherit" });
     } else {

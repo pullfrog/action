@@ -165,7 +165,6 @@ const findInstallationId = async (jwt: string, repoOwner: string, repoName: stri
         return installation.id;
       }
     } catch {
-      // Installation doesn't have access to repository
     }
   }
 

@@ -16,14 +16,12 @@ export class ClaudeAgent implements Agent {
     startTime: 0,
   };
 
-  // $: ExecaMethod;
 
   constructor(config: AgentConfig) {
     if (!config.apiKey) {
       throw new Error("Claude agent requires an API key");
     }
     this.apiKey = config.apiKey;
-    // Removed execa dependency - using spawn utility instead
   }
 
   /**
@@ -43,7 +41,6 @@ export class ClaudeAgent implements Agent {
    * Install Claude Code CLI
    */
   async install(): Promise<void> {
-    // Check if Claude Code is already installed
     if (await this.isClaudeInstalled()) {
       core.info("Claude Code is already installed, skipping installation");
       return;
@@ -51,16 +48,12 @@ export class ClaudeAgent implements Agent {
 
     core.info("Installing Claude Code...");
     try {
-      // Use shell execution to properly handle the pipe
       const result = await spawn({
         cmd: "bash",
         args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 120000, // 2 minute timeout
-        onStdout: () => {
-          // no logs
-          // process.stdout.write(chunk)
-        },
+        onStdout: () => {},
         onStderr: (chunk) => process.stderr.write(chunk),
       });
 
@@ -79,14 +72,10 @@ export class ClaudeAgent implements Agent {
    */
   async execute(prompt: string): Promise<AgentResult> {
     core.info("Running Claude Code...");
-    // printTable([[prompt]]);
 
     try {
-      // Execute Claude Code with the prompt directly using proper headless mode
-      // core.info(`Executing Claude Code with prompt: ${prompt.substring(0, 100)}...`);
 
       const claudePath = `${process.env.HOME}/.local/bin/claude`;
-      // console.log("Using Claude Code from:", claudePath);
       console.log(boxString(prompt, { title: "Prompt" }));
       const args = [
         "--print",
@@ -97,7 +86,6 @@ export class ClaudeAgent implements Agent {
         "bypassPermissions",
       ];
 
-      // Add MCP configuration if GitHub credentials are available
       if (
         process.env.GITHUB_INSTALLATION_TOKEN &&
         process.env.REPO_OWNER &&
@@ -116,10 +104,8 @@ export class ClaudeAgent implements Agent {
         ANTHROPIC_API_KEY: this.apiKey,
       };
 
-      // Start a collapsible log group for streaming output
       core.startGroup("🔄 Run details");
 
-      // Initialize run statistics
       this.runStats = {
         toolsUsed: 0,
         turns: 0,
@@ -129,7 +115,6 @@ export class ClaudeAgent implements Agent {
       const finalResult = "";
       const totalCost = 0;
 
-      // run Claude Code with the prompt
       const result = await spawn({
         cmd: claudePath,
         args,
@@ -137,37 +122,21 @@ export class ClaudeAgent implements Agent {
         input: prompt,
         timeout: 10 * 60 * 1000, // 10 minutes
         onStdout: (_chunk) => {
-          // console.log(chunk);
           processJSONChunk(_chunk, this);
         },
         onStderr: (_chunk) => {
           if (_chunk.trim()) {
-            // core.warning(`[warn] ${chunk}`);
             processJSONChunk(_chunk, this);
           }
         },
       });
 
-      // throw on non-zero exit code
       if (result.exitCode !== 0) {
         throw new Error(
           `Command failed with exit code ${result.exitCode}\n\nStdout: ${result.stdout}\n\nStderr: ${result.stderr}`
         );
       }
 
-      // Process the complete buffered stdout to extract final results
-      // if (result.stdout.trim()) {
-      //   const lines = result.stdout.trim().split("\n");
-      //   for (const line of lines) {
-      //     if (line.trim()) {
-      //       const chunkResult = processJsonChunk(line);
-      //       if (chunkResult.finalResult) finalResult = chunkResult.finalResult;
-      //       if (chunkResult.totalCost) totalCost = chunkResult.totalCost;
-      //     }
-      //   }
-      // }
-
-      // Log run summary
       const duration = Date.now() - this.runStats.startTime;
       core.info(
         `📊 Run Summary: ${this.runStats.toolsUsed} tools used, ${this.runStats.turns} turns, ${duration}ms duration`
@@ -187,11 +156,9 @@ export class ClaudeAgent implements Agent {
         },
       };
     } catch (error: any) {
-      // Ensure group is closed even if error occurs before group is started
       try {
         core.endGroup();
       } catch {
-        // Group might not have been started, ignore
       }
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return {
@@ -203,33 +170,10 @@ export class ClaudeAgent implements Agent {
 }
 
 /**
- * Process a JSON chunk line and extract result data
- */
-// function processJsonChunk(line: string): { finalResult?: string; totalCost?: number } {
-//   try {
-//     const chunk = JSON.parse(line.trim());
-//     processJSONChunk(chunk);
-
-//     // Collect final result and cost data
-//     if (chunk.type === "result" && chunk.result) {
-//       return {
-//         finalResult: chunk.result,
-//         totalCost: chunk.total_cost_usd || 0,
-//       };
-//     }
-//     return {};
-//   } catch {
-//     core.debug(`Failed to parse JSON line: ${line}`);
-//     return {};
-//   }
-// }
-
-/**
  * Pretty print a JSON chunk based on its type
  */
 function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
   try {
-    // Parse the JSON string first
     console.log(chunk);
     const parsedChunk = JSON.parse(chunk.trim());
 
@@ -237,8 +181,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
       case "system":
         if (parsedChunk.subtype === "init") {
           core.info(`🚀 Starting Claude Code session...`);
-          // core.info(`📁 Working directory: ${parsedChunk.cwd}`);
-          // core.info(`🔑 Permission mode: ${parsedChunk.permissionMode}`);
           core.info(
             tableString([
               ["model", parsedChunk.model],
@@ -264,39 +206,31 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
 
       case "assistant":
         if (parsedChunk.message?.content) {
-          // Track turns
           if (agent) {
             agent.runStats.turns++;
           }
 
           for (const content of parsedChunk.message.content) {
             if (content.type === "text") {
-              // Skip empty text content
               if (content.text.trim()) {
                 core.info(boxString(content.text.trim(), { title: "Claude Code" }));
               }
             } else if (content.type === "tool_use") {
-              // Track tools used
               if (agent) {
                 agent.runStats.toolsUsed++;
               }
 
-              // Enhanced tool usage logging
               const toolName = content.name;
-              // const toolId = content.id;
 
               core.info(`→ ${toolName}`);
 
-              // Log tool-specific details based on tool type
               if (content.input) {
                 const input = content.input;
 
-                // Common tool input fields
                 if (input.description) {
                   core.info(`   └─ ${input.description}`);
                 }
 
-                // Tool-specific input fields
                 if (input.command) {
                   core.info(`   └─ command: ${input.command}`);
                 }
@@ -325,7 +259,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
                   core.info(`   └─ url: ${input.url}`);
                 }
 
-                // For multi-edit or complex operations
                 if (input.edits && Array.isArray(input.edits)) {
                   core.info(`   └─ edits: ${input.edits.length} changes`);
                   input.edits.forEach((edit: any, index: number) => {
@@ -335,19 +268,15 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
                   });
                 }
 
-                // For task operations
                 if (input.task) {
                   core.info(`   └─ task: ${input.task}`);
                 }
 
-                // For bash operations with specific details
                 if (input.bash_command) {
                   core.info(`   └─ bash_command: ${input.bash_command}`);
                 }
               }
 
-              // Log tool ID for debugging
-              // core.debug(`   🔗 Tool ID: ${toolId}`);
             }
           }
         }
@@ -360,9 +289,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               if (content.is_error) {
                 core.warning(`❌ Tool error: ${content.content}`);
               } else {
-                // Enhanced tool result logging
-                const _resultContent = content.content.trim();
-                // do nothing for now. usually useless in headless more.
               }
             }
           }
@@ -371,15 +297,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
 
       case "result":
         if (parsedChunk.subtype === "success") {
-          // Claude already prints something almost identical to this, so skip for now
-          // if (parsedChunk.result) {
-          //   core.info(
-          //     boxString(parsedChunk.result.trim(), {
-          //       title: "🤖 Claude Code",
-          //       maxWidth: 70,
-          //     }),
-          //   );
-          // }
 
           core.info(
             tableString([
@@ -396,7 +313,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
         break;
 
       default:
-        // Log unknown chunk types for debugging
         core.debug(`📦 Unknown chunk type: ${parsedChunk.type}`);
         break;
     }

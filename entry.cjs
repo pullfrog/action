@@ -25580,7 +25580,7 @@ async function spawn(options) {
         durationMs
       });
     });
-    child.on("error", (error2) => {
+    child.on("error", (_error) => {
       const durationMs = Date.now() - startTime;
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -25609,8 +25609,8 @@ function tableString(rows, options) {
       return lineIndex === 0 || options?.title && lineIndex === 1 || lineIndex === rowCount;
     }
   } = options || {};
-  if (options?.title) {
-    rows.unshift([options.title]);
+  if (title) {
+    rows.unshift([title]);
   }
   const tableOutput = (0, import_table.table)(rows, {
     drawHorizontalLine,
@@ -25698,7 +25698,6 @@ var ClaudeAgent = class {
     turns: 0,
     startTime: 0
   };
-  // $: ExecaMethod;
   constructor(config) {
     if (!config.apiKey) {
       throw new Error("Claude agent requires an API key");
@@ -25927,7 +25926,6 @@ function processJSONChunk(chunk, agent) {
               if (content.is_error) {
                 core.warning(`\u274C Tool error: ${content.content}`);
               } else {
-                const _resultContent = content.content.trim();
               }
             }
           }

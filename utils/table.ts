@@ -22,8 +22,8 @@ export function tableString(
     },
   } = options || {};
 
-  if (options?.title) {
-    rows.unshift([options.title]);
+  if (title) {
+    rows.unshift([title]);
   }
 
   const tableOutput = table(rows, {
@@ -140,33 +140,3 @@ export function boxString(
 
   return result;
 }
-
-// /**
-//  * Create a simple two-column table for displaying key-value pairs
-//  * @param data - Array of [key, value] pairs
-//  * @param title - Optional table title
-//  * @param indent - Optional indentation string
-//  */
-// export function printKeyValueTable(
-//   data: [string, string][],
-//   title?: string,
-//   indent?: string
-// ): void {
-//   const rows: string[][] = [["Key", "Value"], ...data];
-//   const options: Parameters<typeof printTable>[1] = {};
-//   if (title !== undefined) options.title = title;
-//   if (indent !== undefined) options.indent = indent;
-//   printTable(rows, options);
-// }
-
-// /**
-//  * Create a path resolution table (specific use case)
-//  * @param pathData - Array of [location, resolvedPath] pairs
-//  * @param indent - Optional indentation string
-//  */
-// export function printPathTable(pathData: [string, string][], indent?: string): void {
-//   const rows: string[][] = [["Location", "Resolved path"], ...pathData];
-//   const options: Parameters<typeof printTable>[1] = {};
-//   if (indent !== undefined) options.indent = indent;
-//   printTable(rows, options);
-// }

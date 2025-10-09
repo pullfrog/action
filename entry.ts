@@ -11,7 +11,6 @@ import { setupGitHubInstallationToken } from "./utils/github.ts";
 
 async function run(): Promise<void> {
   try {
-    // Get inputs from GitHub Actions
     const prompt = core.getInput("prompt", { required: true });
     const anthropic_api_key = core.getInput("anthropic_api_key");
 
@@ -19,13 +18,11 @@ async function run(): Promise<void> {
       throw new Error("prompt is required");
     }
 
-    // Create params object with new structure
     const inputs: ExecutionInputs = {
       prompt,
       anthropic_api_key,
     };
 
-    // Add optional properties only if they exist
     const githubToken = core.getInput("github_token") || process.env.GITHUB_TOKEN;
     if (githubToken) {
       inputs.github_token = githubToken;
@@ -47,7 +44,6 @@ async function run(): Promise<void> {
 
     const result = await main(params);
 
-    // TODO: Set outputs
 
     if (!result.success) {
       throw new Error(result.error || "Agent execution failed");
@@ -58,7 +54,6 @@ async function run(): Promise<void> {
   }
 }
 
-// Run the action
 run().catch((error) => {
   console.error("Action failed:", error);
   process.exit(1);
