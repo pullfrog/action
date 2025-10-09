@@ -6,7 +6,9 @@ const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
 export function createMcpConfig(githubInstallationToken: string) {
   const githubRepository = process.env.GITHUB_REPOSITORY;
   if (!githubRepository) {
-    throw new Error('GITHUB_REPOSITORY environment variable is required for MCP GitHub integration');
+    throw new Error(
+      "GITHUB_REPOSITORY environment variable is required for MCP GitHub integration"
+    );
   }
 
   return JSON.stringify(
@@ -18,6 +20,7 @@ export function createMcpConfig(githubInstallationToken: string) {
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
             GITHUB_REPOSITORY: githubRepository,
+            LOG_LEVEL: "debug",
           },
         },
       },
