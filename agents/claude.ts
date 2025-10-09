@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { access, constants } from "node:fs/promises";
 import * as core from "@actions/core";
 import { createMcpConfig } from "../mcp/config.ts";
@@ -193,29 +192,6 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               ],
             ])
           );
-
-          // Check for failed MCP servers and show debug logs
-          if (parsedChunk.mcp_servers?.length > 0) {
-            const failedServers = parsedChunk.mcp_servers.filter(
-              (server: any) => server.status === "failed"
-            );
-            if (failedServers.length > 0) {
-              const failedNames = failedServers.map((server: any) => server.name).join(", ");
-
-              // Try to read MCP server debug logs
-              let debugInfo = "";
-              try {
-                const logContent = readFileSync("/tmp/mcp-server.log", "utf-8");
-                core.error("MCP Server Debug Log:");
-                core.error(logContent);
-                debugInfo = " (see debug log above)";
-              } catch (logError) {
-                debugInfo = ` (could not read debug log: ${logError instanceof Error ? logError.message : String(logError)})`;
-              }
-
-              throw new Error(`MCP servers failed to start: ${failedNames}${debugInfo}`);
-            }
-          }
         }
         break;
 

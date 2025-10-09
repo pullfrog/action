@@ -13,7 +13,7 @@ export function createMcpConfig(githubInstallationToken: string) {
     {
       mcpServers: {
         minimal_github_comment: {
-          command: `${actionPath}/mcp/debug-server.sh`,
+          command: "node",
           args: [`${actionPath}/mcp/server.ts`],
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
