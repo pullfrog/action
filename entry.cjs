@@ -26190,7 +26190,6 @@ var package_default = {
     upDeps: "pnpm up --latest",
     createLockfile: "pnpm --ignore-workspace install"
   },
-  packageManager: "pnpm@10.18.2",
   dependencies: {
     "@ark/fs": "0.49.0",
     "@actions/core": "^1.11.1",
