@@ -31,7 +31,9 @@ server.tool(
 
       const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
       if (!githubInstallationToken) {
-        throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
+        throw new Error(
+          "GITHUB_INSTALLATION_TOKEN environment variable is required"
+        );
       }
 
       // Resolve repository context from environment
@@ -66,7 +68,8 @@ server.tool(
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
         content: [
           {
