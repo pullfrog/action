@@ -1,6 +1,0 @@
-# Ensure lockfile is up to date
-echo "🔒 Updating lockfile..."
-pnpm install --lockfile-only
-
-# Add the built files and lockfile to the commit
-git add pnpm-lock.yaml

@@ -6,7 +6,7 @@
 
 import * as core from "@actions/core";
 import { type } from "arktype";
-import { main, Inputs } from "./main.ts";
+import { Inputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
 
 async function run(): Promise<void> {

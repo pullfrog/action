@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.42",
+  "version": "0.0.43",
   "type": "module",
   "files": [
     "index.js",
@@ -15,9 +15,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky",
     "play": "node play.ts",
     "upDeps": "pnpm up --latest",
+    "install": "pnpm --ignore-workspace install",
     "createLockfile": "pnpm --ignore-workspace install"
   },
   "dependencies": {
@@ -35,7 +35,6 @@
   "devDependencies": {
     "@types/node": "^24.7.2",
     "arg": "^5.0.2",
-    "husky": "^9.1.7",
     "typescript": "^5.9.3"
   },
   "repository": {
