@@ -10,9 +10,6 @@ inputs:
   anthropic_api_key:
     description: "Anthropic API key for Claude Code authentication"
     required: false
-  github_installation_token:
-    description: "GitHub App installation token"
-    required: false
 
 runs:
   using: "composite"

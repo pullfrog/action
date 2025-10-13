@@ -1,11 +1,11 @@
 import * as core from "@actions/core";
 import { type } from "arktype";
 import { ClaudeAgent } from "./agents/claude.ts";
+import { setupGitHubInstallationToken } from "./utils/github.ts";
 
 export const Inputs = type({
   prompt: "string",
   "anthropic_api_key?": "string | undefined",
-  "github_installation_token?": "string | undefined",
 });
 
 export type ActionInputs = typeof Inputs.infer;
@@ -20,7 +20,13 @@ export async function main(inputs: ActionInputs): Promise<MainResult> {
   try {
     core.info(`→ Starting agent run with Claude Code`);
 
-    const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key! });
+    // Setup GitHub installation token
+    const githubInstallationToken = await setupGitHubInstallationToken();
+
+    const agent = new ClaudeAgent({ 
+      apiKey: inputs.anthropic_api_key!,
+      githubInstallationToken
+    });
     await agent.install();
 
     const result = await agent.execute(inputs.prompt);

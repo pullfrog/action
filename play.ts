@@ -7,7 +7,6 @@ import { config } from "dotenv";
 import { type ActionInputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { runAct } from "./utils/act.ts";
-import { setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
@@ -36,16 +35,9 @@ export async function run(
     console.log(prompt);
     console.log("─".repeat(50));
 
-    console.log("🔑 Setting up GitHub installation token...");
-    const installationToken = await setupGitHubInstallationToken();
-    process.env.GITHUB_INSTALLATION_TOKEN = installationToken;
-
-    console.log("✅ GitHub installation token setup successfully");
-
     const inputs: ActionInputs = {
       prompt,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
-      github_installation_token: installationToken,
     };
 
     const result = await main(inputs);

@@ -10,6 +10,7 @@ import type { Agent, AgentConfig, AgentResult } from "./types.ts";
  */
 export class ClaudeAgent implements Agent {
   private apiKey: string;
+  private githubInstallationToken?: string;
   public runStats = {
     toolsUsed: 0,
     turns: 0,
@@ -21,6 +22,7 @@ export class ClaudeAgent implements Agent {
       throw new Error("Claude agent requires an API key");
     }
     this.apiKey = config.apiKey;
+    this.githubInstallationToken = config.githubInstallationToken;
   }
 
   /**
@@ -90,13 +92,13 @@ export class ClaudeAgent implements Agent {
         "bypassPermissions",
       ];
 
-      if (!process.env.GITHUB_INSTALLATION_TOKEN) {
+      if (!this.githubInstallationToken) {
         throw new Error(
           "GITHUB_INSTALLATION_TOKEN is required for GitHub integration"
         );
       }
 
-      const mcpConfig = createMcpConfig(process.env.GITHUB_INSTALLATION_TOKEN);
+      const mcpConfig = createMcpConfig(this.githubInstallationToken);
       console.log("📋 MCP Config:", mcpConfig);
       args.push("--mcp-config", mcpConfig);
 
