@@ -1,6 +1,10 @@
+# Ensure lockfile is up to date
+echo "🔒 Updating lockfile..."
+pnpm install --lockfile-only
+
 # Build the action before committing
 echo "🔨 Building action..."
 npm run build
 
-# Add the built files to the commit
-git add entry.cjs
+# Add the built files and lockfile to the commit
+git add entry.cjs pnpm-lock.yaml
