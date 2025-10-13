@@ -3,6 +3,13 @@
  */
 const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
 
+// import { dirname } from "node:path";
+// import { fileURLToPath } from "node:url";
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = dirname(__filename);
+// const actionPath = dirname(__dirname);
+
 export function createMcpConfig(githubInstallationToken: string) {
   const githubRepository = process.env.GITHUB_REPOSITORY;
   if (!githubRepository) {

@@ -6,7 +6,6 @@ import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
 import { z } from "zod";
 import { resolveRepoContext } from "../utils/repo-context.ts";
-import { writeFileSync } from "fs";
 
 const server = new McpServer({
   name: "Minimal GitHub Issue Comment Server",
@@ -93,11 +92,4 @@ async function runServer() {
   });
 }
 
-runServer().catch((error) => {
-  // Write error to file for GitHub Actions visibility
-  try {
-    writeFileSync('/tmp/mcp-error.log', `${new Date().toISOString()} MCP Server Error: ${error.message}\nStack: ${error.stack}\n`, { flag: 'a' });
-  } catch {}
-  console.error('MCP Server Error:', error);
-  process.exit(1);
-});
+await runServer();
