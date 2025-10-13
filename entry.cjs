@@ -26163,7 +26163,7 @@ async function main(params) {
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.28",
+  version: "0.0.29",
   type: "module",
   files: [
     "index.js",
