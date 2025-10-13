@@ -1,23 +1,23 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, extname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { extname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { fromHere } from "@ark/fs";
 import arg from "arg";
 import { config } from "dotenv";
 import { main } from "./main.ts";
+import packageJson from "./package.json" with { type: "json" };
 import { runAct } from "./utils/act.ts";
 import { setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 export async function run(
   prompt: string,
   options: { act?: boolean } = {}
 ): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
   try {
+    console.log(`🐸 Running pullfrog/action@${packageJson.version}...`);
     if (options.act) {
       console.log("🐳 Running with Docker/act...");
       runAct(prompt);
@@ -129,7 +129,7 @@ Examples:
     const ext = extname(filePath).toLowerCase();
     let resolvedPath: string;
 
-    const fixturesPath = join(__dirname, "fixtures", filePath);
+    const fixturesPath = fromHere("fixtures", filePath);
     if (existsSync(fixturesPath)) {
       resolvedPath = fixturesPath;
     } else if (existsSync(filePath)) {
