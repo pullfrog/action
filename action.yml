@@ -18,8 +18,16 @@ inputs:
     required: false
 
 runs:
-  using: "node20"
-  main: "entry.cjs"
+  using: "composite"
+  steps:
+    - name: Setup Node.js 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: "24"
+    - name: Run TypeScript entry point
+      run: node entry.ts
+      shell: bash
+      working-directory: ${{ github.action_path }}
 
 branding:
   icon: "code"
