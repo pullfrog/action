@@ -25674,7 +25674,8 @@ function createMcpConfig(githubInstallationToken) {
           args: [`${actionPath}/mcp/server.ts`],
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-            GITHUB_REPOSITORY: githubRepository
+            GITHUB_REPOSITORY: githubRepository,
+            LOG_LEVEL: "debug"
           }
         }
       }
@@ -26163,7 +26164,7 @@ async function main(params) {
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.29",
+  version: "0.0.30",
   type: "module",
   files: [
     "index.js",

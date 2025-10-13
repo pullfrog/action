@@ -24,6 +24,7 @@ export function createMcpConfig(githubInstallationToken: string) {
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
             GITHUB_REPOSITORY: githubRepository,
+            LOG_LEVEL: "debug",
           },
         },
       },
