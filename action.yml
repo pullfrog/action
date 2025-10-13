@@ -20,14 +20,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
     - name: Setup Node.js 24
       uses: actions/setup-node@v4
       with:
         node-version: "24"
         cache: "pnpm"
         cache-dependency-path: ${{ github.action_path }}/pnpm-lock.yaml
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
     - name: Install dependencies
       run: pnpm install
       shell: bash
