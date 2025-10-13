@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { fromHere } from "@ark/fs";
 import arg from "arg";
 import { config } from "dotenv";
-import { main } from "./main.ts";
+import { type ActionInputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { runAct } from "./utils/act.ts";
 import { setupGitHubInstallationToken } from "./utils/github.ts";
@@ -36,38 +36,19 @@ export async function run(
     console.log(prompt);
     console.log("─".repeat(50));
 
-    const { EXPECTED_INPUTS } = await import("./main.ts");
-    EXPECTED_INPUTS.forEach((inputName) => {
-      const value = process.env[inputName];
-      if (value) {
-        process.env[`INPUT_${inputName.toLowerCase()}`] = value;
-      }
-    });
-
-    const inputs: any = {
-      prompt,
-      anthropic_api_key: process.env.ANTHROPIC_API_KEY || "",
-    };
-
-    if (process.env.GITHUB_TOKEN) {
-      inputs.github_token = process.env.GITHUB_TOKEN;
-    }
-
     console.log("🔑 Setting up GitHub installation token...");
     const installationToken = await setupGitHubInstallationToken();
-    inputs.github_installation_token = installationToken;
+    process.env.GITHUB_INSTALLATION_TOKEN = installationToken;
+
     console.log("✅ GitHub installation token setup successfully");
 
-    const envWithToken = {
-      ...process.env,
-      GITHUB_INSTALLATION_TOKEN: installationToken,
-    } as Record<string, string>;
+    const inputs: ActionInputs = {
+      prompt,
+      anthropic_api_key: process.env.ANTHROPIC_API_KEY,
+      github_installation_token: installationToken,
+    };
 
-    const result = await main({
-      inputs,
-      env: envWithToken,
-      cwd: process.cwd(),
-    });
+    const result = await main(inputs);
 
     process.chdir(originalCwd);
 

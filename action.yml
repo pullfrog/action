@@ -10,9 +10,6 @@ inputs:
   anthropic_api_key:
     description: "Anthropic API key for Claude Code authentication"
     required: false
-  github_token:
-    description: "GitHub token for repository access"
-    required: false
   github_installation_token:
     description: "GitHub App installation token"
     required: false
@@ -41,7 +38,9 @@ runs:
       run: node entry.ts
       shell: bash
       working-directory: ${{ github.action_path }}
+      env:
+        INPUTS_JSON: ${{ toJSON(inputs) }}
 
 branding:
   icon: "code"
-  color: "orange"
+  color: "green"

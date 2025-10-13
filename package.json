@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.40",
+  "version": "0.0.42",
   "type": "module",
   "files": [
     "index.js",
@@ -12,39 +12,31 @@
     "main.js",
     "main.d.ts"
   ],
-  "directories": {
-    "example": "examples"
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "build": "node esbuild.config.js",
-    "build:npm": "zshy",
-    "build:dev": "node esbuild.config.js",
     "prepare": "husky",
     "play": "node play.ts",
     "upDeps": "pnpm up --latest",
     "createLockfile": "pnpm --ignore-workspace install"
   },
   "dependencies": {
-    "@ark/fs": "0.49.0",
     "@actions/core": "^1.11.1",
-    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@ark/fs": "0.49.0",
+    "@modelcontextprotocol/sdk": "^1.20.0",
     "@octokit/rest": "^22.0.0",
     "@octokit/webhooks-types": "^7.6.1",
     "arktype": "^2.1.22",
-    "dotenv": "^17.2.2",
+    "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "table": "^6.9.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^24.7.2",
     "arg": "^5.0.2",
-    "esbuild": "^0.25.9",
-    "husky": "^9.0.0",
-    "typescript": "^5.3.0",
-    "zshy": "^0.4.1"
+    "husky": "^9.1.7",
+    "typescript": "^5.9.3"
   },
   "repository": {
     "type": "git",
@@ -52,7 +44,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/pullfrog/action/issues"
   },

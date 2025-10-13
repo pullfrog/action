@@ -1,24 +1,14 @@
 import * as core from "@actions/core";
+import { type } from "arktype";
 import { ClaudeAgent } from "./agents/claude.ts";
 
-export const EXPECTED_INPUTS: string[] = [
-  "ANTHROPIC_API_KEY",
-  "GITHUB_TOKEN",
-  "GITHUB_INSTALLATION_TOKEN",
-];
+export const Inputs = type({
+  prompt: "string",
+  "anthropic_api_key?": "string | undefined",
+  "github_installation_token?": "string | undefined",
+});
 
-export interface ExecutionInputs {
-  prompt: string;
-  anthropic_api_key: string;
-  github_token?: string;
-  github_installation_token?: string;
-}
-
-export interface MainParams {
-  inputs: ExecutionInputs;
-  env: Record<string, string>;
-  cwd: string;
-}
+export type ActionInputs = typeof Inputs.infer;
 
 export interface MainResult {
   success: boolean;
@@ -26,19 +16,11 @@ export interface MainResult {
   error?: string | undefined;
 }
 
-export async function main(params: MainParams): Promise<MainResult> {
+export async function main(inputs: ActionInputs): Promise<MainResult> {
   try {
-    const { inputs, env, cwd } = params;
-
-    if (cwd !== process.cwd()) {
-      process.chdir(cwd);
-    }
-
-    Object.assign(process.env, env);
-
     core.info(`→ Starting agent run with Claude Code`);
 
-    const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key });
+    const agent = new ClaudeAgent({ apiKey: inputs.anthropic_api_key! });
     await agent.install();
 
     const result = await agent.execute(inputs.prompt);
