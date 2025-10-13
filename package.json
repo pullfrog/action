@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.43",
+  "version": "0.0.44",
   "type": "module",
   "files": [
     "index.js",
@@ -17,8 +17,7 @@
     "typecheck": "tsc --noEmit",
     "play": "node play.ts",
     "upDeps": "pnpm up --latest",
-    "install": "pnpm --ignore-workspace install",
-    "createLockfile": "pnpm --ignore-workspace install"
+    "lock": "pnpm --ignore-workspace install"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
