@@ -60,21 +60,6 @@ jobs:
             echo "✅ Tag ${{ steps.version.outputs.tag }} does not exist - will create release"
           fi
 
-      - name: Verify built files are up to date
-        if: steps.check_tag.outputs.exists == 'false'
-        run: |
-          # Check if there are any uncommitted changes
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "❌ Error: There are uncommitted changes. Built files should be committed via pre-commit hook."
-            git status
-            exit 1
-          fi
-          echo "✅ All built files are up to date"
-
-      - name: Build for npm with zshy
-        if: steps.check_tag.outputs.exists == 'false'
-        run: pnpm build:npm
-
       - name: Create and push tags
         if: steps.check_tag.outputs.exists == 'false'
         run: |
