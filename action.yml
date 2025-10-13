@@ -24,7 +24,13 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: "24"
-    - name: Run TypeScript entry point
+        cache: "pnpm"
+        cache-dependency-path: ${{ github.action_path }}/pnpm-lock.yaml
+    - name: Install dependencies
+      run: pnpm install
+      shell: bash
+      working-directory: ${{ github.action_path }}
+    - name: Run agent
       run: node entry.ts
       shell: bash
       working-directory: ${{ github.action_path }}
