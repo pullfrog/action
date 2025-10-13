@@ -33,7 +33,6 @@ runs:
       with:
         node-version: "24"
         cache: "pnpm"
-        cache-dependency-path: ${{ github.action_path }}/pnpm-lock.yaml
     - name: Install dependencies
       run: pnpm install
       shell: bash
