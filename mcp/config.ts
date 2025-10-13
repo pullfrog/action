@@ -1,14 +1,11 @@
 /**
  * Simple MCP configuration helper for adding our minimal GitHub comment server
  */
-const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
+// const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
 
-// import { dirname } from "node:path";
-// import { fileURLToPath } from "node:url";
+import { fromHere } from "@ark/fs";
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = dirname(__filename);
-// const actionPath = dirname(__dirname);
+const actionPath = fromHere("..");
 
 export function createMcpConfig(githubInstallationToken: string) {
   const githubRepository = process.env.GITHUB_REPOSITORY;
@@ -27,7 +24,6 @@ export function createMcpConfig(githubInstallationToken: string) {
           env: {
             GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
             GITHUB_REPOSITORY: githubRepository,
-            LOG_LEVEL: "debug",
           },
         },
       },

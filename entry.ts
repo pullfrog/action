@@ -7,10 +7,12 @@
 
 import * as core from "@actions/core";
 import { type ExecutionInputs, type MainParams, main } from "./main.ts";
+import packageJson from "./package.json" with { type: "json" };
 import { setupGitHubInstallationToken } from "./utils/github.ts";
 
 async function run(): Promise<void> {
   try {
+    console.log(`🐸 Running pullfrog/action@${packageJson.version}...`);
     const prompt = core.getInput("prompt", { required: true });
     const anthropic_api_key = core.getInput("anthropic_api_key");
 
@@ -43,7 +45,6 @@ async function run(): Promise<void> {
     };
 
     const result = await main(params);
-
 
     if (!result.success) {
       throw new Error(result.error || "Agent execution failed");
