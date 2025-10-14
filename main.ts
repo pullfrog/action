@@ -8,7 +8,7 @@ export const Inputs = type({
   "anthropic_api_key?": "string | undefined",
 });
 
-export type ActionInputs = typeof Inputs.infer;
+export type Inputs = typeof Inputs.infer;
 
 export interface MainResult {
   success: boolean;
@@ -16,16 +16,16 @@ export interface MainResult {
   error?: string | undefined;
 }
 
-export async function main(inputs: ActionInputs): Promise<MainResult> {
+export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     core.info(`→ Starting agent run with Claude Code`);
 
     // Setup GitHub installation token
     const githubInstallationToken = await setupGitHubInstallationToken();
 
-    const agent = new ClaudeAgent({ 
+    const agent = new ClaudeAgent({
       apiKey: inputs.anthropic_api_key!,
-      githubInstallationToken
+      githubInstallationToken,
     });
     await agent.install();
 

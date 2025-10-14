@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { fromHere } from "@ark/fs";
 import arg from "arg";
 import { config } from "dotenv";
-import { type ActionInputs, main } from "./main.ts";
+import { type Inputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { runAct } from "./utils/act.ts";
 import { setupTestRepo } from "./utils/setup.ts";
@@ -35,7 +35,7 @@ export async function run(
     console.log(prompt);
     console.log("─".repeat(50));
 
-    const inputs: ActionInputs = {
+    const inputs: Inputs = {
       prompt,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
     };

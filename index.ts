@@ -6,7 +6,7 @@
 export { ClaudeAgent } from "./agents/claude.ts";
 export type { Agent, AgentConfig, AgentResult } from "./agents/types.ts";
 export {
-  type ActionInputs as ExecutionInputs,
+  type Inputs as ExecutionInputs,
   type MainResult,
   main,
 } from "./main.ts";
