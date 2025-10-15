@@ -1,8 +1,6 @@
 /**
  * Simple MCP configuration helper for adding our minimal GitHub comment server
  */
-// const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
-
 import { fromHere } from "@ark/fs";
 
 const actionPath = fromHere("..");
