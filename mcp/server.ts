@@ -5,7 +5,7 @@ import { CommentTool } from "./comment.ts";
 import { addTools } from "./shared.ts";
 
 const server = new FastMCP({
-  name: "Minimal GitHub Issue Comment Server",
+  name: "gh-pullfrog",
   version: "0.0.1",
 });
 

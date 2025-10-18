@@ -1,7 +1,5 @@
-import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
-import { resolveRepoContext } from "../utils/repo-context.ts";
-import { tool } from "./shared.ts";
+import { getMcpContext, tool } from "./shared.ts";
 
 export const Comment = type({
   issueNumber: type.number.describe("the issue number to comment on"),
@@ -12,22 +10,12 @@ export const CommentTool = tool({
   name: "create_issue_comment",
   description: "Create a comment on a GitHub issue",
   parameters: Comment,
-  execute: async ({ issueNumber, body }: { issueNumber: number; body: string }) => {
+  execute: async ({ issueNumber, body }) => {
+    const ctx = getMcpContext();
     try {
-      const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
-      if (!githubInstallationToken) {
-        throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
-      }
-
-      const repoContext = resolveRepoContext();
-
-      const octokit = new Octokit({
-        auth: githubInstallationToken,
-      });
-
-      const result = await octokit.rest.issues.createComment({
-        owner: repoContext.owner,
-        repo: repoContext.name,
+      const result = await ctx.octokit.rest.issues.createComment({
+        owner: ctx.owner,
+        repo: ctx.name,
         issue_number: issueNumber,
         body: body,
       });

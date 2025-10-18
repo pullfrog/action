@@ -29,6 +29,6 @@ export interface AgentResult {
  * Configuration for agent creation
  */
 export interface AgentConfig {
-  apiKey?: string;
-  [key: string]: any;
+  apiKey: string;
+  githubInstallationToken: string;
 }

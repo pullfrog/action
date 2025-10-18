@@ -27,6 +27,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       apiKey: inputs.anthropic_api_key!,
       githubInstallationToken,
     });
+
     await agent.install();
 
     const result = await agent.execute(inputs.prompt);

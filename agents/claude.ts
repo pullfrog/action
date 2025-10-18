@@ -3,6 +3,7 @@ import * as core from "@actions/core";
 import { createMcpConfig } from "../mcp/config.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { boxString, tableString } from "../utils/table.ts";
+import { instructions } from "./shared.ts";
 import type { Agent, AgentConfig, AgentResult } from "./types.ts";
 
 /**
@@ -10,7 +11,7 @@ import type { Agent, AgentConfig, AgentResult } from "./types.ts";
  */
 export class ClaudeAgent implements Agent {
   private apiKey: string;
-  private githubInstallationToken?: string;
+  private githubInstallationToken: string;
   public runStats = {
     toolsUsed: 0,
     turns: 0,
@@ -18,9 +19,6 @@ export class ClaudeAgent implements Agent {
   };
 
   constructor(config: AgentConfig) {
-    if (!config.apiKey) {
-      throw new Error("Claude agent requires an API key");
-    }
     this.apiKey = config.apiKey;
     this.githubInstallationToken = config.githubInstallationToken;
   }
@@ -51,10 +49,7 @@ export class ClaudeAgent implements Agent {
     try {
       const result = await spawn({
         cmd: "bash",
-        args: [
-          "-c",
-          "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93",
-        ],
+        args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash -s 1.0.93"],
         env: { ANTHROPIC_API_KEY: this.apiKey },
         timeout: 120000, // 2 minute timeout
         onStdout: () => {},
@@ -62,9 +57,7 @@ export class ClaudeAgent implements Agent {
       });
 
       if (result.exitCode !== 0) {
-        throw new Error(
-          `Installation failed with exit code ${result.exitCode}: ${result.stderr}`
-        );
+        throw new Error(`Installation failed with exit code ${result.exitCode}: ${result.stderr}`);
       }
 
       core.info("Claude Code installed successfully");
@@ -81,7 +74,16 @@ export class ClaudeAgent implements Agent {
 
     try {
       const claudePath = `${process.env.HOME}/.local/bin/claude`;
+
+      const env = {
+        ANTHROPIC_API_KEY: this.apiKey,
+      };
+
       console.log(boxString(prompt, { title: "Prompt" }));
+
+      const mcpConfig = createMcpConfig(this.githubInstallationToken);
+      console.log("📋 MCP Config:", mcpConfig);
+
       const args = [
         "--print",
         "--output-format",
@@ -90,21 +92,9 @@ export class ClaudeAgent implements Agent {
         "--debug",
         "--permission-mode",
         "bypassPermissions",
+        "--mcp-config",
+        mcpConfig,
       ];
-
-      if (!this.githubInstallationToken) {
-        throw new Error(
-          "GITHUB_INSTALLATION_TOKEN is required for GitHub integration"
-        );
-      }
-
-      const mcpConfig = createMcpConfig(this.githubInstallationToken);
-      console.log("📋 MCP Config:", mcpConfig);
-      args.push("--mcp-config", mcpConfig);
-
-      const env = {
-        ANTHROPIC_API_KEY: this.apiKey,
-      };
 
       core.startGroup("🔄 Run details");
 
@@ -121,7 +111,7 @@ export class ClaudeAgent implements Agent {
         cmd: claudePath,
         args,
         env,
-        input: prompt,
+        input: `${instructions} ${prompt}`,
         timeout: 10 * 60 * 1000, // 10 minutes
         onStdout: (_chunk) => {
           processJSONChunk(_chunk, this);
@@ -161,8 +151,7 @@ export class ClaudeAgent implements Agent {
       try {
         core.endGroup();
       } catch {}
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
         error: `Failed to execute Claude Code: ${errorMessage}`,
@@ -188,12 +177,7 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
               ["model", parsedChunk.model],
               ["cwd", parsedChunk.cwd],
               ["permission_mode", parsedChunk.permissionMode],
-              [
-                "tools",
-                parsedChunk.tools?.length
-                  ? `${parsedChunk.tools.length} tools`
-                  : "none",
-              ],
+              ["tools", parsedChunk.tools?.length ? `${parsedChunk.tools.length} tools` : "none"],
               [
                 "mcp_servers",
                 parsedChunk.mcp_servers?.length
@@ -220,9 +204,7 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
           for (const content of parsedChunk.message.content) {
             if (content.type === "text") {
               if (content.text.trim()) {
-                core.info(
-                  boxString(content.text.trim(), { title: "Claude Code" })
-                );
+                core.info(boxString(content.text.trim(), { title: "Claude Code" }));
               }
             } else if (content.type === "tool_use") {
               if (agent) {
@@ -307,10 +289,7 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
         if (parsedChunk.subtype === "success") {
           core.info(
             tableString([
-              [
-                "Cost",
-                `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`,
-              ],
+              ["Cost", `$${parsedChunk.total_cost_usd?.toFixed(4) || "0.0000"}`],
               ["Input Tokens", parsedChunk.usage?.input_tokens || 0],
               ["Output Tokens", parsedChunk.usage?.output_tokens || 0],
               ["Duration", `${parsedChunk.duration_ms}ms`],

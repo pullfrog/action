@@ -1,6 +1,5 @@
 import { createSign } from "node:crypto";
 import * as core from "@actions/core";
-import { resolveRepoContext } from "./repo-context.ts";
 
 export interface InstallationToken {
   token: string;
@@ -55,7 +54,7 @@ function isGitHubActionsEnvironment(): boolean {
 
 async function acquireTokenViaOIDC(): Promise<string> {
   core.info("Generating OIDC token...");
-  
+
   const oidcToken = await core.getIDToken("pullfrog-api");
   core.info("OIDC token generated successfully");
 
@@ -208,7 +207,7 @@ const findInstallationId = async (
 };
 
 async function acquireTokenViaGitHubApp(): Promise<string> {
-  const repoContext = resolveRepoContext();
+  const repoContext = parseRepoContext();
 
   const config: GitHubAppConfig = {
     appId: process.env.GITHUB_APP_ID!,
@@ -244,9 +243,31 @@ export async function setupGitHubInstallationToken(): Promise<string> {
   }
 
   const token = await acquireNewToken();
-  
+
   core.setSecret(token);
   process.env.GITHUB_INSTALLATION_TOKEN = token;
-  
+
   return token;
+}
+
+export interface RepoContext {
+  owner: string;
+  name: string;
+}
+
+/**
+ * Parse repository context from GITHUB_REPOSITORY environment variable.
+ */
+export function parseRepoContext(): RepoContext {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+
+  return { owner, name };
 }

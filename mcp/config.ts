@@ -5,6 +5,8 @@ import { fromHere } from "@ark/fs";
 
 const actionPath = fromHere("..");
 
+export const mcpServerName = "gh-pullfrog";
+
 export function createMcpConfig(githubInstallationToken: string) {
   const githubRepository = process.env.GITHUB_REPOSITORY;
   if (!githubRepository) {
@@ -16,7 +18,7 @@ export function createMcpConfig(githubInstallationToken: string) {
   return JSON.stringify(
     {
       mcpServers: {
-        minimal_github_comment: {
+        [mcpServerName]: {
           command: "node",
           args: [`${actionPath}/mcp/server.ts`],
           env: {
