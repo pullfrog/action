@@ -12,8 +12,11 @@ importers:
         specifier: ^1.11.1
         version: 1.11.1
       '@ark/fs':
-        specifier: 0.49.0
-        version: 0.49.0
+        specifier: 0.50.0
+        version: 0.50.0
+      '@ark/util':
+        specifier: 0.50.0
+        version: 0.50.0
       '@octokit/rest':
         specifier: ^22.0.0
         version: 22.0.0
@@ -63,8 +66,8 @@ packages:
   '@actions/io@1.1.3':
     resolution: {integrity: sha512-wi9JjgKLYS7U/z8PPbco+PvTb/nRWjeoFlJ1Qer83k/3C5PHQi28hiVdeE2kHXmIL99mQFawx8qt/JPjZilJ8Q==}
 
-  '@ark/fs@0.49.0':
-    resolution: {integrity: sha512-AEjAQS/bu1CGIRiKK/XLaQ73cSJHixfexq28wNt+kBpQ0h1RwVIVzaGsn/+5IWw6DEbR7LB+3hil5gzrzEeyZQ==}
+  '@ark/fs@0.50.0':
+    resolution: {integrity: sha512-6OrxNt2T+/pL4RUMZK/aiVRLIS3acNs5uSpHDyZAP6+OXwXchFSQ1lJTH+uuGBlDWeQxPD7VmymYXLF5s1Eyhw==}
 
   '@ark/regex@0.0.0':
     resolution: {integrity: sha512-p4vsWnd/LRGOdGQglbwOguIVhPmCAf5UzquvnDoxqhhPWTP84wWgi1INea8MgJ4SnI2gp37f13oA4Waz9vwNYg==}
@@ -792,7 +795,7 @@ snapshots:
 
   '@actions/io@1.1.3': {}
 
-  '@ark/fs@0.49.0': {}
+  '@ark/fs@0.50.0': {}
 
   '@ark/regex@0.0.0':
     dependencies:
