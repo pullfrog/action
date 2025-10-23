@@ -2,18 +2,15 @@
  * Simple MCP configuration helper for adding our minimal GitHub comment server
  */
 import { fromHere } from "@ark/fs";
+import { parseRepoContext } from "../utils/github.ts";
 
 const actionPath = fromHere("..");
 
 export const mcpServerName = "gh-pullfrog";
 
 export function createMcpConfig(githubInstallationToken: string) {
-  const githubRepository = process.env.GITHUB_REPOSITORY;
-  if (!githubRepository) {
-    throw new Error(
-      "GITHUB_REPOSITORY environment variable is required for MCP GitHub integration"
-    );
-  }
+  const repoContext = parseRepoContext();
+  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
 
   return JSON.stringify(
     {

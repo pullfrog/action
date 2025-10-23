@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
+import type { RepoContext } from "./github.ts";
 
 export interface SetupOptions {
   tempDir: string;
@@ -38,12 +39,30 @@ export function setupTestRepo(options: SetupOptions): void {
 }
 
 /**
- * Build the action bundles
+ * Setup git configuration to avoid identity errors
  */
-export function buildAction(actionPath: string): void {
-  console.log("🔨 Building fresh bundles with esbuild...");
-  execSync("node esbuild.config.js", {
-    cwd: actionPath,
-    stdio: "inherit",
-  });
+export function setupGitConfig(): void {
+  console.log("🔧 Setting up git configuration...");
+  execSync('git config --global user.email "action@pullfrog.ai"', { stdio: "inherit" });
+  execSync('git config --global user.name "Pullfrog Action"', { stdio: "inherit" });
+}
+
+/**
+ * Setup git authentication using GitHub token
+ */
+export function setupGitAuth(githubToken: string, repoContext: RepoContext): void {
+  console.log("🔐 Setting up git authentication...");
+
+  // Remove existing git auth headers that actions/checkout might have set
+  try {
+    execSync("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
+    console.log("✓ Removed existing authentication headers");
+  } catch {
+    console.log("No existing authentication headers to remove");
+  }
+
+  // Update remote URL to embed the token
+  const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
+  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  console.log("✓ Updated remote URL with authentication token");
 }

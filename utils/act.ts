@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { buildAction, setupTestRepo } from "./setup.ts";
+import { setupTestRepo } from "./setup.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,8 +18,6 @@ export function runAct(prompt: string): void {
   setupTestRepo({ tempDir });
 
   config({ path: envPath });
-
-  buildAction(actionPath);
 
   const workflowPath = join(tempDir, ".github", "workflows", "pullfrog.yml");
 
@@ -53,7 +51,6 @@ export function runAct(prompt: string): void {
         actCommandParts.push("-s", key);
       }
     });
-
 
     const actCommand = actCommandParts.join(" ");
 

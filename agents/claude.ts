@@ -77,7 +77,6 @@ export class ClaudeAgent implements Agent {
 
       const env = {
         ANTHROPIC_API_KEY: this.apiKey,
-        GITHUB_TOKEN: this.githubInstallationToken,
       };
 
       console.log(boxString(prompt, { title: "Prompt" }));
@@ -114,7 +113,6 @@ export class ClaudeAgent implements Agent {
         env,
         input: `${instructions} ${prompt}`,
         timeout: 10 * 60 * 1000, // 10 minutes
-        cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
         onStdout: (_chunk) => {
           processJSONChunk(_chunk, this);
         },
@@ -173,7 +171,7 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
       console.log(chunk);
       return;
     }
-    
+
     console.log(chunk);
     const parsedChunk = JSON.parse(trimmedChunk);
 

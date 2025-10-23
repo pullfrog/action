@@ -1,7 +1,8 @@
 import * as core from "@actions/core";
 import { type } from "arktype";
 import { ClaudeAgent } from "./agents/claude.ts";
-import { setupGitHubInstallationToken } from "./utils/github.ts";
+import { setupGitHubInstallationToken, parseRepoContext } from "./utils/github.ts";
+import { setupGitConfig, setupGitAuth } from "./utils/setup.ts";
 
 export const Inputs = type({
   prompt: "string",
@@ -20,8 +21,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     core.info(`→ Starting agent run with Claude Code`);
 
-    // Setup GitHub installation token
+    setupGitConfig();
+
     const githubInstallationToken = await setupGitHubInstallationToken();
+    const repoContext = parseRepoContext();
+    
+    setupGitAuth(githubInstallationToken, repoContext);
 
     const agent = new ClaudeAgent({
       apiKey: inputs.anthropic_api_key!,
