@@ -165,8 +165,15 @@ export class ClaudeAgent implements Agent {
  */
 function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
   try {
+    // Skip debug lines that start with [DEBUG] or [debug]
+    const trimmedChunk = chunk.trim();
+    if (trimmedChunk.startsWith("[DEBUG]") || trimmedChunk.startsWith("[debug]")) {
+      console.log(chunk);
+      return;
+    }
+    
     console.log(chunk);
-    const parsedChunk = JSON.parse(chunk.trim());
+    const parsedChunk = JSON.parse(trimmedChunk);
 
     switch (parsedChunk.type) {
       case "system":
