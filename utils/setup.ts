@@ -43,8 +43,8 @@ export function setupTestRepo(options: SetupOptions): void {
  */
 export function setupGitConfig(): void {
   console.log("🔧 Setting up git configuration...");
-  execSync('git config --global user.email "action@pullfrog.ai"', { stdio: "inherit" });
-  execSync('git config --global user.name "Pullfrog Action"', { stdio: "inherit" });
+  execSync('git config user.email "action@pullfrog.ai"', { stdio: "inherit" });
+  execSync('git config user.name "Pullfrog Action"', { stdio: "inherit" });
 }
 
 /**

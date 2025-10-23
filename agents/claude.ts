@@ -1,6 +1,7 @@
 import { access, constants } from "node:fs/promises";
 import * as core from "@actions/core";
 import { createMcpConfig } from "../mcp/config.ts";
+import { debugLog, isDebug } from "../utils/logging.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { boxString, tableString } from "../utils/table.ts";
 import { instructions } from "./shared.ts";
@@ -77,23 +78,27 @@ export class ClaudeAgent implements Agent {
 
       const env = {
         ANTHROPIC_API_KEY: this.apiKey,
+        ...(isDebug() && { LOG_LEVEL: "debug" }),
       };
 
       console.log(boxString(prompt, { title: "Prompt" }));
 
       const mcpConfig = createMcpConfig(this.githubInstallationToken);
-      console.log("📋 MCP Config:", mcpConfig);
+
+      if (isDebug()) {
+        debugLog(`📋 MCP Config: ${mcpConfig}`);
+      }
 
       const args = [
         "--print",
         "--output-format",
         "stream-json",
         "--verbose",
-        "--debug",
         "--permission-mode",
         "bypassPermissions",
         "--mcp-config",
         mcpConfig,
+        ...(isDebug() ? ["--debug"] : []),
       ];
 
       core.startGroup("🔄 Run details");
@@ -114,7 +119,9 @@ export class ClaudeAgent implements Agent {
         input: `${instructions} ${prompt}`,
         timeout: 10 * 60 * 1000, // 10 minutes
         onStdout: (_chunk) => {
-          processJSONChunk(_chunk, this);
+          if (_chunk.trim()) {
+            processJSONChunk(_chunk, this);
+          }
         },
         onStderr: (_chunk) => {
           if (_chunk.trim()) {
@@ -165,14 +172,19 @@ export class ClaudeAgent implements Agent {
  */
 function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
   try {
-    // Skip debug lines that start with [DEBUG] or [debug]
     const trimmedChunk = chunk.trim();
     if (trimmedChunk.startsWith("[DEBUG]") || trimmedChunk.startsWith("[debug]")) {
       console.log(chunk);
       return;
     }
 
-    console.log(chunk);
+    if (trimmedChunk.startsWith("[ERROR]") || trimmedChunk.startsWith("[error]")) {
+      console.error(chunk);
+      return;
+    }
+
+    debugLog(trimmedChunk);
+
     const parsedChunk = JSON.parse(trimmedChunk);
 
     switch (parsedChunk.type) {
@@ -309,11 +321,11 @@ function processJSONChunk(chunk: string, agent?: ClaudeAgent): void {
         break;
 
       default:
-        core.debug(`📦 Unknown chunk type: ${parsedChunk.type}`);
+        debugLog(`📦 Unknown chunk type: ${parsedChunk.type}`);
         break;
     }
   } catch (error) {
-    core.debug(`Failed to parse chunk: ${error}`);
-    core.debug(`Raw chunk: ${chunk.substring(0, 200)}...`);
+    debugLog(`Failed to parse chunk: ${error}`);
+    debugLog(`Raw chunk: ${chunk.substring(0, 200)}...`);
   }
 }

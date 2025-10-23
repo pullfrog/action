@@ -9,7 +9,6 @@ export interface ToolResult {
     type: "text";
     text: string;
   }[];
-  error?: string;
   isError?: boolean;
 }
 
@@ -72,7 +71,6 @@ const handleToolError = (error: unknown): ToolResult => {
         text: `Error: ${errorMessage}`,
       },
     ],
-    error: errorMessage,
     isError: true,
   };
 };
