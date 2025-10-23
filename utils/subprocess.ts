@@ -6,6 +6,7 @@ export interface SpawnOptions {
   env?: Record<string, string>;
   input?: string;
   timeout?: number;
+  cwd?: string;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
 }
@@ -21,7 +22,7 @@ export interface SpawnResult {
  * Spawn a subprocess with streaming callbacks and buffered results
  */
 export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
-  const { cmd, args, env, input, timeout, onStdout, onStderr } = options;
+  const { cmd, args, env, input, timeout, cwd, onStdout, onStderr } = options;
 
   const startTime = Date.now();
   let stdoutBuffer = "";
@@ -31,6 +32,7 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
     const child = nodeSpawn(cmd, args, {
       env: env ? { ...process.env, ...env } : process.env,
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: cwd || process.cwd(),
     });
 
     let timeoutId: NodeJS.Timeout | undefined;

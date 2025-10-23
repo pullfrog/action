@@ -114,6 +114,7 @@ export class ClaudeAgent implements Agent {
         env,
         input: `${instructions} ${prompt}`,
         timeout: 10 * 60 * 1000, // 10 minutes
+        cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
         onStdout: (_chunk) => {
           processJSONChunk(_chunk, this);
         },
