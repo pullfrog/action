@@ -1,1 +1,1 @@
-add a comment containing your best frog joke to GitHub issue https://github.com/pullfrogai/scratch/issues/2
+create a PR implementing bogosort to https://github.com/pullfrogai/scratch/
