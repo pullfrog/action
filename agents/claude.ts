@@ -77,6 +77,7 @@ export class ClaudeAgent implements Agent {
 
       const env = {
         ANTHROPIC_API_KEY: this.apiKey,
+        GITHUB_TOKEN: this.githubInstallationToken,
       };
 
       console.log(boxString(prompt, { title: "Prompt" }));
