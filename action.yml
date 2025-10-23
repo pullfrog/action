@@ -32,9 +32,10 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
     - name: Run agent
-      run: node entry.ts
+      run: |
+        cd $GITHUB_WORKSPACE
+        node ${{ github.action_path }}/entry.ts
       shell: bash
-      working-directory: ${{ github.action_path }}
       env:
         INPUTS_JSON: ${{ toJSON(inputs) }}
 
