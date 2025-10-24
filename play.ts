@@ -46,9 +46,6 @@ export async function run(
 
     if (result.success) {
       console.log("✅ Action completed successfully");
-      if (result.output) {
-        console.log("Output:", result.output);
-      }
       return { success: true, output: result.output || undefined, error: undefined };
     } else {
       console.error("❌ Action failed:", result.error);
