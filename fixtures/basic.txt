@@ -1,1 +1,1 @@
-create a PR implementing bogosort to https://github.com/pullfrogai/scratch/
+add a github review for the following PR: https://github.com/pullfrogai/scratch/pull/14
