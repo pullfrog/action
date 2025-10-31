@@ -3,8 +3,7 @@
  * This exports the main function for programmatic usage
  */
 
-export { ClaudeAgent } from "./agents/claude.ts";
-export type { Agent, AgentConfig, AgentResult } from "./agents/types.ts";
+export type { Agent, AgentConfig, AgentResult } from "./agents/shared.ts";
 export {
   type Inputs as ExecutionInputs,
   type MainResult,
