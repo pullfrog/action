@@ -1,19 +1,4 @@
-/**
- * Standard interface for all Pullfrog agents
- */
-export interface Agent {
-  /**
-   * Install the agent and any required dependencies
-   */
-  install(): Promise<void>;
-
-  /**
-   * Execute the agent with the given prompt
-   * @param prompt The prompt to send to the agent
-   * @param options Additional options specific to the agent
-   */
-  execute(prompt: string, options?: Record<string, any>): Promise<AgentResult>;
-}
+import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * Result returned by agent execution
@@ -22,7 +7,7 @@ export interface AgentResult {
   success: boolean;
   output?: string;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -31,4 +16,10 @@ export interface AgentResult {
 export interface AgentConfig {
   apiKey: string;
   githubInstallationToken: string;
+  prompt: string;
+  mcpServers: Record<string, McpServerConfig>;
 }
+
+export type Agent = {
+  run: (config: AgentConfig) => Promise<AgentResult>;
+};

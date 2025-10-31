@@ -17,7 +17,7 @@ export const PullRequestInfoTool = tool({
     });
 
     const data = pr.data;
-    
+
     const baseBranch = data.base.ref;
     const headBranch = data.head.ref;
 

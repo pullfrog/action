@@ -1,56 +1,17 @@
-import * as core from "@actions/core";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { createMcpConfig } from "../mcp/config.ts";
 import { log } from "../utils/cli.ts";
-import { debugLog, isDebug } from "../utils/logging.ts";
 import { instructions } from "./shared.ts";
-import type { Agent, AgentConfig, AgentResult } from "./types.ts";
+import type { Agent } from "./types.ts";
 
-/**
- * Claude Code agent implementation
- */
-export class ClaudeAgent implements Agent {
-  private apiKey: string;
-  private githubInstallationToken: string;
-
-  constructor(config: AgentConfig) {
-    this.apiKey = config.apiKey;
-    this.githubInstallationToken = config.githubInstallationToken;
-  }
-
-  /**
-   * Install is a no-op since Claude CLI is bundled with the SDK
-   */
-  async install(): Promise<void> {
-    // No installation needed - CLI is bundled with @anthropic-ai/claude-agent-sdk
-  }
-
-  /**
-   * Execute Claude Code with the given prompt using the SDK
-   */
-  async execute(prompt: string): Promise<AgentResult> {
-    log.info("Running Claude Agent SDK...");
-
-    log.box(prompt, { title: "Prompt" });
-
-    const mcpConfig = JSON.parse(createMcpConfig(this.githubInstallationToken));
-
-    if (isDebug()) {
-      debugLog(`📋 MCP Config: ${JSON.stringify(mcpConfig, null, 2)}`);
-    }
-
-    // Initialize session
-    core.info(`🚀 Starting Claude Agent SDK session...`);
-
-    // Set API key environment variable for SDK
-    process.env.ANTHROPIC_API_KEY = this.apiKey;
-
+export const claude: Agent = {
+  run: async ({ prompt, mcpServers, apiKey }) => {
+    process.env.ANTHROPIC_API_KEY = apiKey;
     // Create the query with SDK options
     const queryInstance = query({
       prompt: `${instructions}\n\n${prompt}`,
       options: {
         permissionMode: "bypassPermissions",
-        mcpServers: mcpConfig.mcpServers,
+        mcpServers,
       },
     });
 
@@ -60,14 +21,12 @@ export class ClaudeAgent implements Agent {
       await handler(message as never);
     }
 
-    log.success("Task complete.");
-
     return {
       success: true,
       output: "",
     };
-  }
-}
+  },
+};
 
 type SDKMessageType = SDKMessage["type"];
 

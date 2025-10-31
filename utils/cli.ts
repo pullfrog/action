@@ -5,6 +5,7 @@
 import * as core from "@actions/core";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
+const isDebugEnabled = process.env.LOG_LEVEL === "debug";
 
 /**
  * Print a formatted box with text (for console output)
@@ -87,7 +88,12 @@ function box(
     maxWidth?: number;
   }
 ): void {
-  core.info(boxString(text, options));
+  const boxContent = boxString(text, options);
+  core.info(boxContent);
+  if (isGitHubActions) {
+    // Add as markdown code block for summary (no headers)
+    core.summary.addRaw(`\`\`\`\n${text}\n\`\`\`\n`);
+  }
 }
 
 /**
@@ -115,10 +121,10 @@ async function summaryTable(
   if (isGitHubActions) {
     const summary = core.summary;
     if (title) {
-      summary.addHeading(title);
+      summary.addRaw(`**${title}**\n\n`);
     }
     summary.addTable(formattedRows);
-    await summary.write();
+    // Note: Don't write immediately, let it accumulate with other summary content
   }
 
   // Also log to console for visibility
@@ -133,7 +139,11 @@ async function summaryTable(
  * Print a separator line
  */
 function separator(length: number = 50): void {
-  core.info("─".repeat(length));
+  const separatorText = "─".repeat(length);
+  core.info(separatorText);
+  if (isGitHubActions) {
+    core.summary.addRaw(`---\n`);
+  }
 }
 
 /**
@@ -145,6 +155,9 @@ export const log = {
    */
   info: (message: string): void => {
     core.info(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`${message}\n`);
+    }
   },
 
   /**
@@ -152,6 +165,9 @@ export const log = {
    */
   warning: (message: string): void => {
     core.warning(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`⚠️ ${message}\n`);
+    }
   },
 
   /**
@@ -159,13 +175,33 @@ export const log = {
    */
   error: (message: string): void => {
     core.error(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`❌ ${message}\n`);
+    }
   },
 
   /**
    * Print success message
    */
   success: (message: string): void => {
-    core.info(`✅ ${message}`);
+    const successMessage = `✅ ${message}`;
+    core.info(successMessage);
+    if (isGitHubActions) {
+      core.summary.addRaw(`${successMessage}\n`);
+    }
+  },
+
+  /**
+   * Print debug message (only if LOG_LEVEL=debug)
+   */
+  debug: (message: string): void => {
+    if (isDebugEnabled) {
+      if (isGitHubActions) {
+        core.debug(message);
+      } else {
+        core.info(`[DEBUG] ${message}`);
+      }
+    }
   },
 
   /**
@@ -183,4 +219,14 @@ export const log = {
    * Print a separator line
    */
   separator,
+
+  /**
+   * Write all accumulated summary content to the job summary
+   * Call this at the end of execution to finalize the summary
+   */
+  writeSummary: async (): Promise<void> => {
+    if (isGitHubActions) {
+      await core.summary.write();
+    }
+  },
 };

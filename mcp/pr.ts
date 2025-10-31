@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { type } from "arktype";
+import { log } from "../utils/cli.ts";
 import { contextualize, tool } from "./shared.ts";
 
 export const PullRequest = type({
@@ -18,7 +19,7 @@ export const PullRequestTool = tool({
       encoding: "utf8",
     }).trim();
 
-    console.log(`Current branch: ${currentBranch}`);
+    log.info(`Current branch: ${currentBranch}`);
 
     const result = await ctx.octokit.rest.pulls.create({
       owner: ctx.owner,

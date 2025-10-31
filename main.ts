@@ -1,6 +1,7 @@
-import * as core from "@actions/core";
 import { type } from "arktype";
-import { ClaudeAgent } from "./agents/claude.ts";
+import { claude } from "./agents/claude.ts";
+import { createMcpConfig } from "./mcp/config.ts";
+import { log } from "./utils/cli.ts";
 import { parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
@@ -19,7 +20,7 @@ export interface MainResult {
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   try {
-    core.info(`→ Starting agent run with Claude Code`);
+    log.info("Starting agent run...");
 
     setupGitConfig();
 
@@ -28,14 +29,23 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     setupGitAuth(githubInstallationToken, repoContext);
 
-    const agent = new ClaudeAgent({
-      apiKey: inputs.anthropic_api_key!,
+    // Create MCP config
+    const mcpConfig = JSON.parse(createMcpConfig(githubInstallationToken));
+
+    log.debug(`📋 MCP Config: ${JSON.stringify(mcpConfig, null, 2)}`);
+
+    // Extract mcpServers object from config
+    const mcpServers = mcpConfig.mcpServers || {};
+
+    log.info("Running Claude Agent SDK...");
+    log.box(inputs.prompt, { title: "Prompt" });
+
+    const result = await claude.run({
+      prompt: inputs.prompt,
+      mcpServers,
       githubInstallationToken,
+      apiKey: inputs.anthropic_api_key!,
     });
-
-    await agent.install();
-
-    const result = await agent.execute(inputs.prompt);
 
     if (!result.success) {
       return {
@@ -45,12 +55,17 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       };
     }
 
+    log.success("Task complete.");
+    await log.writeSummary();
+
     return {
       success: true,
       output: result.output || "",
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    log.error(errorMessage);
+    await log.writeSummary();
     return {
       success: false,
       error: errorMessage,

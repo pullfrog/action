@@ -4,8 +4,8 @@ import { FastMCP } from "fastmcp";
 import { CommentTool } from "./comment.ts";
 import { IssueTool } from "./issue.ts";
 import { PullRequestTool } from "./pr.ts";
-import { ReviewTool } from "./review.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
+import { ReviewTool } from "./review.ts";
 import { addTools } from "./shared.ts";
 
 const server = new FastMCP({

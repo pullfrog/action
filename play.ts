@@ -59,7 +59,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 
   if (args["--help"]) {
-    console.log(`
+    log.info(`
 Usage: tsx play.ts [file] [options]
 
 Test the Pullfrog action with various prompts.

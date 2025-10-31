@@ -1,5 +1,6 @@
 import { createSign } from "node:crypto";
 import * as core from "@actions/core";
+import { log } from "./cli.ts";
 
 export interface InstallationToken {
   token: string;
@@ -53,14 +54,14 @@ function isGitHubActionsEnvironment(): boolean {
 }
 
 async function acquireTokenViaOIDC(): Promise<string> {
-  core.info("Generating OIDC token...");
+  log.info("Generating OIDC token...");
 
   const oidcToken = await core.getIDToken("pullfrog-api");
-  core.info("OIDC token generated successfully");
+  log.info("OIDC token generated successfully");
 
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
 
-  core.info("Exchanging OIDC token for installation token...");
+  log.info("Exchanging OIDC token for installation token...");
   const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
     method: "POST",
     headers: {
@@ -77,7 +78,7 @@ async function acquireTokenViaOIDC(): Promise<string> {
   }
 
   const tokenData = (await tokenResponse.json()) as InstallationToken;
-  core.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+  log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
 
   return tokenData.token;
 }
@@ -238,7 +239,7 @@ export async function setupGitHubInstallationToken(): Promise<string> {
   const existingToken = checkExistingToken();
   if (existingToken) {
     core.setSecret(existingToken);
-    core.info("Using provided GitHub installation token");
+    log.info("Using provided GitHub installation token");
     return existingToken;
   }
 
