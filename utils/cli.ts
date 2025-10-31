@@ -1,6 +1,5 @@
 /**
- * CLI output utilities for GitHub Actions and local development
- * Uses GitHub Actions Job Summaries API when available for rich formatting
+ * CLI output utilities that work well in both local and GitHub Actions environments
  */
 
 import * as core from "@actions/core";
@@ -79,7 +78,7 @@ function boxString(
 
 /**
  * Print a formatted box with text
- * In GitHub Actions, uses markdown code blocks; locally uses box formatting
+ * Works well in both local and GitHub Actions environments
  */
 function box(
   text: string,
@@ -88,29 +87,14 @@ function box(
     maxWidth?: number;
   }
 ): void {
-  if (isGitHubActions) {
-    const { title } = options || {};
-    let markdown = "";
-    if (title) {
-      markdown += `### ${title}\n\n`;
-    }
-    markdown += "```\n";
-    markdown += text;
-    markdown += "\n```\n";
-    // Note: summary.write() should be called once at the end, but for immediate visibility we call it here
-    // In practice, you might want to batch multiple calls
-    core.summary.addRaw(markdown);
-    core.info(markdown);
-  } else {
-    log.info(boxString(text, options));
-  }
+  core.info(boxString(text, options));
 }
 
 /**
- * Add a table using GitHub Actions Job Summaries API
- * Falls back to formatted console table locally
+ * Add a table to GitHub Actions job summary (rich formatting)
+ * Also logs to console. Only use this once at the end of execution.
  */
-async function table(
+async function summaryTable(
   rows: Array<Array<{ data: string; header?: boolean } | string>>,
   options?: {
     title?: string;
@@ -118,107 +102,38 @@ async function table(
 ): Promise<void> {
   const { title } = options || {};
 
+  // Convert rows to format expected by Job Summaries API
+  const formattedRows = rows.map((row) =>
+    row.map((cell) => {
+      if (typeof cell === "string") {
+        return { data: cell };
+      }
+      return cell;
+    })
+  );
+
   if (isGitHubActions) {
     const summary = core.summary;
-
     if (title) {
       summary.addHeading(title);
     }
-
-    // Convert rows to format expected by Job Summaries API
-    const formattedRows = rows.map((row) =>
-      row.map((cell) => {
-        if (typeof cell === "string") {
-          return { data: cell };
-        }
-        return cell;
-      })
-    );
-
     summary.addTable(formattedRows);
     await summary.write();
-
-    // Also log to console for visibility in logs
-    const tableText = formattedRows
-      .map((row) => row.map((cell) => cell.data).join(" | "))
-      .join("\n");
-    log.info(tableText);
-  } else {
-    // Local fallback: simple console table
-    if (title) {
-      log.info(`\n${title}`);
-    }
-    const tableText = rows
-      .map((row) => {
-        const rowData = row.map((cell) => {
-          const text = typeof cell === "string" ? cell : cell.data;
-          const isHeader = typeof cell !== "string" && cell.header;
-          return isHeader ? `**${text}**` : text;
-        });
-        return rowData.join(" | ");
-      })
-      .join("\n");
-    log.info(`\n${tableText}\n`);
   }
-}
 
-/**
- * Add raw markdown to job summary (GitHub Actions) or print as info (local)
- */
-async function markdown(content: string): Promise<void> {
-  if (isGitHubActions) {
-    core.summary.addRaw(content);
-    await core.summary.write();
-    // Also log to console
-    core.info(content);
-  } else {
-    log.info(content);
+  // Also log to console for visibility
+  if (title) {
+    core.info(`\n${title}`);
   }
-}
-
-/**
- * Add a code block to output
- */
-function codeBlock(code: string, language?: string): void {
-  if (isGitHubActions) {
-    core.summary.addCodeBlock(code, language);
-    core.info(`\`\`\`${language || ""}\n${code}\n\`\`\``);
-  } else {
-    log.info(`\`\`\`${language || ""}\n${code}\n\`\`\``);
-  }
-}
-
-/**
- * Add a link to output
- */
-function link(text: string, url: string): void {
-  if (isGitHubActions) {
-    core.summary.addLink(text, url);
-    log.info(`[${text}](${url})`);
-  } else {
-    log.info(`[${text}](${url})`);
-  }
-}
-
-/**
- * Write all pending summary changes to the job summary
- * Call this at the end of your action to ensure all summary content is written
- */
-async function writeSummary(): Promise<void> {
-  if (isGitHubActions) {
-    await core.summary.write();
-  }
+  const tableText = formattedRows.map((row) => row.map((cell) => cell.data).join(" | ")).join("\n");
+  core.info(`\n${tableText}\n`);
 }
 
 /**
  * Print a separator line
  */
 function separator(length: number = 50): void {
-  if (isGitHubActions) {
-    core.info("─".repeat(length));
-  } else {
-    console.log("─".repeat(length));
-  }
+  core.info("─".repeat(length));
 }
 
 /**
@@ -226,87 +141,43 @@ function separator(length: number = 50): void {
  */
 export const log = {
   /**
-   * Check if running in GitHub Actions environment
-   */
-  isGitHubActions: (): boolean => isGitHubActions,
-
-  /**
-   * Print info message (GitHub Actions or console)
+   * Print info message
    */
   info: (message: string): void => {
-    if (isGitHubActions) {
-      core.info(message);
-    } else {
-      console.log(message);
-    }
+    core.info(message);
   },
 
   /**
    * Print warning message
    */
   warning: (message: string): void => {
-    if (isGitHubActions) {
-      core.warning(message);
-    } else {
-      console.warn(`⚠️  ${message}`);
-    }
+    core.warning(message);
   },
 
   /**
    * Print error message
    */
   error: (message: string): void => {
-    if (isGitHubActions) {
-      core.error(message);
-    } else {
-      console.error(`❌ ${message}`);
-    }
+    core.error(message);
   },
 
   /**
    * Print success message
    */
   success: (message: string): void => {
-    const msg = `✅ ${message}`;
-    if (isGitHubActions) {
-      core.info(msg);
-    } else {
-      console.log(msg);
-    }
+    core.info(`✅ ${message}`);
   },
 
   /**
    * Print a formatted box with text
-   * In GitHub Actions, uses markdown code blocks; locally uses box formatting
    */
   box,
 
   /**
-   * Add a table using GitHub Actions Job Summaries API
-   * Falls back to formatted console table locally
+   * Add a table to GitHub Actions job summary (rich formatting)
+   * Only use this once at the end of execution
    */
-  table,
-
-  /**
-   * Add raw markdown to job summary (GitHub Actions) or print as info (local)
-   */
-  markdown,
-
-  /**
-   * Add a code block to output
-   */
-  codeBlock,
-
-  /**
-   * Add a link to output
-   */
-  link,
-
-  /**
-   * Write all pending summary changes to the job summary
-   * Call this at the end of your action to ensure all summary content is written
-   */
-  writeSummary,
+  summaryTable,
 
   /**
    * Print a separator line

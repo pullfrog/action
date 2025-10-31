@@ -1,8 +1,8 @@
 import * as core from "@actions/core";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { createMcpConfig } from "../mcp/config.ts";
-import { debugLog, isDebug } from "../utils/logging.ts";
 import { log } from "../utils/cli.ts";
+import { debugLog, isDebug } from "../utils/logging.ts";
 import { instructions } from "./shared.ts";
 import type { Agent, AgentConfig, AgentResult } from "./types.ts";
 
@@ -39,8 +39,6 @@ export class ClaudeAgent implements Agent {
       debugLog(`📋 MCP Config: ${JSON.stringify(mcpConfig, null, 2)}`);
     }
 
-    core.startGroup("🔄 Run details");
-
     // Initialize session
     core.info(`🚀 Starting Claude Agent SDK session...`);
 
@@ -63,7 +61,6 @@ export class ClaudeAgent implements Agent {
     }
 
     log.success("Task complete.");
-    core.endGroup();
 
     return {
       success: true,
@@ -130,8 +127,12 @@ const messageHandlers: SDKMessageHandlers = {
   },
   result: async (data) => {
     if (data.subtype === "success") {
-      await log.table([
-        [{ data: "Cost", header: true }, { data: "Input Tokens", header: true }, { data: "Output Tokens", header: true }],
+      await log.summaryTable([
+        [
+          { data: "Cost", header: true },
+          { data: "Input Tokens", header: true },
+          { data: "Output Tokens", header: true },
+        ],
         [
           `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`,
           String(data.usage?.input_tokens || 0),
