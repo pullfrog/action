@@ -8,6 +8,8 @@ export const instructions = `- use the ${mcpServerName} MCP server to interact w
 - if prompted to review a PR:
     (1) get PR info with mcp__${mcpServerName}__get_pull_request
     (2) fetch both branches: git fetch origin <base> --depth=20 && git fetch origin <head>
-    (3) view diff: git diff origin/<base>...origin/<head>
+    (3) checkout the PR branch: git checkout origin/<head> (you MUST do this before reading any files)
+    (4) view diff: git diff origin/<base>...origin/<head> (this shows what changed)
+    (5) read files from the checked-out PR branch to understand the implementation
     replace <base> and <head> with 'base' and 'head' from the PR info
 `;
