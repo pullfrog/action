@@ -1,12 +1,11 @@
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
-import { instructions } from "./shared.ts";
-import type { Agent } from "./types.ts";
+import { type Agent, instructions } from "./shared.ts";
 
 export const claude: Agent = {
   run: async ({ prompt, mcpServers, apiKey }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
-    // Create the query with SDK options
+
     const queryInstance = query({
       prompt: `${instructions}\n\n${prompt}`,
       options: {

@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
-import { createMcpConfig } from "./mcp/config.ts";
+import { createMcpConfigs } from "./mcp/config.ts";
 import { log } from "./utils/cli.ts";
 import { parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
@@ -29,13 +29,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     setupGitAuth(githubInstallationToken, repoContext);
 
-    // Create MCP config
-    const mcpConfig = JSON.parse(createMcpConfig(githubInstallationToken));
+    const mcpServers = createMcpConfigs(githubInstallationToken);
 
-    log.debug(`📋 MCP Config: ${JSON.stringify(mcpConfig, null, 2)}`);
-
-    // Extract mcpServers object from config
-    const mcpServers = mcpConfig.mcpServers || {};
+    log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
 
     log.info("Running Claude Agent SDK...");
     log.box(inputs.prompt, { title: "Prompt" });
