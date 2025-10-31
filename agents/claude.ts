@@ -2,7 +2,7 @@ import * as core from "@actions/core";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { createMcpConfig } from "../mcp/config.ts";
 import { debugLog, isDebug } from "../utils/logging.ts";
-import { boxString, tableString } from "../utils/table.ts";
+import { log } from "../utils/cli.ts";
 import { instructions } from "./shared.ts";
 import type { Agent, AgentConfig, AgentResult } from "./types.ts";
 
@@ -29,9 +29,9 @@ export class ClaudeAgent implements Agent {
    * Execute Claude Code with the given prompt using the SDK
    */
   async execute(prompt: string): Promise<AgentResult> {
-    core.info("Running Claude Agent SDK...");
+    log.info("Running Claude Agent SDK...");
 
-    console.log(boxString(prompt, { title: "Prompt" }));
+    log.box(prompt, { title: "Prompt" });
 
     const mcpConfig = JSON.parse(createMcpConfig(this.githubInstallationToken));
 
@@ -59,10 +59,10 @@ export class ClaudeAgent implements Agent {
     // Stream the results
     for await (const message of queryInstance) {
       const handler = messageHandlers[message.type];
-      handler(message as never);
+      await handler(message as never);
     }
 
-    core.info("✅ Task complete.");
+    log.success("Task complete.");
     core.endGroup();
 
     return {
@@ -76,7 +76,7 @@ type SDKMessageType = SDKMessage["type"];
 
 type SDKMessageHandler<type extends SDKMessageType = SDKMessageType> = (
   data: Extract<SDKMessage, { type: type }>
-) => void;
+) => void | Promise<void>;
 
 type SDKMessageHandlers = {
   [type in SDKMessageType]: SDKMessageHandler<type>;
@@ -87,33 +87,33 @@ const messageHandlers: SDKMessageHandlers = {
     if (data.message?.content) {
       for (const content of data.message.content) {
         if (content.type === "text" && content.text?.trim()) {
-          core.info(boxString(content.text.trim(), { title: "Claude" }));
+          log.box(content.text.trim(), { title: "Claude" });
         } else if (content.type === "tool_use") {
-          core.info(`→ ${content.name}`);
+          log.info(`→ ${content.name}`);
 
           if (content.input) {
             const input = content.input as any;
-            if (input.description) core.info(`   └─ ${input.description}`);
-            if (input.command) core.info(`   └─ command: ${input.command}`);
-            if (input.file_path) core.info(`   └─ file: ${input.file_path}`);
+            if (input.description) log.info(`   └─ ${input.description}`);
+            if (input.command) log.info(`   └─ command: ${input.command}`);
+            if (input.file_path) log.info(`   └─ file: ${input.file_path}`);
             if (input.content) {
               const preview =
                 input.content.length > 100
                   ? `${input.content.substring(0, 100)}...`
                   : input.content;
-              core.info(`   └─ content: ${preview}`);
+              log.info(`   └─ content: ${preview}`);
             }
-            if (input.query) core.info(`   └─ query: ${input.query}`);
-            if (input.pattern) core.info(`   └─ pattern: ${input.pattern}`);
-            if (input.url) core.info(`   └─ url: ${input.url}`);
+            if (input.query) log.info(`   └─ query: ${input.query}`);
+            if (input.pattern) log.info(`   └─ pattern: ${input.pattern}`);
+            if (input.url) log.info(`   └─ url: ${input.url}`);
             if (input.edits && Array.isArray(input.edits)) {
-              core.info(`   └─ edits: ${input.edits.length} changes`);
+              log.info(`   └─ edits: ${input.edits.length} changes`);
               input.edits.forEach((edit: any, index: number) => {
-                if (edit.file_path) core.info(`      ${index + 1}. ${edit.file_path}`);
+                if (edit.file_path) log.info(`      ${index + 1}. ${edit.file_path}`);
               });
             }
-            if (input.task) core.info(`   └─ task: ${input.task}`);
-            if (input.bash_command) core.info(`   └─ bash_command: ${input.bash_command}`);
+            if (input.task) log.info(`   └─ task: ${input.task}`);
+            if (input.bash_command) log.info(`   └─ bash_command: ${input.bash_command}`);
           }
         }
       }
@@ -123,26 +123,27 @@ const messageHandlers: SDKMessageHandlers = {
     if (data.message?.content) {
       for (const content of data.message.content) {
         if (content.type === "tool_result" && content.is_error) {
-          core.warning(`❌ Tool error: ${content.content}`);
+          log.warning(`Tool error: ${content.content}`);
         }
       }
     }
   },
-  result: (data) => {
+  result: async (data) => {
     if (data.subtype === "success") {
-      core.info(
-        tableString([
-          ["Cost", `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`],
-          ["Input Tokens", data.usage?.input_tokens || 0],
-          ["Output Tokens", data.usage?.output_tokens || 0],
-        ])
-      );
+      await log.table([
+        [{ data: "Cost", header: true }, { data: "Input Tokens", header: true }, { data: "Output Tokens", header: true }],
+        [
+          `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`,
+          String(data.usage?.input_tokens || 0),
+          String(data.usage?.output_tokens || 0),
+        ],
+      ]);
     } else if (data.subtype === "error_max_turns") {
-      core.error(`❌ Max turns reached: ${JSON.stringify(data)}`);
+      log.error(`Max turns reached: ${JSON.stringify(data)}`);
     } else if (data.subtype === "error_during_execution") {
-      core.error(`❌ Execution error: ${JSON.stringify(data)}`);
+      log.error(`Execution error: ${JSON.stringify(data)}`);
     } else {
-      core.error(`❌ Failed: ${JSON.stringify(data)}`);
+      log.error(`Failed: ${JSON.stringify(data)}`);
     }
   },
   system: () => {},

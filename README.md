@@ -12,7 +12,6 @@ pnpm install
 
 # Test with default prompt
 npm run play              # Run locally on your machine
-npm run play -- --act     # Run in Docker (simulates GitHub Actions)
 ```
 
 ## Testing with play.ts

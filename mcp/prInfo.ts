@@ -7,7 +7,7 @@ export const PullRequestInfo = type({
 
 export const PullRequestInfoTool = tool({
   name: "get_pull_request",
-  description: "Retrieve detailed information for a specific pull request by number, with a suggested local diff command.",
+  description: "Retrieve minimal information for a specific pull request by number.",
   parameters: PullRequestInfo,
   execute: contextualize(async ({ pull_number }, ctx) => {
     const pr = await ctx.octokit.rest.pulls.get({
@@ -17,16 +17,9 @@ export const PullRequestInfoTool = tool({
     });
 
     const data = pr.data;
-
-    const baseBranch = data.base?.ref;
-    const headBranch = data.head?.ref;
-    const headSha = data.head?.sha;
-
-    // Suggest a local diff command similar to claude-code-action
-    // Consumers can run this in a repo checkout to view the diff without API diff access
-    const diff_hint = baseBranch
-      ? `git fetch origin ${baseBranch} --depth=20 && git diff origin/${baseBranch}...${headSha || "HEAD"}`
-      : undefined;
+    
+    const baseBranch = data.base.ref;
+    const headBranch = data.head.ref;
 
     return {
       number: data.number,
@@ -35,21 +28,8 @@ export const PullRequestInfoTool = tool({
       state: data.state,
       draft: data.draft,
       merged: data.merged,
-      mergeable: data.mergeable,
-      user: data.user?.login,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      head: headBranch,
-      head_sha: headSha,
       base: baseBranch,
-      base_sha: data.base?.sha,
-      additions: data.additions,
-      deletions: data.deletions,
-      changed_files: data.changed_files,
-      labels: (data.labels || []).map((l) => (typeof l === "string" ? l : l.name)).filter(Boolean),
-      requested_reviewers: (data.requested_reviewers || []).map((u) => u.login),
-      requested_teams: (data.requested_teams || []).map((t) => t.slug),
-      diff_hint,
+      head: headBranch,
     };
   }),
 });

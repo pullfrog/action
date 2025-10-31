@@ -6,22 +6,16 @@ import arg from "arg";
 import { config } from "dotenv";
 import { type Inputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { runAct } from "./utils/act.ts";
+import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
 
 export async function run(
-  prompt: string,
-  options: { act?: boolean } = {}
+  prompt: string
 ): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
   try {
-    console.log(`🐸 Running pullfrog/action@${packageJson.version}...`);
-    if (options.act) {
-      console.log("🐳 Running with Docker/act...");
-      runAct(prompt);
-      return { success: true };
-    }
+    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
     const tempDir = join(process.cwd(), ".temp");
     setupTestRepo({ tempDir, forceClean: true });
@@ -29,11 +23,10 @@ export async function run(
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    console.log("🚀 Running action with prompt...");
-    console.log("─".repeat(50));
-    console.log("Prompt:");
-    console.log(prompt);
-    console.log("─".repeat(50));
+    log.info("🚀 Running action with prompt...");
+    log.separator();
+    log.box(prompt, { title: "Prompt" });
+    log.separator();
 
     const inputs: Inputs = {
       prompt,
@@ -45,15 +38,15 @@ export async function run(
     process.chdir(originalCwd);
 
     if (result.success) {
-      console.log("✅ Action completed successfully");
+      log.success("Action completed successfully");
       return { success: true, output: result.output || undefined, error: undefined };
     } else {
-      console.error("❌ Action failed:", result.error);
+      log.error(`Action failed: ${result.error || "Unknown error"}`);
       return { success: false, error: result.error || undefined, output: undefined };
     }
-  } catch (error) {
-    const errorMessage = (error as Error).message;
-    console.error("❌ Error:", errorMessage);
+  } catch (err) {
+    const errorMessage = (err as Error).message;
+    log.error(`Error: ${errorMessage}`);
     return { success: false, error: errorMessage, output: undefined };
   }
 }
@@ -61,7 +54,6 @@ export async function run(
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = arg({
     "--help": Boolean,
-    "--act": Boolean,
     "--raw": String,
     "-h": "--help",
   });
@@ -76,7 +68,6 @@ Arguments:
   file                    Prompt file to use (.txt, .json, or .ts) [default: fixtures/basic.txt]
 
 Options:
-  --act                   Use Docker/act to run the action instead of running directly
   --raw [prompt]          Use raw string as prompt instead of loading from file
   -h, --help              Show this help message
 
@@ -84,7 +75,7 @@ Examples:
   tsx play.ts                        # Use default fixture
   tsx play.ts fixtures/basic.txt     # Use specific text file
   tsx play.ts custom.json            # Use JSON file
-  tsx play.ts --act fixtures/test.ts # Use TypeScript file with Docker/act
+  tsx play.ts fixtures/test.ts       # Use TypeScript file
   tsx play.ts --raw "Hello world"    # Use raw string as prompt
     `);
     process.exit(0);
@@ -145,13 +136,13 @@ Examples:
   }
 
   try {
-    const result = await run(prompt, { act: args["--act"] || false });
+    const result = await run(prompt);
 
     if (!result.success) {
       process.exit(1);
     }
-  } catch (error) {
-    console.error("❌ Error:", (error as Error).message);
+  } catch (err) {
+    log.error((err as Error).message);
     process.exit(1);
   }
 }

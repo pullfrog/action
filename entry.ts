@@ -8,10 +8,11 @@ import * as core from "@actions/core";
 import { type } from "arktype";
 import { Inputs, main } from "./main.ts";
 import packageJson from "./package.json" with { type: "json" };
+import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
   try {
-    console.log(`🐸 Running pullfrog/action@${packageJson.version}...`);
+    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
     const inputsJson = process.env.INPUTS_JSON;
     if (!inputsJson) {
