@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.71",
+  "version": "0.0.72",
   "type": "module",
   "files": [
     "index.js",

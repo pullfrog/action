@@ -25,9 +25,8 @@ export type Agent = {
   run: (config: AgentConfig) => Promise<AgentResult>;
 };
 
-export const instructions = `- use the ${ghPullfrogMcpName} MCP server to interact with github
-- if ${ghPullfrogMcpName} is not available or doesn't include the functionality you need, describe why and bail
-- do not under any circumstances use the gh cli
+export const instructions = `- inspect ${ghPullfrogMcpName} MCP server to determine what tools are available
+- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
 - if prompted by a comment to respond to create a new issue, pr or anything else, after succeeding,
     also respond to the original comment with a very brief message containing a link to it
 - mode selection: choose the appropriate mode based on the prompt payload:
