@@ -30,6 +30,29 @@ export const instructions = `- use the ${ghPullfrogMcpName} MCP server to intera
 - do not under any circumstances use the gh cli
 - if prompted by a comment to respond to create a new issue, pr or anything else, after succeeding,
     also respond to the original comment with a very brief message containing a link to it
+- mode selection: choose the appropriate mode based on the prompt payload:
+    - choose "plan mode" if the prompt asks to:
+        - create a plan, break down tasks, outline steps, or analyze requirements
+        - understand the scope of work before implementation
+        - provide a todo list or task breakdown
+    - choose "implement" if the prompt asks to:
+        - implement, build, create, or develop code changes
+        - make specific changes to files or features
+        - execute a plan that was previously created
+        - the prompt includes specific implementation details or requirements
+    - choose "review" if the prompt asks to:
+        - review code, PR, or implementation
+        - provide feedback, suggestions, or identify issues
+        - check code quality, style, or correctness
+- once you've chosen a mode, follow its associated prompts carefully
+- when prompted directly (e.g., via issue comment or PR comment):
+    (1) start by creating a single response comment using mcp__${ghPullfrogMcpName}__create_issue_comment
+        - the initial comment should say something like "I'll do {summary of request}" where you summarize what was requested
+        - save the commentId returned from this initial comment creation
+    (2) use mcp__${ghPullfrogMcpName}__edit_issue_comment to progressively update that same comment as you make progress
+        - update the comment with current status, completed tasks, and any relevant information
+        - continue updating the same comment throughout the planning/implementation process
+    (3) create_issue_comment should only be used once initially - all subsequent updates must use edit_issue_comment with the saved commentId
 - if prompted to review a PR:
     (1) get PR info with mcp__${ghPullfrogMcpName}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
     (2) view diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments)
