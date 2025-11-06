@@ -142,6 +142,4 @@ const messageHandlers: SDKMessageHandlers = {
   },
   system: () => {},
   stream_event: () => {},
-  tool_progress: () => {},
-  auth_status: () => {},
 };
