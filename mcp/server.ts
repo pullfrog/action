@@ -8,18 +8,20 @@ import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
 import { addTools } from "./shared.ts";
 
-const server = new FastMCP({
-  name: "gh-pullfrog",
-  version: "0.0.1",
-});
+export function createMcpServer(): void {
+  const server = new FastMCP({
+    name: "gh-pullfrog",
+    version: "0.0.1",
+  });
 
-addTools(server, [
-  CreateCommentTool,
-  EditCommentTool,
-  IssueTool,
-  PullRequestTool,
-  ReviewTool,
-  PullRequestInfoTool,
-]);
+  addTools(server, [
+    CreateCommentTool,
+    EditCommentTool,
+    IssueTool,
+    PullRequestTool,
+    ReviewTool,
+    PullRequestInfoTool,
+  ]);
 
-server.start();
+  server.start();
+}

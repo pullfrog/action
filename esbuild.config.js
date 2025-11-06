@@ -3,7 +3,7 @@ import { build } from "esbuild";
 // Build the GitHub Action bundle only
 // For npm package builds, use zshy (pnpm build:npm)
 await build({
-  entryPoints: ["./entry.build.ts"],
+  entryPoints: ["./entry.ts"],
   bundle: true,
   outfile: "./entry.cjs",
   format: "cjs",
@@ -11,9 +11,12 @@ await build({
   target: "node20",
   minify: true,
   sourcemap: false,
-  // @actions/core is provided by GitHub Actions runtime, but we still need it bundled
-  // for local testing. However, we can mark it to reduce duplication if needed.
-  external: [],
+  // Mark optional peer dependencies as external to avoid bundling errors
+  external: [
+    "@valibot/to-json-schema",
+    "effect",
+    "sury",
+  ],
   // Enable tree-shaking to remove unused code
   treeShaking: true,
   // Drop console statements in production (but keep for debugging)

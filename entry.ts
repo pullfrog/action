@@ -7,8 +7,12 @@
 import * as core from "@actions/core";
 import { type } from "arktype";
 import { Inputs, main } from "./main.ts";
+import { createMcpServer } from "./mcp/server.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { log } from "./utils/cli.ts";
+
+// Export createMcpServer so it can be called from the spawned MCP process
+export { createMcpServer };
 
 async function run(): Promise<void> {
   try {
@@ -33,4 +37,11 @@ async function run(): Promise<void> {
   }
 }
 
-await run();
+// Only run main action if INPUTS_JSON is set (running as GitHub Action)
+// When SDK spawns MCP server, it calls createMcpServer() directly
+if (process.env.INPUTS_JSON) {
+  // Wrap in IIFE to avoid top-level await in CJS
+  (async () => {
+    await run();
+  })();
+}
