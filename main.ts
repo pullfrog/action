@@ -18,6 +18,8 @@ export interface MainResult {
   error?: string | undefined;
 }
 
+export type PromptJSON = {};
+
 export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     log.info("Starting agent run...");
@@ -35,6 +37,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     log.info("Running Claude Agent SDK...");
     log.box(inputs.prompt, { title: "Prompt" });
+
+    // TODO: check if `inputs.prompts` is JSON
+    // if yes, check if it's a webhook payload or toJSON(github.event)
+    // for webhook payloads, check the specified `agent` field
 
     const result = await claude.run({
       prompt: inputs.prompt,
