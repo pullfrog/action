@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Ensure lockfile is up to date
+echo "🔒 Updating lockfile..."
+pnpm install --lockfile-only
+
+# Build the action before committing
+echo "🔨 Building action..."
+pnpm build
+
+# Add the built files and lockfile to the commit
+git add entry.cjs pnpm-lock.yaml

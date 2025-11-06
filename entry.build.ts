@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+
+/**
+ * Build entry point - wraps entry.ts to avoid top-level await in CJS output
+ */
+
+import * as core from "@actions/core";
+import { type } from "arktype";
+import { Inputs, main } from "./main.ts";
+import packageJson from "./package.json" with { type: "json" };
+import { log } from "./utils/cli.ts";
+
+async function run(): Promise<void> {
+  try {
+    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
+
+    const inputsJson = process.env.INPUTS_JSON;
+    if (!inputsJson) {
+      throw new Error("INPUTS_JSON environment variable not found");
+    }
+
+    const parsed = type("string.json.parse").assert(inputsJson);
+    const inputs = Inputs.assert(parsed);
+
+    const result = await main(inputs);
+
+    if (!result.success) {
+      throw new Error(result.error || "Agent execution failed");
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    core.setFailed(`Action failed: ${errorMessage}`);
+  }
+}
+
+// Wrap in IIFE to avoid top-level await in CJS
+(async () => {
+  await run();
+})();
