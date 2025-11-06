@@ -37,6 +37,9 @@ type SDKMessageHandlers = {
   [type in SDKMessageType]: SDKMessageHandler<type>;
 };
 
+// Track bash tool IDs to identify when bash tool results come back
+const bashToolIds = new Set<string>();
+
 const messageHandlers: SDKMessageHandlers = {
   assistant: (data) => {
     if (data.message?.content) {
@@ -45,6 +48,11 @@ const messageHandlers: SDKMessageHandlers = {
           log.box(content.text.trim(), { title: "Claude" });
         } else if (content.type === "tool_use") {
           log.info(`→ ${content.name}`);
+
+          // Track bash tool IDs
+          if (content.name === "bash" && content.id) {
+            bashToolIds.add(content.id);
+          }
 
           if (content.input) {
             const input = content.input as any;
@@ -77,8 +85,35 @@ const messageHandlers: SDKMessageHandlers = {
   user: (data) => {
     if (data.message?.content) {
       for (const content of data.message.content) {
-        if (content.type === "tool_result" && content.is_error) {
-          log.warning(`Tool error: ${content.content}`);
+        if (content.type === "tool_result") {
+          const toolUseId = (content as any).tool_use_id;
+          const isBashTool = toolUseId && bashToolIds.has(toolUseId);
+
+          if (isBashTool) {
+            // Log bash output in a collapsed group
+            const outputContent =
+              typeof content.content === "string"
+                ? content.content
+                : Array.isArray(content.content)
+                  ? content.content
+                      .map((c: any) => (typeof c === "string" ? c : c.text || JSON.stringify(c)))
+                      .join("\n")
+                  : String(content.content);
+
+            log.startGroup(`bash output`);
+            if (content.is_error) {
+              log.warning(outputContent);
+            } else {
+              log.info(outputContent);
+            }
+            log.endGroup();
+            // Clean up the tracked ID
+            bashToolIds.delete(toolUseId);
+          } else if (content.is_error) {
+            const errorContent =
+              typeof content.content === "string" ? content.content : String(content.content);
+            log.warning(`Tool error: ${errorContent}`);
+          }
         }
       }
     }
@@ -107,4 +142,6 @@ const messageHandlers: SDKMessageHandlers = {
   },
   system: () => {},
   stream_event: () => {},
+  tool_progress: () => {},
+  auth_status: () => {},
 };

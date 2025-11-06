@@ -8,6 +8,28 @@ const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = process.env.LOG_LEVEL === "debug";
 
 /**
+ * Start a collapsed group (GitHub Actions) or regular group (local)
+ */
+function startGroup(name: string): void {
+  if (isGitHubActions) {
+    core.startGroup(name);
+  } else {
+    console.group(name);
+  }
+}
+
+/**
+ * End a collapsed group
+ */
+function endGroup(): void {
+  if (isGitHubActions) {
+    core.endGroup();
+  } else {
+    console.groupEnd();
+  }
+}
+
+/**
  * Print a formatted box with text (for console output)
  */
 function boxString(
@@ -229,4 +251,14 @@ export const log = {
       await core.summary.write();
     }
   },
+
+  /**
+   * Start a collapsed group (GitHub Actions) or regular group (local)
+   */
+  startGroup,
+
+  /**
+   * End a collapsed group
+   */
+  endGroup,
 };
