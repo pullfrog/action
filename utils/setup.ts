@@ -50,8 +50,16 @@ export function setupGitConfig(): void {
 
 /**
  * Setup git authentication using GitHub token
+ * Only runs in GitHub Actions environment to avoid breaking local git remotes
  */
 export function setupGitAuth(githubToken: string, repoContext: RepoContext): void {
+  // Only set up git auth in GitHub Actions environment
+  // In local testing, this would overwrite the real git remote with fake credentials
+  if (!process.env.GITHUB_ACTIONS) {
+    log.info("⚠️  Skipping git authentication setup (not in GitHub Actions)");
+    return;
+  }
+
   log.info("🔐 Setting up git authentication...");
 
   // Remove existing git auth headers that actions/checkout might have set

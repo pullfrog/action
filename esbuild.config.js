@@ -5,13 +5,16 @@ import { build } from "esbuild";
 await build({
   entryPoints: ["./entry.ts"],
   bundle: true,
-  outfile: "./entry.cjs",
-  format: "cjs",
+  outfile: "./entry.js",
+  format: "esm",
   platform: "node",
   target: "node20",
   minify: true,
   sourcemap: false,
-  // Mark optional peer dependencies as external to avoid bundling errors
+  // Mark all node_modules as external - Node.js will handle ESM/CJS interop natively
+  // This avoids esbuild's require() polyfill which doesn't work in ESM
+  packages: "external",
+  // Mark optional peer dependencies as external
   external: [
     "@valibot/to-json-schema",
     "effect",

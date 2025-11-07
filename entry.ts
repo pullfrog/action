@@ -37,11 +37,4 @@ async function run(): Promise<void> {
   }
 }
 
-// Only run main action if INPUTS_JSON is set (running as GitHub Action)
-// When SDK spawns MCP server, it calls createMcpServer() directly
-if (process.env.INPUTS_JSON) {
-  // Wrap in IIFE to avoid top-level await in CJS
-  (async () => {
-    await run();
-  })();
-}
+await run();

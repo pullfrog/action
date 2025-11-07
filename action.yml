@@ -13,7 +13,7 @@ inputs:
 
 runs:
   using: "node20"
-  main: "entry.cjs"
+  main: "entry.js"
 
 branding:
   icon: "code"
