@@ -1,11 +1,7 @@
 import { build } from "esbuild";
 
-// Build the GitHub Action bundle only
-// For npm package builds, use zshy (pnpm build:npm)
-await build({
-  entryPoints: ["./entry.ts"],
+const sharedConfig = {
   bundle: true,
-  outfile: "./entry.js",
   format: "esm",
   platform: "node",
   target: "node20",
@@ -27,6 +23,20 @@ await build({
   treeShaking: true,
   // Drop console statements in production (but keep for debugging)
   drop: [],
+};
+
+// Build the main entry bundle (without MCP)
+await build({
+  ...sharedConfig,
+  entryPoints: ["./entry.ts"],
+  outfile: "./entry.js",
+});
+
+// Build the MCP server bundle
+await build({
+  ...sharedConfig,
+  entryPoints: ["./mcp/server.ts"],
+  outfile: "./mcp-server.js",
 });
 
 console.log("✅ Build completed successfully!");

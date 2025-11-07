@@ -7,4 +7,4 @@ echo "🔨 Building action..."
 pnpm build
 
 # Add the built files and lockfile to the commit
-git add entry.js pnpm-lock.yaml
+git add entry.js mcp-server.js pnpm-lock.yaml

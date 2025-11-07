@@ -4,52 +4,11 @@
  * Entry point for GitHub Action
  */
 
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
 import * as core from "@actions/core";
-import { dirName } from "@ark/fs";
 import { type Inputs, main } from "./main.ts";
-import { createMcpServer } from "./mcp/server.ts";
 import { log } from "./utils/cli.ts";
 
-// Export createMcpServer so it can be called from the spawned MCP process
-export { createMcpServer };
-
-async function printDirectoryTree(dir: string, prefix = "", rootDir = dir): Promise<string> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const lines: string[] = [];
-
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const isLast = i === entries.length - 1;
-    const currentPrefix = isLast ? "└── " : "├── ";
-    const nextPrefix = isLast ? "    " : "│   ";
-
-    const fullPath = join(dir, entry.name);
-    lines.push(`${prefix}${currentPrefix}${entry.name}`);
-
-    if (entry.isDirectory()) {
-      const subTree = await printDirectoryTree(fullPath, `${prefix}${nextPrefix}`, rootDir);
-      lines.push(subTree);
-    }
-  }
-
-  return lines.join("\n");
-}
-
 async function run(): Promise<void> {
-  // Debug: Print current directory tree before changing directories
-  const actionDir = dirName();
-  log.info(`action dir: ${actionDir}`);
-  try {
-    const tree = await printDirectoryTree(actionDir);
-    log.info(`Directory tree:\n${tree}`);
-  } catch (error) {
-    log.warning(
-      `Failed to print directory tree: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-
   // Change to GITHUB_WORKSPACE if set (this is where actions/checkout puts the repo)
   // JavaScript actions run from the action's directory, not the checked-out repo
   if (process.env.GITHUB_WORKSPACE && process.cwd() !== process.env.GITHUB_WORKSPACE) {
