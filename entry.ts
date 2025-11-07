@@ -7,16 +7,12 @@
 import * as core from "@actions/core";
 import { type Inputs, main } from "./main.ts";
 import { createMcpServer } from "./mcp/server.ts";
-import packageJson from "./package.json" with { type: "json" };
-import { log } from "./utils/cli.ts";
 
 // Export createMcpServer so it can be called from the spawned MCP process
 export { createMcpServer };
 
 async function run(): Promise<void> {
   try {
-    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
-
     const inputs: Inputs = {
       prompt: core.getInput("prompt", { required: true }),
       anthropic_api_key: core.getInput("anthropic_api_key") || undefined,

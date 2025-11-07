@@ -47,29 +47,7 @@ export function setupGitConfig(): void {
   // Only set up git config in GitHub Actions environment
   // In local development, use the user's existing git config
   if (!process.env.GITHUB_ACTIONS) {
-    log.info("⚠️  Skipping git configuration setup (not in GitHub Actions)");
-    return;
-  }
-
-  // Debug logging for git repo detection
-  log.debug(`setupGitConfig: Current working directory: ${process.cwd()}`);
-  log.debug(`setupGitConfig: GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
-
-  // Check if we're in a git repository before trying to set config
-  log.debug(`setupGitConfig: Checking for git repository...`);
-  try {
-    const gitDir = execSync("git rev-parse --git-dir", { encoding: "utf-8", stdio: "pipe" }).trim();
-    log.debug(`setupGitConfig: Git directory found: ${gitDir}`);
-  } catch (error) {
-    log.warning(
-      `⚠️  Skipping git configuration setup (not in a git repository): ${error instanceof Error ? error.message : String(error)}`
-    );
-    try {
-      const dirContents = execSync("ls -la", { encoding: "utf-8", stdio: "pipe" }).trim();
-      log.debug(`setupGitConfig: Current directory contents:\n${dirContents}`);
-    } catch {
-      // Ignore if ls fails
-    }
+    log.warning("Skipping git configuration setup (not in GitHub Actions)");
     return;
   }
 
@@ -95,7 +73,7 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
   // Only set up git auth in GitHub Actions environment
   // In local testing, this would overwrite the real git remote with fake credentials
   if (!process.env.GITHUB_ACTIONS) {
-    log.info("⚠️  Skipping git authentication setup (not in GitHub Actions)");
+    log.warning("Skipping git authentication setup (not in GitHub Actions)");
     return;
   }
 

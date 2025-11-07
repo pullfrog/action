@@ -1,6 +1,7 @@
 import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
+import packageJson from "./package.json" with { type: "json" };
 import { log } from "./utils/cli.ts";
 import { parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
@@ -22,23 +23,14 @@ export type PromptJSON = {};
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   try {
-    log.info("Starting agent run...");
+    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
-    // Debug logging for git repo detection
-    log.debug(`Current working directory: ${process.cwd()}`);
-    log.debug(`GITHUB_ACTIONS: ${process.env.GITHUB_ACTIONS}`);
-    log.debug(`GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
-    try {
-      const { execSync } = await import("node:child_process");
-      const gitDir = execSync("git rev-parse --git-dir", {
-        encoding: "utf-8",
-        stdio: "pipe",
-      }).trim();
-      log.debug(`Git directory found: ${gitDir}`);
-    } catch (error) {
-      log.debug(
-        `Git directory check failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+    // Change to GITHUB_WORKSPACE if set (this is where actions/checkout puts the repo)
+    // JavaScript actions run from the action's directory, not the checked-out repo
+    if (process.env.GITHUB_WORKSPACE && process.cwd() !== process.env.GITHUB_WORKSPACE) {
+      log.debug(`Changing to GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
+      process.chdir(process.env.GITHUB_WORKSPACE);
+      log.debug(`New working directory: ${process.cwd()}`);
     }
 
     setupGitConfig();

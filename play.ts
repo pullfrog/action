@@ -5,7 +5,6 @@ import { fromHere } from "@ark/fs";
 import arg from "arg";
 import { config } from "dotenv";
 import { type Inputs, main } from "./main.ts";
-import packageJson from "./package.json" with { type: "json" };
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
@@ -15,8 +14,6 @@ export async function run(
   prompt: string
 ): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
   try {
-    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
-
     const tempDir = join(process.cwd(), ".temp");
     setupTestRepo({ tempDir, forceClean: true });
 
