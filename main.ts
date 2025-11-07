@@ -1,5 +1,3 @@
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
 import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -23,42 +21,8 @@ export interface MainResult {
 
 export type PromptJSON = {};
 
-async function printDirectoryTree(dir: string, prefix = "", rootDir = dir): Promise<string> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const lines: string[] = [];
-
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const isLast = i === entries.length - 1;
-    const currentPrefix = isLast ? "└── " : "├── ";
-    const nextPrefix = isLast ? "    " : "│   ";
-
-    const fullPath = join(dir, entry.name);
-    lines.push(`${prefix}${currentPrefix}${entry.name}`);
-
-    if (entry.isDirectory()) {
-      const subTree = await printDirectoryTree(fullPath, `${prefix}${nextPrefix}`, rootDir);
-      lines.push(subTree);
-    }
-  }
-
-  return lines.join("\n");
-}
-
 export async function main(inputs: Inputs): Promise<MainResult> {
   try {
-    // Debug: Print current directory tree before anything runs
-    const cwd = process.cwd();
-    log.info(`Current working directory: ${cwd}`);
-    try {
-      const tree = await printDirectoryTree(cwd);
-      log.info(`Directory tree:\n${tree}`);
-    } catch (error) {
-      log.warning(
-        `Failed to print directory tree: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-
     log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
     setupGitConfig();
