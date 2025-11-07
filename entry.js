@@ -28179,7 +28179,7 @@ var declare = ark.declare;
 
 // agents/claude.ts
 import { execSync } from "node:child_process";
-import { createWriteStream as createWriteStream2, existsSync as existsSync2, rmSync as rmSync2 } from "node:fs";
+import { createWriteStream as createWriteStream2, existsSync as existsSync3, rmSync as rmSync2 } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join as join5 } from "node:path";
@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.85",
+  version: "0.0.86",
   type: "module",
   files: [
     "index.js",
@@ -40748,6 +40748,10 @@ var log = {
    */
   endGroup: endGroup2
 };
+
+// mcp/config.ts
+import { existsSync as existsSync2, readdirSync as readdirSync2 } from "node:fs";
+import { dirname as dirname3 } from "node:path";
 
 // node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
 import path from "node:path";
@@ -41069,6 +41073,21 @@ function createMcpConfigs(githubInstallationToken) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const serverPath = process.env.GITHUB_ACTION_PATH ? `${process.env.GITHUB_ACTION_PATH}/mcp-server.js` : fromHere("server.ts");
+  log.info(`MCP Server Path: ${serverPath}`);
+  const pathExists = existsSync2(serverPath);
+  log.info(`MCP Server Path exists: ${pathExists}`);
+  if (!pathExists) {
+    const dir = dirname3(serverPath);
+    log.info(`Directory: ${dir}`);
+    try {
+      const files = readdirSync2(dir);
+      log.info(`Files in directory: ${files.join(", ")}`);
+    } catch (error2) {
+      log.warning(
+        `Failed to read directory: ${error2 instanceof Error ? error2.message : String(error2)}`
+      );
+    }
+  }
   return {
     [ghPullfrogMcpName]: {
       command: "node",
@@ -41167,7 +41186,7 @@ var claude = {
       execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
       const extractedDir = join5(tempDir, "package");
       const cliPath = join5(extractedDir, "cli.js");
-      if (!existsSync2(cliPath)) {
+      if (!existsSync3(cliPath)) {
         throw new Error(`cli.js not found in extracted package at ${cliPath}`);
       }
       cachedCliPath = cliPath;
