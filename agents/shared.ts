@@ -22,6 +22,7 @@ export interface AgentConfig {
 }
 
 export type Agent = {
+  install: () => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
 };
 

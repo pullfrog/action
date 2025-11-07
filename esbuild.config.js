@@ -9,7 +9,7 @@ await build({
   format: "esm",
   platform: "node",
   target: "node20",
-  minify: true,
+  minify: false,
   sourcemap: false,
   // Bundle all dependencies - GitHub Actions doesn't have node_modules
   // Only mark optional peer dependencies as external

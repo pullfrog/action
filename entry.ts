@@ -7,11 +7,20 @@
 import * as core from "@actions/core";
 import { type Inputs, main } from "./main.ts";
 import { createMcpServer } from "./mcp/server.ts";
+import { log } from "./utils/cli.ts";
 
 // Export createMcpServer so it can be called from the spawned MCP process
 export { createMcpServer };
 
 async function run(): Promise<void> {
+  // Change to GITHUB_WORKSPACE if set (this is where actions/checkout puts the repo)
+  // JavaScript actions run from the action's directory, not the checked-out repo
+  if (process.env.GITHUB_WORKSPACE && process.cwd() !== process.env.GITHUB_WORKSPACE) {
+    log.debug(`Changing to GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
+    process.chdir(process.env.GITHUB_WORKSPACE);
+    log.debug(`New working directory: ${process.cwd()}`);
+  }
+
   try {
     const inputs: Inputs = {
       prompt: core.getInput("prompt", { required: true }),

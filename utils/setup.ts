@@ -47,7 +47,6 @@ export function setupGitConfig(): void {
   // Only set up git config in GitHub Actions environment
   // In local development, use the user's existing git config
   if (!process.env.GITHUB_ACTIONS) {
-    log.warning("Skipping git configuration setup (not in GitHub Actions)");
     return;
   }
 
@@ -73,7 +72,6 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
   // Only set up git auth in GitHub Actions environment
   // In local testing, this would overwrite the real git remote with fake credentials
   if (!process.env.GITHUB_ACTIONS) {
-    log.warning("Skipping git authentication setup (not in GitHub Actions)");
     return;
   }
 

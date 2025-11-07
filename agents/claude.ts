@@ -1,16 +1,113 @@
+import { execSync } from "node:child_process";
+import { createWriteStream, existsSync, rmSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { type Agent, instructions } from "./shared.ts";
 
+let cachedCliPath: string | undefined;
+
 export const claude: Agent = {
+  install: async (): Promise<string> => {
+    if (cachedCliPath) {
+      log.info(`Using cached Claude Code CLI at ${cachedCliPath}`);
+      return cachedCliPath;
+    }
+
+    // Get the SDK version from package.json and resolve to actual version
+    const versionRange = packageJson.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
+    let sdkVersion: string;
+
+    // If it's a range (starts with ^ or ~), query npm registry for the latest matching version
+    if (versionRange.startsWith("^") || versionRange.startsWith("~")) {
+      const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+      log.info(`Resolving version for range ${versionRange}...`);
+      try {
+        const registryResponse = await fetch(`${npmRegistry}/@anthropic-ai/claude-agent-sdk`);
+        if (!registryResponse.ok) {
+          throw new Error(`Failed to query registry: ${registryResponse.status}`);
+        }
+        const registryData = (await registryResponse.json()) as {
+          "dist-tags": { latest: string };
+          versions: Record<string, unknown>;
+        };
+        // Get the latest version that matches the range (simplified: just use latest)
+        sdkVersion = registryData["dist-tags"].latest;
+        log.info(`Resolved to version ${sdkVersion}`);
+      } catch (error) {
+        log.warning(
+          `Failed to resolve version from registry, using latest: ${error instanceof Error ? error.message : String(error)}`
+        );
+        sdkVersion = "latest";
+      }
+    } else {
+      sdkVersion = versionRange;
+    }
+
+    log.info(`📦 Installing Claude Code CLI from @anthropic-ai/claude-agent-sdk@${sdkVersion}...`);
+
+    // Create temp directory
+    const tempDir = await mkdtemp(join(tmpdir(), "claude-cli-"));
+    const tarballPath = join(tempDir, "package.tgz");
+
+    try {
+      // Download tarball from npm
+      const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+      const tarballUrl = `${npmRegistry}/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${sdkVersion}.tgz`;
+
+      log.info(`Downloading from ${tarballUrl}...`);
+      const response = await fetch(tarballUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
+      }
+
+      // Write tarball to file
+      const fileStream = createWriteStream(tarballPath);
+      await pipeline(response.body as any, fileStream);
+      log.info(`Downloaded tarball to ${tarballPath}`);
+
+      // Extract tarball
+      log.info(`Extracting tarball...`);
+      execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
+
+      // Find cli.js in the extracted package
+      const extractedDir = join(tempDir, "package");
+      const cliPath = join(extractedDir, "cli.js");
+
+      if (!existsSync(cliPath)) {
+        throw new Error(`cli.js not found in extracted package at ${cliPath}`);
+      }
+
+      cachedCliPath = cliPath;
+      log.info(`✓ Claude Code CLI installed at ${cliPath}`);
+      return cliPath;
+    } catch (error) {
+      // Cleanup on error
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw error;
+    }
+  },
   run: async ({ prompt, mcpServers, apiKey }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
 
+    if (!cachedCliPath) {
+      throw new Error("Claude CLI not installed. Call install() before run().");
+    }
+
     const queryInstance = query({
-      prompt: `${instructions}\n\n${prompt}`,
+      prompt: `${instructions}\n\n****** USER PROMPT ******\n${prompt}`,
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
+        pathToClaudeCodeExecutable: cachedCliPath,
       },
     });
 
@@ -142,4 +239,6 @@ const messageHandlers: SDKMessageHandlers = {
   },
   system: () => {},
   stream_event: () => {},
+  tool_progress: () => {},
+  auth_status: () => {},
 };
