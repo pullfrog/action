@@ -7,6 +7,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import * as core from "@actions/core";
+import { dirName } from "@ark/fs";
 import { type Inputs, main } from "./main.ts";
 import { createMcpServer } from "./mcp/server.ts";
 import { log } from "./utils/cli.ts";
@@ -38,10 +39,10 @@ async function printDirectoryTree(dir: string, prefix = "", rootDir = dir): Prom
 
 async function run(): Promise<void> {
   // Debug: Print current directory tree before changing directories
-  const cwd = process.cwd();
-  log.info(`Current working directory: ${cwd}`);
+  const actionDir = dirName();
+  log.info(`action dir: ${actionDir}`);
   try {
-    const tree = await printDirectoryTree(cwd);
+    const tree = await printDirectoryTree(actionDir);
     log.info(`Directory tree:\n${tree}`);
   } catch (error) {
     log.warning(
