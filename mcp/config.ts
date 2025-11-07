@@ -19,11 +19,10 @@ export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
 
-  const serverPath = process.env.GITHUB_ACTION_PATH
-    ? `${process.env.GITHUB_ACTION_PATH}/mcp-server.js`
-    : fromHere("server.ts");
+  // In production (GitHub Actions), mcp-server.js is in same directory as entry.js (where this is bundled)
+  // In development, server.ts is in the same directory as this file (config.ts)
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
 
-  // Debug: Log server path and check if it exists
   log.info(`MCP Server Path: ${serverPath}`);
   const pathExists = existsSync(serverPath);
   log.info(`MCP Server Path exists: ${pathExists}`);

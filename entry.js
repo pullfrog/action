@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.86",
+  version: "0.0.87",
   type: "module",
   files: [
     "index.js",
@@ -41072,7 +41072,7 @@ var ghPullfrogMcpName = "gh-pullfrog";
 function createMcpConfigs(githubInstallationToken) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
-  const serverPath = process.env.GITHUB_ACTION_PATH ? `${process.env.GITHUB_ACTION_PATH}/mcp-server.js` : fromHere("server.ts");
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
   log.info(`MCP Server Path: ${serverPath}`);
   const pathExists = existsSync2(serverPath);
   log.info(`MCP Server Path exists: ${pathExists}`);
