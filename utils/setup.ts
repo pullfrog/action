@@ -51,9 +51,40 @@ export function setupGitConfig(): void {
     return;
   }
 
+  // Debug logging for git repo detection
+  log.debug(`setupGitConfig: Current working directory: ${process.cwd()}`);
+  log.debug(`setupGitConfig: GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
+
+  // Check if we're in a git repository before trying to set config
+  log.debug(`setupGitConfig: Checking for git repository...`);
+  try {
+    const gitDir = execSync("git rev-parse --git-dir", { encoding: "utf-8", stdio: "pipe" }).trim();
+    log.debug(`setupGitConfig: Git directory found: ${gitDir}`);
+  } catch (error) {
+    log.warning(
+      `⚠️  Skipping git configuration setup (not in a git repository): ${error instanceof Error ? error.message : String(error)}`
+    );
+    try {
+      const dirContents = execSync("ls -la", { encoding: "utf-8", stdio: "pipe" }).trim();
+      log.debug(`setupGitConfig: Current directory contents:\n${dirContents}`);
+    } catch {
+      // Ignore if ls fails
+    }
+    return;
+  }
+
   log.info("🔧 Setting up git configuration...");
-  execSync('git config user.email "action@pullfrog.ai"', { stdio: "inherit" });
-  execSync('git config user.name "Pullfrog Action"', { stdio: "inherit" });
+  try {
+    execSync('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
+    execSync('git config user.name "Pullfrog Action"', { stdio: "pipe" });
+    log.debug("setupGitConfig: ✓ Git configuration set successfully");
+  } catch (error) {
+    // If git config fails, log warning but don't fail the action
+    // This can happen if we're not in a git repo or git isn't available
+    log.warning(
+      `Failed to set git config: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**

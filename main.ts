@@ -24,6 +24,23 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     log.info("Starting agent run...");
 
+    // Debug logging for git repo detection
+    log.debug(`Current working directory: ${process.cwd()}`);
+    log.debug(`GITHUB_ACTIONS: ${process.env.GITHUB_ACTIONS}`);
+    log.debug(`GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
+    try {
+      const { execSync } = await import("node:child_process");
+      const gitDir = execSync("git rev-parse --git-dir", {
+        encoding: "utf-8",
+        stdio: "pipe",
+      }).trim();
+      log.debug(`Git directory found: ${gitDir}`);
+    } catch (error) {
+      log.debug(
+        `Git directory check failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
     setupGitConfig();
 
     const githubInstallationToken = await setupGitHubInstallationToken();
