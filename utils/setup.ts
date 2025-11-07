@@ -41,8 +41,16 @@ export function setupTestRepo(options: SetupOptions): void {
 
 /**
  * Setup git configuration to avoid identity errors
+ * Only runs in GitHub Actions environment to avoid overwriting local git config
  */
 export function setupGitConfig(): void {
+  // Only set up git config in GitHub Actions environment
+  // In local development, use the user's existing git config
+  if (!process.env.GITHUB_ACTIONS) {
+    log.info("⚠️  Skipping git configuration setup (not in GitHub Actions)");
+    return;
+  }
+
   log.info("🔧 Setting up git configuration...");
   execSync('git config user.email "action@pullfrog.ai"', { stdio: "inherit" });
   execSync('git config user.name "Pullfrog Action"', { stdio: "inherit" });
