@@ -11,15 +11,17 @@ await build({
   target: "node20",
   minify: true,
   sourcemap: false,
-  // Mark all node_modules as external - Node.js will handle ESM/CJS interop natively
-  // This avoids esbuild's require() polyfill which doesn't work in ESM
-  packages: "external",
-  // Mark optional peer dependencies as external
+  // Bundle all dependencies - GitHub Actions doesn't have node_modules
+  // Only mark optional peer dependencies as external
   external: [
     "@valibot/to-json-schema",
     "effect",
     "sury",
   ],
+  // Provide a proper require shim for CommonJS modules bundled into ESM
+  banner: {
+    js: `import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);`,
+  },
   // Enable tree-shaking to remove unused code
   treeShaking: true,
   // Drop console statements in production (but keep for debugging)
