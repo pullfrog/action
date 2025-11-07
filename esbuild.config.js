@@ -19,8 +19,9 @@ await build({
     "sury",
   ],
   // Provide a proper require shim for CommonJS modules bundled into ESM
+  // We use a unique variable name to avoid conflicts with bundled imports
   banner: {
-    js: `import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);`,
+    js: `import { createRequire as __createRequire } from 'module'; import { fileURLToPath as __fileURLToPath } from 'url'; import { dirname as __dirnameFn } from 'path'; const require = __createRequire(import.meta.url); const __filename = __fileURLToPath(import.meta.url); const __dirname = __dirnameFn(__filename);`,
   },
   // Enable tree-shaking to remove unused code
   treeShaking: true,
