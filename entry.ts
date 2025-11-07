@@ -5,8 +5,7 @@
  */
 
 import * as core from "@actions/core";
-import { type } from "arktype";
-import { Inputs, main } from "./main.ts";
+import { type Inputs, main } from "./main.ts";
 import { createMcpServer } from "./mcp/server.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { log } from "./utils/cli.ts";
@@ -18,13 +17,10 @@ async function run(): Promise<void> {
   try {
     log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
-    const inputsJson = process.env.INPUTS_JSON;
-    if (!inputsJson) {
-      throw new Error("INPUTS_JSON environment variable not found");
-    }
-
-    const parsed = type("string.json.parse").assert(inputsJson);
-    const inputs = Inputs.assert(parsed);
+    const inputs: Inputs = {
+      prompt: core.getInput("prompt", { required: true }),
+      anthropic_api_key: core.getInput("anthropic_api_key") || undefined,
+    };
 
     const result = await main(inputs);
 
