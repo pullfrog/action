@@ -9,9 +9,6 @@ GitHub Action for running Claude Code and other agents via Pullfrog.
 ```bash
 # Install dependencies
 pnpm install
-
-# Test with default prompt
-npm run play              # Run locally on your machine
 ```
 
 ## Testing with play.ts
