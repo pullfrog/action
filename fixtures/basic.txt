@@ -1,1 +1,1 @@
-run npx cowsay "don't eat me"
+create a new pr to pullfrogai/scratch that calculates the number of toonies in @ShawnMorreau's bank account and estimates how long it will take to complete his toonie chamber

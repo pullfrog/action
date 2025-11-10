@@ -67,7 +67,7 @@ export const claude: Agent = {
 
       // Write tarball to file
       const fileStream = createWriteStream(tarballPath);
-      await pipeline(response.body as any, fileStream);
+      await pipeline(response.body!, fileStream);
       log.info(`Downloaded tarball to ${tarballPath}`);
 
       // Extract tarball
