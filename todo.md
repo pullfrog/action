@@ -1,6 +1,6 @@
 [x] add modes to prompt 
 [x] progressively update comment
-[] don't allow rejecting prs
+[x] don't allow rejecting prs
 [x] fix pnpm caching
 [] fix prompt to avoid narration like "I just read all tools from MCP server"
 [] investigate including terminal output from bash commands as collapsed groups

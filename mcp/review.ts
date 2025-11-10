@@ -4,9 +4,6 @@ import { contextualize, tool } from "./shared.ts";
 
 export const Review = type({
   pull_number: type.number.describe("The pull request number to review"),
-  event: type
-    .enumerated("APPROVE", "REQUEST_CHANGES", "COMMENT")
-    .describe("'APPROVE', 'REQUEST_CHANGES', or 'COMMENT' (the review action)"),
   body: type.string
     .describe(
       "Brief summary or general feedback that doesn't apply to specific code locations. Keep it concise - most feedback should be in the 'comments' array."
@@ -45,7 +42,7 @@ export const ReviewTool = tool({
     "IMPORTANT: Use 'comments' array for ALL specific code issues at the line-level. " +
     "Only use 'body' for a brief summary or feedback that doesn't apply to a specific location.",
   parameters: Review,
-  execute: contextualize(async ({ pull_number, event, body, commit_id, comments = [] }, ctx) => {
+  execute: contextualize(async ({ pull_number, body, commit_id, comments = [] }, ctx) => {
     // Get the PR to determine the head commit if commit_id not provided
     const pr = await ctx.octokit.rest.pulls.get({
       owner: ctx.owner,
@@ -58,7 +55,7 @@ export const ReviewTool = tool({
       owner: ctx.owner,
       repo: ctx.name,
       pull_number,
-      event,
+      event: "COMMENT",
     };
     if (body) params.body = body;
     if (commit_id) {
