@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.93",
+  version: "0.0.94",
   type: "module",
   files: [
     "index.js",
@@ -41560,6 +41560,10 @@ async function run() {
     log.debug(`New working directory: ${process.cwd()}`);
   }
   try {
+    const githubTokenInput = core3.getInput("github_token");
+    if (githubTokenInput) {
+      process.env.GITHUB_TOKEN = githubTokenInput;
+    }
     const inputs = {
       prompt: core3.getInput("prompt", { required: true }),
       anthropic_api_key: core3.getInput("anthropic_api_key") || void 0
