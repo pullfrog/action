@@ -49,6 +49,10 @@ function checkExistingToken(): string | null {
   return inputToken || envToken || null;
 }
 
+function getGitHubTokenInput(): string | null {
+  return core.getInput("github_token") || null;
+}
+
 function isGitHubActionsEnvironment(): boolean {
   return Boolean(process.env.GITHUB_ACTIONS);
 }
@@ -255,21 +259,37 @@ async function acquireNewToken(): Promise<string | null> {
 }
 
 function getDefaultGitHubToken(): string | null {
-  // Debug: log all GITHUB_* env vars
-  if (isGitHubActionsEnvironment()) {
+  // Try input first (explicitly passed from workflow)
+  const inputToken = getGitHubTokenInput();
+  if (inputToken) {
+    return inputToken;
+  }
+
+  // Then try environment variable (automatically set by GitHub Actions)
+  const token = process.env.GITHUB_TOKEN;
+
+  // Log diagnostic info when GITHUB_TOKEN is missing
+  if (!token && isGitHubActionsEnvironment()) {
     const githubEnvVars = Object.keys(process.env)
       .filter((key) => key.startsWith("GITHUB_"))
       .reduce(
         (acc, key) => {
-          acc[key] = key === "GITHUB_TOKEN" ? "***" : process.env[key];
+          acc[key] =
+            key === "GITHUB_TOKEN"
+              ? process.env[key]
+                ? "***SET***"
+                : "NOT_SET"
+              : process.env[key];
           return acc;
         },
         {} as Record<string, string | undefined>
       );
-    log.debug(`GitHub env vars: ${JSON.stringify(githubEnvVars)}`);
+    log.warning(
+      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
+    );
   }
 
-  return process.env.GITHUB_TOKEN || null;
+  return token || null;
 }
 
 /**

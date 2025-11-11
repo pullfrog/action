@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.92",
+  version: "0.0.93",
   type: "module",
   files: [
     "index.js",
@@ -40911,6 +40911,9 @@ function checkExistingToken() {
   const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
   return inputToken || envToken || null;
 }
+function getGitHubTokenInput() {
+  return core2.getInput("github_token") || null;
+}
 function isGitHubActionsEnvironment() {
   return Boolean(process.env.GITHUB_ACTIONS);
 }
@@ -41057,17 +41060,24 @@ async function acquireNewToken() {
   }
 }
 function getDefaultGitHubToken() {
-  if (isGitHubActionsEnvironment()) {
+  const inputToken = getGitHubTokenInput();
+  if (inputToken) {
+    return inputToken;
+  }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token && isGitHubActionsEnvironment()) {
     const githubEnvVars = Object.keys(process.env).filter((key) => key.startsWith("GITHUB_")).reduce(
       (acc, key) => {
-        acc[key] = key === "GITHUB_TOKEN" ? "***" : process.env[key];
+        acc[key] = key === "GITHUB_TOKEN" ? process.env[key] ? "***SET***" : "NOT_SET" : process.env[key];
         return acc;
       },
       {}
     );
-    log.debug(`GitHub env vars: ${JSON.stringify(githubEnvVars)}`);
+    log.warning(
+      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
+    );
   }
-  return process.env.GITHUB_TOKEN || null;
+  return token || null;
 }
 async function setupGitHubInstallationToken() {
   const existingToken = checkExistingToken();
