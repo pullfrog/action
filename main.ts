@@ -33,8 +33,8 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     // Fetch repo settings (agent, permissions, workflows) from API
     const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
-    if (repoSettings.defaultAgent !== "claude")
-      throw new Error(`Unsupported agent: ${repoSettings.defaultAgent}`);
+    const agent = repoSettings.defaultAgent || "claude";
+    if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
 
     setupGitAuth(githubInstallationToken, repoContext);
 

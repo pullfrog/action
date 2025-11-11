@@ -1,6 +1,6 @@
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import { workflows } from "../../lib/workflows.ts";
 import { ghPullfrogMcpName } from "../mcp/config.ts";
+import { workflows } from "../workflows.ts";
 
 /**
  * Result returned by agent execution
