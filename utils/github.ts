@@ -294,18 +294,19 @@ function getDefaultGitHubToken(): string | null {
 
 /**
  * Setup GitHub installation token for the action
- * Returns the token and whether it was acquired (needs revocation)
+ * Returns the token, whether it was acquired (needs revocation), and whether we fell back to GITHUB_TOKEN
  * Falls back to GITHUB_TOKEN if app is not installed
  */
 export async function setupGitHubInstallationToken(): Promise<{
   githubInstallationToken: string;
   wasAcquired: boolean;
+  isFallbackToken: boolean;
 }> {
   const existingToken = checkExistingToken();
   if (existingToken) {
     core.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
+    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
   }
 
   const acquiredToken = await acquireNewToken();
@@ -322,13 +323,13 @@ export async function setupGitHubInstallationToken(): Promise<{
     log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
     core.setSecret(defaultToken);
     process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
-    return { githubInstallationToken: defaultToken, wasAcquired: false };
+    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
   }
 
   core.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
 
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
 }
 
 /**

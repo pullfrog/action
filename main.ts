@@ -2,7 +2,7 @@ import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { getRepoSettings } from "./utils/api.ts";
+import { DEFAULT_REPO_SETTINGS, getRepoSettings, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
@@ -34,14 +34,24 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     setupGitConfig();
 
-    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired, isFallbackToken } =
+      await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
     const repoContext = parseRepoContext();
 
     // Fetch repo settings (agent, permissions, workflows) from API
-    const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+    // Skip API call if we're using GITHUB_TOKEN fallback (app not installed)
+    let repoSettings: RepoSettings;
+    if (isFallbackToken) {
+      log.info("Using default repository settings (app not installed)");
+      repoSettings = DEFAULT_REPO_SETTINGS;
+    } else {
+      log.info("Fetching repository settings...");
+      repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+      log.info("Repository settings fetched");
+    }
     const agent = repoSettings.defaultAgent || "claude";
     if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
 

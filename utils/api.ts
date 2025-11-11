@@ -13,7 +13,7 @@ export interface RepoSettings {
   }>;
 }
 
-const DEFAULT_REPO_SETTINGS: RepoSettings = {
+export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   defaultAgent: null,
   webAccessLevel: "full_access",
   webAccessAllowTrusted: false,
@@ -32,6 +32,11 @@ export async function getRepoSettings(
 ): Promise<RepoSettings> {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
 
+  // Add timeout to prevent hanging (5 seconds)
+  const timeoutMs = 5000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(
       `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
@@ -41,8 +46,11 @@ export async function getRepoSettings(
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       }
     );
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       // If API returns 404 or other error, fall back to defaults
@@ -58,7 +66,8 @@ export async function getRepoSettings(
 
     return settings;
   } catch {
-    // If fetch fails (network error, etc.), fall back to defaults
+    clearTimeout(timeoutId);
+    // If fetch fails (network error, timeout, etc.), fall back to defaults
     return DEFAULT_REPO_SETTINGS;
   }
 }

@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.95",
+  version: "0.0.96",
   type: "module",
   files: [
     "index.js",
@@ -41084,7 +41084,7 @@ async function setupGitHubInstallationToken() {
   if (existingToken) {
     core2.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
+    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
   }
   const acquiredToken = await acquireNewToken();
   if (!acquiredToken) {
@@ -41097,11 +41097,11 @@ async function setupGitHubInstallationToken() {
     log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
     core2.setSecret(defaultToken);
     process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
-    return { githubInstallationToken: defaultToken, wasAcquired: false };
+    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
   }
   core2.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
 }
 async function revokeInstallationToken(token) {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
@@ -41437,6 +41437,9 @@ var DEFAULT_REPO_SETTINGS = {
 };
 async function getRepoSettings(token, repoContext) {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(
       `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
@@ -41445,9 +41448,11 @@ async function getRepoSettings(token, repoContext) {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
-        }
+        },
+        signal: controller.signal
       }
     );
+    clearTimeout(timeoutId);
     if (!response.ok) {
       return DEFAULT_REPO_SETTINGS;
     }
@@ -41457,6 +41462,7 @@ async function getRepoSettings(token, repoContext) {
     }
     return settings;
   } catch {
+    clearTimeout(timeoutId);
     return DEFAULT_REPO_SETTINGS;
   }
 }
@@ -41504,12 +41510,20 @@ async function main(inputs) {
   try {
     log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
     setupGitConfig();
-    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired, isFallbackToken } = await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
     const repoContext = parseRepoContext();
-    const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+    let repoSettings;
+    if (isFallbackToken) {
+      log.info("Using default repository settings (app not installed)");
+      repoSettings = DEFAULT_REPO_SETTINGS;
+    } else {
+      log.info("Fetching repository settings...");
+      repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+      log.info("Repository settings fetched");
+    }
     const agent = repoSettings.defaultAgent || "claude";
     if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
     setupGitAuth(githubInstallationToken, repoContext);
