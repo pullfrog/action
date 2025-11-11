@@ -8,3 +8,6 @@
 [] test initialization trade offs for pullfrog.yml
 [] try to find heavy claude code user
 [] investigate repo config file?
+[] look into trigger.yml without installation
+[] cancel installation token at the end of github aciton
+ 
