@@ -18,12 +18,6 @@ async function run(): Promise<void> {
   }
 
   try {
-    // Set GITHUB_TOKEN from input if provided (allows fallback to env var)
-    const githubTokenInput = core.getInput("github_token");
-    if (githubTokenInput) {
-      process.env.GITHUB_TOKEN = githubTokenInput;
-    }
-
     const inputs: Inputs = {
       prompt: core.getInput("prompt", { required: true }),
       anthropic_api_key: core.getInput("anthropic_api_key") || undefined,
