@@ -40749,57 +40749,7 @@ var log = {
   endGroup: endGroup2
 };
 
-// ../lib/workflows.ts
-var ghPullfrogMcpName = "gh-pullfrog";
-var workflows = [
-  {
-    name: "Plan",
-    description: "Create plans, break down tasks, and outline steps",
-    prompt: `Choose "plan mode" if the prompt asks to:
-- create a plan, break down tasks, outline steps, or analyze requirements
-- understand the scope of work before implementation
-- provide a todo list or task breakdown
-
-Once in plan mode, follow these steps:
-1. Analyze the request and break it down into clear, actionable tasks
-2. Consider dependencies, potential challenges, and implementation order
-3. Create a structured plan with clear milestones
-4. Present the plan in a clear, organized format`
-  },
-  {
-    name: "Implement",
-    description: "Implement, build, and develop code changes",
-    prompt: `Choose "implement" if the prompt asks to:
-- implement, build, create, or develop code changes
-- make specific changes to files or features
-- execute a plan that was previously created
-- the prompt includes specific implementation details or requirements
-
-Once in implement mode, follow these steps:
-1. Understand the requirements and any existing plan
-2. Make the necessary code changes
-3. Test your changes to ensure they work correctly
-4. Update your comment with progress and results`
-  },
-  {
-    name: "Review",
-    description: "Review code, PRs, and provide feedback",
-    prompt: `Choose "review" if the prompt asks to:
-- review code, PR, or implementation
-- provide feedback, suggestions, or identify issues
-- check code quality, style, or correctness
-
-If prompted to review a PR:
-1. Get PR info with mcp__${ghPullfrogMcpName}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
-2. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments)
-3. Read files from the checked-out PR branch to understand the implementation
-4. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
-5. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
-   Replace <base> and <head> with 'base' and 'head' from the PR info`
-  }
-];
-
-// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
+// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
 import path from "node:path";
 import * as process2 from "node:process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
@@ -41114,13 +41064,13 @@ function parseRepoContext() {
 }
 
 // mcp/config.ts
-var ghPullfrogMcpName2 = "gh-pullfrog";
+var ghPullfrogMcpName = "gh-pullfrog";
 function createMcpConfigs(githubInstallationToken) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
   return {
-    [ghPullfrogMcpName2]: {
+    [ghPullfrogMcpName]: {
       command: "node",
       args: [serverPath],
       env: {
@@ -41130,6 +41080,55 @@ function createMcpConfigs(githubInstallationToken) {
     }
   };
 }
+
+// workflows.ts
+var ghPullfrogMcpName2 = "gh-pullfrog";
+var workflows = [
+  {
+    name: "Plan",
+    description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Analyze the request and break it down into clear, actionable tasks
+3. Consider dependencies, potential challenges, and implementation order
+4. Create a structured plan with clear milestones
+5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to present the plan in a clear, organized format
+6. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Implement",
+    description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Understand the requirements and any existing plan
+3. Make the necessary code changes
+4. Test your changes to ensure they work correctly
+5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to share progress and results
+6. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Review",
+    description: "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll review this" and save the commentId
+2. Get PR info with mcp__${ghPullfrogMcpName2}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
+3. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
+4. Read files from the checked-out PR branch to understand the implementation
+5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with findings as you review
+6. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
+7. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
+8. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Prompt",
+    description: "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
+    prompt: `Follow these steps:
+1. Create an initial "Progress Comment" using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
+3. As your work progresses, update your Progress Comment to share progress and results. Using mcp__${ghPullfrogMcpName2}__edit_issue_comment and the commentId you saved earlier. Do not create additional comments unless you are explicitly asked to do so.
+4. When you finish the task, update the Progress Comment a final time to confirm completion. If you created any issues, PRs, etc, include appropriate links to it here.`
+  }
+];
 
 // agents/shared.ts
 var instructions = `
@@ -41143,8 +41142,8 @@ Before beginning, take some time to learn about the codebase. Read the AGENTS.md
 
 ## MCP Servers
 
-- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName2}
-- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName2} instead.
+- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
 
 ## Workflow Selection
 
@@ -41200,6 +41199,7 @@ var claude = {
       if (!response.ok) {
         throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
       }
+      if (!response.body) throw new Error("Response body is null");
       const fileStream = createWriteStream2(tarballPath);
       await pipeline(response.body, fileStream);
       log.info(`Downloaded tarball to ${tarballPath}`);
@@ -41333,12 +41333,41 @@ var messageHandlers = {
   system: () => {
   },
   stream_event: () => {
-  },
-  tool_progress: () => {
-  },
-  auth_status: () => {
   }
 };
+
+// utils/api.ts
+var DEFAULT_REPO_SETTINGS = {
+  defaultAgent: null,
+  webAccessLevel: "full_access",
+  webAccessAllowTrusted: false,
+  webAccessDomains: "",
+  workflows: []
+};
+async function getRepoSettings(token, repoContext) {
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const response = await fetch(
+    `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to fetch repo settings: ${response.status} ${response.statusText} - ${errorText}`
+    );
+  }
+  const settings = await response.json();
+  if (settings === null) {
+    return DEFAULT_REPO_SETTINGS;
+  }
+  return settings;
+}
 
 // utils/setup.ts
 import { execSync as execSync2 } from "node:child_process";
@@ -41384,6 +41413,9 @@ async function main(inputs) {
     setupGitConfig();
     const githubInstallationToken = await setupGitHubInstallationToken();
     const repoContext = parseRepoContext();
+    const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+    if (repoSettings.defaultAgent !== "claude")
+      throw new Error(`Unsupported agent: ${repoSettings.defaultAgent}`);
     setupGitAuth(githubInstallationToken, repoContext);
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);

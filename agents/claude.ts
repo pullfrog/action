@@ -3,6 +3,7 @@ import { createWriteStream, existsSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { pipeline } from "node:stream/promises";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
@@ -66,8 +67,9 @@ export const claude: Agent = {
       }
 
       // Write tarball to file
+      if (!response.body) throw new Error("Response body is null");
       const fileStream = createWriteStream(tarballPath);
-      await pipeline(response.body!, fileStream);
+      await pipeline(response.body, fileStream);
       log.info(`Downloaded tarball to ${tarballPath}`);
 
       // Extract tarball
@@ -239,6 +241,4 @@ const messageHandlers: SDKMessageHandlers = {
   },
   system: () => {},
   stream_event: () => {},
-  tool_progress: () => {},
-  auth_status: () => {},
 };

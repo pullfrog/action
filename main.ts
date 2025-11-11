@@ -2,6 +2,7 @@ import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
+import { getRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
@@ -29,6 +30,11 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const githubInstallationToken = await setupGitHubInstallationToken();
     const repoContext = parseRepoContext();
+
+    // Fetch repo settings (agent, permissions, workflows) from API
+    const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+    if (repoSettings.defaultAgent !== "claude")
+      throw new Error(`Unsupported agent: ${repoSettings.defaultAgent}`);
 
     setupGitAuth(githubInstallationToken, repoContext);
 
