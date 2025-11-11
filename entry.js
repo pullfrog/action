@@ -41044,12 +41044,30 @@ async function setupGitHubInstallationToken() {
   if (existingToken) {
     core2.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return existingToken;
+    return { githubInstallationToken: existingToken, wasAcquired: false };
   }
-  const token = await acquireNewToken();
-  core2.setSecret(token);
-  process.env.GITHUB_INSTALLATION_TOKEN = token;
-  return token;
+  const githubInstallationToken = await acquireNewToken();
+  core2.setSecret(githubInstallationToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+  return { githubInstallationToken, wasAcquired: true };
+}
+async function revokeInstallationToken(token) {
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+  try {
+    await fetch(`${apiUrl}/installation/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    log.info("Installation token revoked");
+  } catch (error2) {
+    log.warning(
+      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
 }
 function parseRepoContext() {
   const githubRepo = process.env.GITHUB_REPOSITORY;
@@ -41430,10 +41448,14 @@ var Inputs = type({
   "anthropic_api_key?": "string | undefined"
 });
 async function main(inputs) {
+  let tokenToRevoke = null;
   try {
     log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
     setupGitConfig();
-    const githubInstallationToken = await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+    if (wasAcquired) {
+      tokenToRevoke = githubInstallationToken;
+    }
     const repoContext = parseRepoContext();
     const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
     const agent = repoSettings.defaultAgent || "claude";
@@ -41471,6 +41493,10 @@ async function main(inputs) {
       success: false,
       error: errorMessage
     };
+  } finally {
+    if (tokenToRevoke) {
+      await revokeInstallationToken(tokenToRevoke);
+    }
   }
 }
 

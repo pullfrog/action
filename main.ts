@@ -4,7 +4,11 @@ import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { getRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
-import { parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
+import {
+  parseRepoContext,
+  revokeInstallationToken,
+  setupGitHubInstallationToken,
+} from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
 export const Inputs = type({
@@ -23,12 +27,17 @@ export interface MainResult {
 export type PromptJSON = {};
 
 export async function main(inputs: Inputs): Promise<MainResult> {
+  let tokenToRevoke: string | null = null;
+
   try {
     log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
     setupGitConfig();
 
-    const githubInstallationToken = await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+    if (wasAcquired) {
+      tokenToRevoke = githubInstallationToken;
+    }
     const repoContext = parseRepoContext();
 
     // Fetch repo settings (agent, permissions, workflows) from API
@@ -82,5 +91,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       success: false,
       error: errorMessage,
     };
+  } finally {
+    if (tokenToRevoke) {
+      await revokeInstallationToken(tokenToRevoke);
+    }
   }
 }

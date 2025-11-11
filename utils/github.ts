@@ -234,21 +234,48 @@ async function acquireNewToken(): Promise<string> {
 
 /**
  * Setup GitHub installation token for the action
+ * Returns the token and whether it was acquired (needs revocation)
  */
-export async function setupGitHubInstallationToken(): Promise<string> {
+export async function setupGitHubInstallationToken(): Promise<{
+  githubInstallationToken: string;
+  wasAcquired: boolean;
+}> {
   const existingToken = checkExistingToken();
   if (existingToken) {
     core.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return existingToken;
+    return { githubInstallationToken: existingToken, wasAcquired: false };
   }
 
-  const token = await acquireNewToken();
+  const githubInstallationToken = await acquireNewToken();
 
-  core.setSecret(token);
-  process.env.GITHUB_INSTALLATION_TOKEN = token;
+  core.setSecret(githubInstallationToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
-  return token;
+  return { githubInstallationToken, wasAcquired: true };
+}
+
+/**
+ * Revoke GitHub installation token
+ */
+export async function revokeInstallationToken(token: string): Promise<void> {
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+
+  try {
+    await fetch(`${apiUrl}/installation/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    log.info("Installation token revoked");
+  } catch (error) {
+    log.warning(
+      `Failed to revoke installation token: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 export interface RepoContext {
