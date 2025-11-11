@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.91",
+  version: "0.0.92",
   type: "module",
   files: [
     "index.js",
@@ -41057,6 +41057,16 @@ async function acquireNewToken() {
   }
 }
 function getDefaultGitHubToken() {
+  if (isGitHubActionsEnvironment()) {
+    const githubEnvVars = Object.keys(process.env).filter((key) => key.startsWith("GITHUB_")).reduce(
+      (acc, key) => {
+        acc[key] = key === "GITHUB_TOKEN" ? "***" : process.env[key];
+        return acc;
+      },
+      {}
+    );
+    log.debug(`GitHub env vars: ${JSON.stringify(githubEnvVars)}`);
+  }
   return process.env.GITHUB_TOKEN || null;
 }
 async function setupGitHubInstallationToken() {

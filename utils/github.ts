@@ -255,6 +255,20 @@ async function acquireNewToken(): Promise<string | null> {
 }
 
 function getDefaultGitHubToken(): string | null {
+  // Debug: log all GITHUB_* env vars
+  if (isGitHubActionsEnvironment()) {
+    const githubEnvVars = Object.keys(process.env)
+      .filter((key) => key.startsWith("GITHUB_"))
+      .reduce(
+        (acc, key) => {
+          acc[key] = key === "GITHUB_TOKEN" ? "***" : process.env[key];
+          return acc;
+        },
+        {} as Record<string, string | undefined>
+      );
+    log.debug(`GitHub env vars: ${JSON.stringify(githubEnvVars)}`);
+  }
+
   return process.env.GITHUB_TOKEN || null;
 }
 
