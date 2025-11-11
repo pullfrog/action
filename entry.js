@@ -28185,7 +28185,7 @@ import { tmpdir } from "node:os";
 import { join as join5 } from "node:path";
 import { pipeline } from "node:stream/promises";
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.30_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -28197,7 +28197,6 @@ import { join } from "path";
 import { homedir } from "os";
 import { dirname, join as join2 } from "path";
 import { cwd } from "process";
-import { realpathSync as realpathSync2 } from "fs";
 import { randomUUID } from "crypto";
 var __create2 = Object.create;
 var __getProtoOf2 = Object.getPrototypeOf;
@@ -34454,7 +34453,6 @@ var ProcessTransport = class {
         appendSystemPrompt,
         maxThinkingTokens,
         maxTurns,
-        maxBudgetUsd,
         model,
         fallbackModel,
         permissionMode,
@@ -34468,8 +34466,7 @@ var ProcessTransport = class {
         mcpServers,
         strictMcpConfig,
         canUseTool,
-        includePartialMessages,
-        plugins
+        includePartialMessages
       } = this.options;
       const args2 = [
         "--output-format",
@@ -34487,9 +34484,6 @@ var ProcessTransport = class {
       }
       if (maxTurns)
         args2.push("--max-turns", maxTurns.toString());
-      if (maxBudgetUsd !== void 0) {
-        args2.push("--max-budget-usd", maxBudgetUsd.toString());
-      }
       if (model)
         args2.push("--model", model);
       if (env2.DEBUG)
@@ -34541,15 +34535,6 @@ var ProcessTransport = class {
       }
       for (const dir of additionalDirectories) {
         args2.push("--add-dir", dir);
-      }
-      if (plugins && plugins.length > 0) {
-        for (const plugin of plugins) {
-          if (plugin.type === "local") {
-            args2.push("--plugin-dir", plugin.path);
-          } else {
-            throw new Error(`Unsupported plugin type: ${plugin.type}`);
-          }
-        }
       }
       if (this.options.forkSession) {
         args2.push("--fork-session");
@@ -35316,33 +35301,30 @@ var maxOutputTokensValidator = {
   name: "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
   default: 32e3,
   validate: (value2) => {
-    const MAX_OUTPUT_TOKENS = 64e3;
-    const DEFAULT_MAX_OUTPUT_TOKENS = 32e3;
     if (!value2) {
-      return { effective: DEFAULT_MAX_OUTPUT_TOKENS, status: "valid" };
+      return { effective: 32e3, status: "valid" };
     }
     const parsed2 = parseInt(value2, 10);
     if (isNaN(parsed2) || parsed2 <= 0) {
       return {
-        effective: DEFAULT_MAX_OUTPUT_TOKENS,
+        effective: 32e3,
         status: "invalid",
-        message: `Invalid value "${value2}" (using default: ${DEFAULT_MAX_OUTPUT_TOKENS})`
+        message: `Invalid value "${value2}" (using default: 32000)`
       };
     }
-    if (parsed2 > MAX_OUTPUT_TOKENS) {
+    if (parsed2 > 32e3) {
       return {
-        effective: MAX_OUTPUT_TOKENS,
+        effective: 32e3,
         status: "capped",
-        message: `Capped from ${parsed2} to ${MAX_OUTPUT_TOKENS}`
+        message: `Capped from ${parsed2} to 32000`
       };
     }
     return { effective: parsed2, status: "valid" };
   }
 };
 function getInitialState() {
-  const resolvedCwd = realpathSync2(cwd());
   return {
-    originalCwd: resolvedCwd,
+    originalCwd: cwd(),
     totalCostUSD: 0,
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
@@ -35352,7 +35334,7 @@ function getInitialState() {
     totalLinesAdded: 0,
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
-    cwd: resolvedCwd,
+    cwd: cwd(),
     modelUsage: {},
     mainLoopModelOverride: void 0,
     maxRateLimitFallbackActive: false,
@@ -35483,14 +35465,12 @@ var Query = class {
   pendingMcpResponses = /* @__PURE__ */ new Map();
   firstResultReceivedPromise;
   firstResultReceivedResolve;
-  streamCloseTimeout;
   constructor(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers = /* @__PURE__ */ new Map()) {
     this.transport = transport;
     this.isSingleUserTurn = isSingleUserTurn;
     this.canUseTool = canUseTool;
     this.hooks = hooks;
     this.abortController = abortController;
-    this.streamCloseTimeout = parseInt(process.env.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT || "") || 6e4;
     for (const [name, server] of sdkMcpServers) {
       const sdkTransport = new SdkControlServerTransport((message) => this.sendMcpServerMessageToCli(name, message));
       this.sdkMcpTransports.set(name, sdkTransport);
@@ -35618,8 +35598,7 @@ var Query = class {
       }
       return this.canUseTool(request.request.tool_name, request.request.input, {
         signal,
-        suggestions: request.request.permission_suggestions,
-        toolUseID: request.request.tool_use_id
+        suggestions: request.request.permission_suggestions
       });
     } else if (request.request.subtype === "hook_callback") {
       const result = await this.handleHookCallbacks(request.request.callback_id, request.request.input, request.request.tool_use_id, signal);
@@ -35700,14 +35679,6 @@ var Query = class {
       max_thinking_tokens: maxThinkingTokens
     });
   }
-  async processPendingPermissionRequests(pendingPermissionRequests) {
-    for (const request of pendingPermissionRequests) {
-      if (request.request.subtype === "can_use_tool") {
-        this.handleControlRequest(request).catch(() => {
-        });
-      }
-    }
-  }
   request(request) {
     const requestId = Math.random().toString(36).substring(2, 15);
     const sdkRequest = {
@@ -35721,9 +35692,6 @@ var Query = class {
           resolve(response);
         } else {
           reject(new Error(response.error));
-          if (response.pending_permission_requests) {
-            this.processPendingPermissionRequests(response.pending_permission_requests);
-          }
         }
       });
       Promise.resolve(this.transport.write(JSON.stringify(sdkRequest) + `
@@ -35761,9 +35729,9 @@ var Query = class {
       }
       logForDebugging(`[Query.streamInput] Finished processing ${messageCount} messages from input stream`);
       logForDebugging(`[Query.streamInput] About to check MCP servers. this.sdkMcpTransports.size = ${this.sdkMcpTransports.size}`);
-      const hasHooks = this.hooks && Object.keys(this.hooks).length > 0;
-      if ((this.sdkMcpTransports.size > 0 || hasHooks) && this.firstResultReceivedPromise) {
+      if (this.sdkMcpTransports.size > 0 && this.firstResultReceivedPromise) {
         logForDebugging(`[Query.streamInput] Entering Promise.race to wait for result`);
+        const STREAM_CLOSE_TIMEOUT = 1e4;
         let timeoutId;
         await Promise.race([
           this.firstResultReceivedPromise.then(() => {
@@ -35776,7 +35744,7 @@ var Query = class {
             timeoutId = setTimeout(() => {
               logForDebugging(`[Query.streamInput] Timed out waiting for first result, closing input stream`);
               resolve();
-            }, this.streamCloseTimeout);
+            }, STREAM_CLOSE_TIMEOUT);
           })
         ]);
         if (timeoutId) {
@@ -35816,7 +35784,11 @@ var Query = class {
     const messageId = "id" in mcpRequest.message ? mcpRequest.message.id : null;
     const key = `${serverName}:${messageId}`;
     return new Promise((resolve, reject) => {
+      let timeoutId = null;
       const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         this.pendingMcpResponses.delete(key);
       };
       const resolveAndCleanup = (response) => {
@@ -35838,6 +35810,12 @@ var Query = class {
         reject(new Error("No message handler registered"));
         return;
       }
+      timeoutId = setTimeout(() => {
+        if (this.pendingMcpResponses.has(key)) {
+          cleanup();
+          reject(new Error("Request timeout"));
+        }
+      }, 3e4);
     });
   }
 };
@@ -40367,7 +40345,7 @@ function query({
     const dirname22 = join3(filename, "..");
     pathToClaudeCodeExecutable = join3(dirname22, "cli.js");
   }
-  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.30";
+  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.26";
   const {
     abortController = createAbortController(),
     additionalDirectories = [],
@@ -40387,13 +40365,11 @@ function query({
     includePartialMessages,
     maxThinkingTokens,
     maxTurns,
-    maxBudgetUsd,
     mcpServers,
     model,
     permissionMode = "default",
     allowDangerouslySkipPermissions = false,
     permissionPromptToolName,
-    plugins,
     resume,
     resumeSessionAt,
     stderr,
@@ -40441,7 +40417,6 @@ function query({
     appendSystemPrompt,
     maxThinkingTokens,
     maxTurns,
-    maxBudgetUsd,
     model,
     fallbackModel,
     permissionMode,
@@ -40457,8 +40432,7 @@ function query({
     strictMcpConfig,
     canUseTool: !!canUseTool,
     hooks: !!hooks,
-    includePartialMessages,
-    plugins
+    includePartialMessages
   });
   const queryInstance = new Query(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers);
   if (typeof prompt === "string") {
@@ -40748,6 +40722,55 @@ var log = {
    */
   endGroup: endGroup2
 };
+
+// ../lib/workflows.ts
+var ghPullfrogMcpName = "gh-pullfrog";
+var workflows = [
+  {
+    name: "Plan",
+    description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Analyze the request and break it down into clear, actionable tasks
+3. Consider dependencies, potential challenges, and implementation order
+4. Create a structured plan with clear milestones
+5. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to present the plan in a clear, organized format
+6. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Implement",
+    description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Understand the requirements and any existing plan
+3. Make the necessary code changes
+4. Test your changes to ensure they work correctly
+5. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to share progress and results
+6. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Review",
+    description: "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
+    prompt: `Follow these steps:
+1. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll review this" and save the commentId
+2. Get PR info with mcp__${ghPullfrogMcpName}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
+3. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
+4. Read files from the checked-out PR branch to understand the implementation
+5. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with findings as you review
+6. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
+7. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
+8. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+  },
+  {
+    name: "Prompt",
+    description: "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
+    prompt: `Follow these steps:
+1. Create an initial "Progress Comment" using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
+3. As your work progresses, update your Progress Comment to share progress and results. Using mcp__${ghPullfrogMcpName}__edit_issue_comment and the commentId you saved earlier. Do not create additional comments unless you are explicitly asked to do so.
+4. When you finish the task, update the Progress Comment a final time to confirm completion. If you created any issues, PRs, etc, include appropriate links to it here.`
+  }
+];
 
 // ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
 import path from "node:path";
@@ -41064,13 +41087,13 @@ function parseRepoContext() {
 }
 
 // mcp/config.ts
-var ghPullfrogMcpName = "gh-pullfrog";
+var ghPullfrogMcpName2 = "gh-pullfrog";
 function createMcpConfigs(githubInstallationToken) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
   return {
-    [ghPullfrogMcpName]: {
+    [ghPullfrogMcpName2]: {
       command: "node",
       args: [serverPath],
       env: {
@@ -41083,40 +41106,30 @@ function createMcpConfigs(githubInstallationToken) {
 
 // agents/shared.ts
 var instructions = `
-You are a highly intelligent, no-nonsense senior-level software engineering agent. You are careful, to-the-point, and kind. You only say things you know to be true. Your code is focused, minimal, and production-ready. You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. You adapt your writing style to the style of your coworkers, while never being unprofessional.
+# General instructions
 
-- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
-- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
-- mode selection: choose the appropriate mode based on the prompt payload:
-    - choose "plan mode" if the prompt asks to:
-        - create a plan, break down tasks, outline steps, or analyze requirements
-        - understand the scope of work before implementation
-        - provide a todo list or task breakdown
-    - choose "implement" if the prompt asks to:
-        - implement, build, create, or develop code changes
-        - make specific changes to files or features
-        - execute a plan that was previously created
-        - the prompt includes specific implementation details or requirements
-    - choose "review" if the prompt asks to:
-        - review code, PR, or implementation
-        - provide feedback, suggestions, or identify issues
-        - check code quality, style, or correctness
-- once you've chosen a mode, follow its associated prompts carefully
-- when prompted directly (e.g., via issue comment or PR comment):
-    (1) start by creating a single response comment using mcp__${ghPullfrogMcpName}__create_issue_comment
-        - the initial comment should say something like "I'll do {summary of request}" where you summarize what was requested
-        - save the commentId returned from this initial comment creation
-    (2) use mcp__${ghPullfrogMcpName}__edit_issue_comment to progressively update that same comment as you make progress
-        - update the comment with current status, completed tasks, and any relevant information
-        - continue updating the same comment throughout the planning/implementation process
-    (3) create_issue_comment should only be used once initially - all subsequent updates must use edit_issue_comment with the saved commentId
-- if prompted to review a PR:
-    (1) get PR info with mcp__${ghPullfrogMcpName}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
-    (2) view diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments)
-    (3) read files from the checked-out PR branch to understand the implementation
-    (4) when submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
-    (5) only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
-    replace <base> and <head> with 'base' and 'head' from the PR info
+You are a highly intelligent, no-nonsense senior-level software engineering agent. You will perform the task that is asked of you in the prompt below. You are careful, to-the-point, and kind. You only say things you know to be true. Your code is focused, minimal, and production-ready. You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. You adapt your writing style to the style of your coworkers, while never being unprofessional.
+
+## Getting Started
+
+Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+
+## MCP Servers
+
+- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName2}
+- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName2} instead.
+
+## Workflow Selection
+
+choose the appropriate workflow based on the prompt payload:
+
+${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+
+## Workflows
+
+${workflows.map((w) => `### ${w.name}
+
+${w.prompt}`).join("\n\n")}
 `;
 
 // agents/claude.ts
