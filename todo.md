@@ -2,9 +2,9 @@
 [x] progressively update comment
 [x] don't allow rejecting prs
 [x] fix pnpm caching
-[] fix prompt to avoid narration like "I just read all tools from MCP server"
+[x] fix prompt to avoid narration like "I just read all tools from MCP server"
+[x] avoid exposing env adding ## SECURITY prompt
 [] investigate including terminal output from bash commands as collapsed groups
-[] avoid exposing env
 [] test initialization trade offs for pullfrog.yml
 [] try to find heavy claude code user
 [] investigate repo config file?

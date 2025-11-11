@@ -1,1 +1,1 @@
-Review https://github.com/pullfrogai/scratch/pull/17
+create a JSON file with the current process.env
