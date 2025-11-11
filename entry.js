@@ -40481,7 +40481,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.90",
+  version: "0.0.91",
   type: "module",
   files: [
     "index.js",
@@ -40920,22 +40920,39 @@ async function acquireTokenViaOIDC() {
   log.info("OIDC token generated successfully");
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
   log.info("Exchanging OIDC token for installation token...");
-  const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${oidcToken}`,
-      "Content-Type": "application/json"
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oidcToken}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!tokenResponse.ok) {
+      log.warning(
+        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}. Falling back to GITHUB_TOKEN.`
+      );
+      return null;
     }
-  });
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(
-      `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`
-    );
+    const tokenData = await tokenResponse.json();
+    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    return tokenData.token;
+  } catch (error2) {
+    clearTimeout(timeoutId);
+    if (error2 instanceof Error && error2.name === "AbortError") {
+      log.warning(`Token exchange timed out after ${timeoutMs}ms. Falling back to GITHUB_TOKEN.`);
+    } else {
+      log.warning(
+        `Token exchange failed: ${error2 instanceof Error ? error2.message : String(error2)}. Falling back to GITHUB_TOKEN.`
+      );
+    }
+    return null;
   }
-  const tokenData = await tokenResponse.json();
-  log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-  return tokenData.token;
 }
 var base64UrlEncode = (str) => {
   return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -41039,6 +41056,9 @@ async function acquireNewToken() {
     return await acquireTokenViaGitHubApp();
   }
 }
+function getDefaultGitHubToken() {
+  return process.env.GITHUB_TOKEN || null;
+}
 async function setupGitHubInstallationToken() {
   const existingToken = checkExistingToken();
   if (existingToken) {
@@ -41046,10 +41066,22 @@ async function setupGitHubInstallationToken() {
     log.info("Using provided GitHub installation token");
     return { githubInstallationToken: existingToken, wasAcquired: false };
   }
-  const githubInstallationToken = await acquireNewToken();
-  core2.setSecret(githubInstallationToken);
-  process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-  return { githubInstallationToken, wasAcquired: true };
+  const acquiredToken = await acquireNewToken();
+  if (!acquiredToken) {
+    const defaultToken = getDefaultGitHubToken();
+    if (!defaultToken) {
+      throw new Error(
+        "Failed to acquire installation token and GITHUB_TOKEN is not available. Either install the Pullfrog GitHub App or ensure GITHUB_TOKEN is set."
+      );
+    }
+    log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
+    core2.setSecret(defaultToken);
+    process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
+    return { githubInstallationToken: defaultToken, wasAcquired: false };
+  }
+  core2.setSecret(acquiredToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
+  return { githubInstallationToken: acquiredToken, wasAcquired: true };
 }
 async function revokeInstallationToken(token) {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
