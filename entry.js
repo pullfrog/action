@@ -41217,6 +41217,7 @@ var claude = {
       if (!response.ok) {
         throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
       }
+      if (!response.body) throw new Error("Response body is null");
       const fileStream = createWriteStream2(tarballPath);
       await pipeline(response.body, fileStream);
       log.info(`Downloaded tarball to ${tarballPath}`);
@@ -41357,6 +41358,39 @@ var messageHandlers = {
   }
 };
 
+// utils/api.ts
+var DEFAULT_REPO_SETTINGS = {
+  defaultAgent: null,
+  webAccessLevel: "full_access",
+  webAccessAllowTrusted: false,
+  webAccessDomains: "",
+  workflows: []
+};
+async function getRepoSettings(token, repoContext) {
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const response = await fetch(
+    `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to fetch repo settings: ${response.status} ${response.statusText} - ${errorText}`
+    );
+  }
+  const settings = await response.json();
+  if (settings === null) {
+    return DEFAULT_REPO_SETTINGS;
+  }
+  return settings;
+}
+
 // utils/setup.ts
 import { execSync as execSync2 } from "node:child_process";
 function setupGitConfig() {
@@ -41401,6 +41435,9 @@ async function main(inputs) {
     setupGitConfig();
     const githubInstallationToken = await setupGitHubInstallationToken();
     const repoContext = parseRepoContext();
+    const repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
+    if (repoSettings.defaultAgent !== "claude")
+      throw new Error(`Unsupported agent: ${repoSettings.defaultAgent}`);
     setupGitAuth(githubInstallationToken, repoContext);
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
