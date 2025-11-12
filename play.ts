@@ -27,7 +27,8 @@ export async function run(
 
     const inputs: Inputs = {
       prompt,
-      anthropic_api_key: process.env.ANTHROPIC_API_KEY,
+      openai_api_key: process.env.OPENAI_API_KEY,
+      agent: "codex",
     };
 
     const result = await main(inputs);
@@ -83,7 +84,11 @@ Examples:
   if (args["--raw"]) {
     prompt = args["--raw"];
   } else {
-    const filePath = args._[0] || "fixtures/basic.txt";
+    // Default to testing tool calls if no file specified
+    const filePath = args._[0] || null;
+    if (!filePath) {
+      prompt = "List all available MCP tools from the gh-pullfrog server and show what each tool does.";
+    } else {
     const ext = extname(filePath).toLowerCase();
     let resolvedPath: string;
 
@@ -129,6 +134,7 @@ Examples:
 
       default:
         throw new Error(`Unsupported file type: ${ext}. Supported types: .txt, .json, .ts`);
+    }
     }
   }
 

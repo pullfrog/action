@@ -1,5 +1,6 @@
 import { type } from "arktype";
 import { claude } from "./agents/claude.ts";
+import { codex } from "./agents/codex.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { DEFAULT_REPO_SETTINGS, getRepoSettings, type RepoSettings } from "./utils/api.ts";
@@ -14,6 +15,8 @@ import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 export const Inputs = type({
   prompt: "string",
   "anthropic_api_key?": "string | undefined",
+  "openai_api_key?": "string | undefined",
+  "agent?": "string | undefined",
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -52,8 +55,20 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
       log.info("Repository settings fetched");
     }
-    const agent = repoSettings.defaultAgent || "claude";
-    if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
+    // Use agent from inputs if provided, otherwise use repo settings, default to claude
+    const agent = inputs.agent || repoSettings.defaultAgent || "claude";
+    
+    // Agent registry
+    const agents = {
+      claude,
+      codex,
+    } as const;
+
+    if (!(agent in agents)) {
+      throw new Error(`Unsupported agent: ${agent}. Supported agents: ${Object.keys(agents).join(", ")}`);
+    }
+
+    const agentImpl = agents[agent as keyof typeof agents];
 
     setupGitAuth(githubInstallationToken, repoContext);
 
@@ -61,21 +76,37 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
 
-    // Install Claude CLI before running
-    await claude.install();
+    // Install agent CLI before running
+    await agentImpl.install();
 
-    log.info("Running Claude Agent SDK...");
+    log.info(`Running ${agent} Agent SDK...`);
     log.box(inputs.prompt, { title: "Prompt" });
 
     // TODO: check if `inputs.prompts` is JSON
     // if yes, check if it's a webhook payload or toJSON(github.event)
     // for webhook payloads, check the specified `agent` field
 
-    const result = await claude.run({
+    // Get API key based on agent type
+    let apiKey: string;
+    if (agent === "claude") {
+      if (!inputs.anthropic_api_key) {
+        throw new Error("ANTHROPIC_API_KEY is required for Claude agent");
+      }
+      apiKey = inputs.anthropic_api_key;
+    } else if (agent === "codex") {
+      if (!inputs.openai_api_key) {
+        throw new Error("OPENAI_API_KEY is required for Codex agent");
+      }
+      apiKey = inputs.openai_api_key;
+    } else {
+      throw new Error(`API key configuration not implemented for agent: ${agent}`);
+    }
+
+    const result = await agentImpl.run({
       prompt: inputs.prompt,
       mcpServers,
       githubInstallationToken,
-      apiKey: inputs.anthropic_api_key!,
+      apiKey,
     });
 
     if (!result.success) {
