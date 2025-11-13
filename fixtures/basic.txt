@@ -1,1 +1,1 @@
-ribbit like a froggy
+choose a random animal emoji. add a comment to https://github.com/pullfrogai/scratch/issues/21 containing 50 of that emoji.

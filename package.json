@@ -17,13 +17,15 @@
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "play": "node play.ts",
+    "scratch": "node scratch.ts",
     "upDeps": "pnpm up --latest",
     "lock": "pnpm --ignore-workspace install",
     "prepare": "husky"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.26",
+    "@anthropic-ai/claude-agent-sdk": "0.1.37",
+    "@openai/codex-sdk": "0.58.0",
     "@ark/fs": "0.53.0",
     "@ark/util": "0.53.0",
     "@octokit/rest": "^22.0.0",

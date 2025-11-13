@@ -20,14 +20,11 @@ export async function run(
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    log.info("🚀 Running action with prompt...");
-    log.separator();
-    log.box(prompt, { title: "Prompt" });
-    log.separator();
-
     const inputs: Inputs = {
       prompt,
+      openai_api_key: process.env.OPENAI_API_KEY,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
+      agent: "codex",
     };
 
     const result = await main(inputs);
@@ -83,7 +80,8 @@ Examples:
   if (args["--raw"]) {
     prompt = args["--raw"];
   } else {
-    const filePath = args._[0] || "fixtures/basic.txt";
+    const filePath = args._[0] || "basic.txt";
+
     const ext = extname(filePath).toLowerCase();
     let resolvedPath: string;
 

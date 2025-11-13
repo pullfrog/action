@@ -1,8 +1,9 @@
+import { flatMorph } from "@ark/util";
 import { type } from "arktype";
-import { claude } from "./agents/claude.ts";
+import { agents } from "./agents/index.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { DEFAULT_REPO_SETTINGS, getRepoSettings, type RepoSettings } from "./utils/api.ts";
+import { fetchRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
@@ -11,9 +12,23 @@ import {
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
+export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
+export type AgentName = typeof AgentName.infer;
+
+export const AgentInputKey = type.enumerated(
+  ...Object.values(agents).map((agent) => agent.inputKey)
+);
+export type AgentInputKey = typeof AgentInputKey.infer;
+
+const keyInputDefs = flatMorph(
+  agents,
+  (_, agent) => [agent.inputKey, "string | undefined?"] as const
+);
+
 export const Inputs = type({
   prompt: "string",
-  "anthropic_api_key?": "string | undefined",
+  ...keyInputDefs,
+  "agent?": AgentName,
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -32,28 +47,23 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
+    Inputs.assert(inputs);
     setupGitConfig();
 
-    const { githubInstallationToken, wasAcquired, isFallbackToken } =
-      await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
     const repoContext = parseRepoContext();
 
-    // Fetch repo settings (agent, permissions, workflows) from API
-    // Skip API call if we're using GITHUB_TOKEN fallback (app not installed)
-    let repoSettings: RepoSettings;
-    if (isFallbackToken) {
-      log.info("Using default repository settings (app not installed)");
-      repoSettings = DEFAULT_REPO_SETTINGS;
-    } else {
-      log.info("Fetching repository settings...");
-      repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
-      log.info("Repository settings fetched");
-    }
-    const agent = repoSettings.defaultAgent || "claude";
-    if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
+    const repoSettings = await fetchRepoSettings({
+      token: githubInstallationToken,
+      repoContext,
+    });
+
+    const agentName: AgentName = inputs.agent || repoSettings.defaultAgent || "claude";
+
+    const agent = agents[agentName];
 
     setupGitAuth(githubInstallationToken, repoContext);
 
@@ -61,21 +71,28 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
 
-    // Install Claude CLI before running
-    await claude.install();
+    // Install agent CLI before running
+    const cliPath = await agent.install();
 
-    log.info("Running Claude Agent SDK...");
+    log.info(`Running ${agentName}...`);
     log.box(inputs.prompt, { title: "Prompt" });
 
     // TODO: check if `inputs.prompts` is JSON
     // if yes, check if it's a webhook payload or toJSON(github.event)
     // for webhook payloads, check the specified `agent` field
 
-    const result = await claude.run({
+    // Get API key based on agent type
+
+    const apiKey = inputs[agent.inputKey];
+
+    if (!apiKey) throw new Error(`${agent.inputKey} is required for ${agentName} agent`);
+
+    const result = await agent.run({
       prompt: inputs.prompt,
       mcpServers,
       githubInstallationToken,
-      apiKey: inputs.anthropic_api_key!,
+      apiKey,
+      cliPath,
     });
 
     if (!result.success) {

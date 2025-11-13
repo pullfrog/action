@@ -1,16 +1,20 @@
+import type { AgentName } from "../main.ts";
+import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 
+export interface Mode {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+}
+
 export interface RepoSettings {
-  defaultAgent: string | null;
+  defaultAgent: AgentName | null;
   webAccessLevel: "full_access" | "limited";
   webAccessAllowTrusted: boolean;
   webAccessDomains: string;
-  workflows: Array<{
-    id: string;
-    name: string;
-    description: string;
-    prompt: string;
-  }>;
+  modes: Mode[];
 }
 
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {
@@ -18,8 +22,25 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   webAccessLevel: "full_access",
   webAccessAllowTrusted: false,
   webAccessDomains: "",
-  workflows: [],
+  modes: [],
 };
+
+/**
+ * Fetch repository settings from the Pullfrog API
+ * Returns defaults if repo doesn't exist or fetch fails
+ */
+export async function fetchRepoSettings({
+  token,
+  repoContext,
+}: {
+  token: string;
+  repoContext: RepoContext;
+}): Promise<RepoSettings> {
+  log.info("Fetching repository settings...");
+  const settings = await getRepoSettings(token, repoContext);
+  log.info("Repository settings fetched");
+  return settings;
+}
 
 /**
  * Fetch repository settings from the Pullfrog API with fallback to defaults

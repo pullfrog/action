@@ -97,11 +97,11 @@ var require_command = __commonJS({
     };
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.issue = exports.issueCommand = void 0;
-    var os = __importStar(__require("os"));
+    var os2 = __importStar(__require("os"));
     var utils_1 = require_utils();
     function issueCommand(command, properties, message) {
       const cmd = new Command(command, properties, message);
-      process.stdout.write(cmd.toString() + os.EOL);
+      process.stdout.write(cmd.toString() + os2.EOL);
     }
     exports.issueCommand = issueCommand;
     function issue(name, message = "") {
@@ -184,18 +184,18 @@ var require_file_command = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
     var crypto = __importStar(__require("crypto"));
-    var fs2 = __importStar(__require("fs"));
-    var os = __importStar(__require("os"));
+    var fs3 = __importStar(__require("fs"));
+    var os2 = __importStar(__require("os"));
     var utils_1 = require_utils();
     function issueFileCommand(command, message) {
       const filePath2 = process.env[`GITHUB_${command}`];
       if (!filePath2) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
       }
-      if (!fs2.existsSync(filePath2)) {
+      if (!fs3.existsSync(filePath2)) {
         throw new Error(`Missing file at path: ${filePath2}`);
       }
-      fs2.appendFileSync(filePath2, `${(0, utils_1.toCommandValue)(message)}${os.EOL}`, {
+      fs3.appendFileSync(filePath2, `${(0, utils_1.toCommandValue)(message)}${os2.EOL}`, {
         encoding: "utf8"
       });
     }
@@ -209,7 +209,7 @@ var require_file_command = __commonJS({
       if (convertedValue.includes(delimiter)) {
         throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
       }
-      return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
+      return `${key}<<${delimiter}${os2.EOL}${convertedValue}${os2.EOL}${delimiter}`;
     }
     exports.prepareKeyValueMessage = prepareKeyValueMessage;
   }
@@ -313,28 +313,28 @@ var require_tunnel = __commonJS({
     exports.httpOverHttps = httpOverHttps;
     exports.httpsOverHttps = httpsOverHttps;
     function httpOverHttp(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = http.request;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = http.request;
+      return agent2;
     }
     function httpsOverHttp(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = http.request;
-      agent.createSocket = createSecureSocket;
-      agent.defaultPort = 443;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = http.request;
+      agent2.createSocket = createSecureSocket;
+      agent2.defaultPort = 443;
+      return agent2;
     }
     function httpOverHttps(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = https.request;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = https.request;
+      return agent2;
     }
     function httpsOverHttps(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = https.request;
-      agent.createSocket = createSecureSocket;
-      agent.defaultPort = 443;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = https.request;
+      agent2.createSocket = createSecureSocket;
+      agent2.defaultPort = 443;
+      return agent2;
     }
     function TunnelingAgent(options) {
       var self2 = this;
@@ -998,14 +998,14 @@ var require_util = __commonJS({
         }
         const port = url2.port != null ? url2.port : url2.protocol === "https:" ? 443 : 80;
         let origin = url2.origin != null ? url2.origin : `${url2.protocol}//${url2.hostname}:${port}`;
-        let path2 = url2.path != null ? url2.path : `${url2.pathname || ""}${url2.search || ""}`;
+        let path3 = url2.path != null ? url2.path : `${url2.pathname || ""}${url2.search || ""}`;
         if (origin.endsWith("/")) {
           origin = origin.substring(0, origin.length - 1);
         }
-        if (path2 && !path2.startsWith("/")) {
-          path2 = `/${path2}`;
+        if (path3 && !path3.startsWith("/")) {
+          path3 = `/${path3}`;
         }
-        url2 = new URL(origin + path2);
+        url2 = new URL(origin + path3);
       }
       return url2;
     }
@@ -2619,20 +2619,20 @@ var require_parseParams = __commonJS({
 var require_basename = __commonJS({
   "../node_modules/.pnpm/@fastify+busboy@2.1.1/node_modules/@fastify/busboy/lib/utils/basename.js"(exports, module) {
     "use strict";
-    module.exports = function basename(path2) {
-      if (typeof path2 !== "string") {
+    module.exports = function basename(path3) {
+      if (typeof path3 !== "string") {
         return "";
       }
-      for (var i = path2.length - 1; i >= 0; --i) {
-        switch (path2.charCodeAt(i)) {
+      for (var i = path3.length - 1; i >= 0; --i) {
+        switch (path3.charCodeAt(i)) {
           case 47:
           // '/'
           case 92:
-            path2 = path2.slice(i + 1);
-            return path2 === ".." || path2 === "." ? "" : path2;
+            path3 = path3.slice(i + 1);
+            return path3 === ".." || path3 === "." ? "" : path3;
         }
       }
-      return path2 === ".." || path2 === "." ? "" : path2;
+      return path3 === ".." || path3 === "." ? "" : path3;
     };
   }
 });
@@ -5662,7 +5662,7 @@ var require_request = __commonJS({
     }
     var Request2 = class _Request {
       constructor(origin, {
-        path: path2,
+        path: path3,
         method,
         body,
         headers,
@@ -5676,11 +5676,11 @@ var require_request = __commonJS({
         throwOnError,
         expectContinue
       }, handler) {
-        if (typeof path2 !== "string") {
+        if (typeof path3 !== "string") {
           throw new InvalidArgumentError("path must be a string");
-        } else if (path2[0] !== "/" && !(path2.startsWith("http://") || path2.startsWith("https://")) && method !== "CONNECT") {
+        } else if (path3[0] !== "/" && !(path3.startsWith("http://") || path3.startsWith("https://")) && method !== "CONNECT") {
           throw new InvalidArgumentError("path must be an absolute URL or start with a slash");
-        } else if (invalidPathRegex.exec(path2) !== null) {
+        } else if (invalidPathRegex.exec(path3) !== null) {
           throw new InvalidArgumentError("invalid request path");
         }
         if (typeof method !== "string") {
@@ -5743,7 +5743,7 @@ var require_request = __commonJS({
         this.completed = false;
         this.aborted = false;
         this.upgrade = upgrade || null;
-        this.path = query2 ? util2.buildURL(path2, query2) : path2;
+        this.path = query2 ? util2.buildURL(path3, query2) : path3;
         this.origin = origin;
         this.idempotent = idempotent == null ? method === "HEAD" || method === "GET" : idempotent;
         this.blocking = blocking == null ? false : blocking;
@@ -6751,9 +6751,9 @@ var require_RedirectHandler = __commonJS({
           return this.handler.onHeaders(statusCode, headers, resume, statusText);
         }
         const { origin, pathname, search } = util2.parseURL(new URL(this.location, this.opts.origin && new URL(this.opts.path, this.opts.origin)));
-        const path2 = search ? `${pathname}${search}` : pathname;
+        const path3 = search ? `${pathname}${search}` : pathname;
         this.opts.headers = cleanRequestHeaders(this.opts.headers, statusCode === 303, this.opts.origin !== origin);
-        this.opts.path = path2;
+        this.opts.path = path3;
         this.opts.origin = origin;
         this.opts.maxRedirections = 0;
         this.opts.query = null;
@@ -7993,7 +7993,7 @@ var require_client = __commonJS({
         writeH2(client, client[kHTTP2Session], request);
         return;
       }
-      const { body, method, path: path2, host, upgrade, headers, blocking, reset } = request;
+      const { body, method, path: path3, host, upgrade, headers, blocking, reset } = request;
       const expectsPayload = method === "PUT" || method === "POST" || method === "PATCH";
       if (body && typeof body.read === "function") {
         body.read(0);
@@ -8043,7 +8043,7 @@ var require_client = __commonJS({
       if (blocking) {
         socket[kBlocking] = true;
       }
-      let header = `${method} ${path2} HTTP/1.1\r
+      let header = `${method} ${path3} HTTP/1.1\r
 `;
       if (typeof host === "string") {
         header += `host: ${host}\r
@@ -8106,7 +8106,7 @@ upgrade: ${upgrade}\r
       return true;
     }
     function writeH2(client, session, request) {
-      const { body, method, path: path2, host, upgrade, expectContinue, signal, headers: reqHeaders } = request;
+      const { body, method, path: path3, host, upgrade, expectContinue, signal, headers: reqHeaders } = request;
       let headers;
       if (typeof reqHeaders === "string") headers = Request2[kHTTP2CopyHeaders](reqHeaders.trim());
       else headers = reqHeaders;
@@ -8149,7 +8149,7 @@ upgrade: ${upgrade}\r
         });
         return true;
       }
-      headers[HTTP2_HEADER_PATH] = path2;
+      headers[HTTP2_HEADER_PATH] = path3;
       headers[HTTP2_HEADER_SCHEME] = "https";
       const expectsPayload = method === "PUT" || method === "POST" || method === "PATCH";
       if (body && typeof body.read === "function") {
@@ -9136,18 +9136,18 @@ var require_agent = __commonJS({
             }
           }
         );
-        const agent = this;
+        const agent2 = this;
         this[kOnDrain] = (origin, targets) => {
-          agent.emit("drain", origin, [agent, ...targets]);
+          agent2.emit("drain", origin, [agent2, ...targets]);
         };
         this[kOnConnect] = (origin, targets) => {
-          agent.emit("connect", origin, [agent, ...targets]);
+          agent2.emit("connect", origin, [agent2, ...targets]);
         };
         this[kOnDisconnect] = (origin, targets, err2) => {
-          agent.emit("disconnect", origin, [agent, ...targets], err2);
+          agent2.emit("disconnect", origin, [agent2, ...targets], err2);
         };
         this[kOnConnectionError] = (origin, targets, err2) => {
-          agent.emit("connectionError", origin, [agent, ...targets], err2);
+          agent2.emit("connectionError", origin, [agent2, ...targets], err2);
         };
       }
       get [kRunning]() {
@@ -10389,20 +10389,20 @@ var require_mock_utils = __commonJS({
       }
       return true;
     }
-    function safeUrl(path2) {
-      if (typeof path2 !== "string") {
-        return path2;
+    function safeUrl(path3) {
+      if (typeof path3 !== "string") {
+        return path3;
       }
-      const pathSegments = path2.split("?");
+      const pathSegments = path3.split("?");
       if (pathSegments.length !== 2) {
-        return path2;
+        return path3;
       }
       const qp = new URLSearchParams(pathSegments.pop());
       qp.sort();
       return [...pathSegments, qp.toString()].join("?");
     }
-    function matchKey(mockDispatch2, { path: path2, method, body, headers }) {
-      const pathMatch = matchValue(mockDispatch2.path, path2);
+    function matchKey(mockDispatch2, { path: path3, method, body, headers }) {
+      const pathMatch = matchValue(mockDispatch2.path, path3);
       const methodMatch = matchValue(mockDispatch2.method, method);
       const bodyMatch = typeof mockDispatch2.body !== "undefined" ? matchValue(mockDispatch2.body, body) : true;
       const headersMatch = matchHeaders(mockDispatch2, headers);
@@ -10420,7 +10420,7 @@ var require_mock_utils = __commonJS({
     function getMockDispatch(mockDispatches, key) {
       const basePath = key.query ? buildURL(key.path, key.query) : key.path;
       const resolvedPath = typeof basePath === "string" ? safeUrl(basePath) : basePath;
-      let matchedMockDispatches = mockDispatches.filter(({ consumed }) => !consumed).filter(({ path: path2 }) => matchValue(safeUrl(path2), resolvedPath));
+      let matchedMockDispatches = mockDispatches.filter(({ consumed }) => !consumed).filter(({ path: path3 }) => matchValue(safeUrl(path3), resolvedPath));
       if (matchedMockDispatches.length === 0) {
         throw new MockNotMatchedError(`Mock dispatch not matched for path '${resolvedPath}'`);
       }
@@ -10457,9 +10457,9 @@ var require_mock_utils = __commonJS({
       }
     }
     function buildKey(opts) {
-      const { path: path2, method, body, headers, query: query2 } = opts;
+      const { path: path3, method, body, headers, query: query2 } = opts;
       return {
-        path: path2,
+        path: path3,
         method,
         body,
         headers,
@@ -10527,16 +10527,16 @@ var require_mock_utils = __commonJS({
       return true;
     }
     function buildMockDispatch() {
-      const agent = this[kMockAgent];
+      const agent2 = this[kMockAgent];
       const origin = this[kOrigin];
       const originalDispatch = this[kOriginalDispatch];
       return function dispatch(opts, handler) {
-        if (agent.isMockActive) {
+        if (agent2.isMockActive) {
           try {
             mockDispatch.call(this, opts, handler);
           } catch (error2) {
             if (error2 instanceof MockNotMatchedError) {
-              const netConnect = agent[kGetNetConnect]();
+              const netConnect = agent2[kGetNetConnect]();
               if (netConnect === false) {
                 throw new MockNotMatchedError(`${error2.message}: subsequent request to origin ${origin} was not allowed (net.connect disabled)`);
               }
@@ -10565,7 +10565,7 @@ var require_mock_utils = __commonJS({
     }
     function buildMockOptions(opts) {
       if (opts) {
-        const { agent, ...mockOptions } = opts;
+        const { agent: agent2, ...mockOptions } = opts;
         return mockOptions;
       }
     }
@@ -10908,10 +10908,10 @@ var require_pending_interceptors_formatter = __commonJS({
       }
       format(pendingInterceptors) {
         const withPrettyHeaders = pendingInterceptors.map(
-          ({ method, path: path2, data: { statusCode }, persist, times, timesInvoked, origin }) => ({
+          ({ method, path: path3, data: { statusCode }, persist, times, timesInvoked, origin }) => ({
             Method: method,
             Origin: origin,
-            Path: path2,
+            Path: path3,
             "Status code": statusCode,
             Persistent: persist ? "\u2705" : "\u274C",
             Invocations: timesInvoked,
@@ -10965,9 +10965,9 @@ var require_mock_agent = __commonJS({
         if (opts && opts.agent && typeof opts.agent.dispatch !== "function") {
           throw new InvalidArgumentError("Argument opts.agent must implement Agent");
         }
-        const agent = opts && opts.agent ? opts.agent : new Agent(opts);
-        this[kAgent] = agent;
-        this[kClients] = agent[kClients];
+        const agent2 = opts && opts.agent ? opts.agent : new Agent(opts);
+        this[kAgent] = agent2;
+        this[kClients] = agent2[kClients];
         this[kOptions] = buildMockOptions(opts);
       }
       get(origin) {
@@ -11493,12 +11493,12 @@ var require_global2 = __commonJS({
     if (getGlobalDispatcher() === void 0) {
       setGlobalDispatcher(new Agent());
     }
-    function setGlobalDispatcher(agent) {
-      if (!agent || typeof agent.dispatch !== "function") {
+    function setGlobalDispatcher(agent2) {
+      if (!agent2 || typeof agent2.dispatch !== "function") {
         throw new InvalidArgumentError("Argument agent must implement Agent");
       }
       Object.defineProperty(globalThis, globalDispatcher, {
-        value: agent,
+        value: agent2,
         writable: true,
         enumerable: false,
         configurable: false
@@ -13850,8 +13850,8 @@ var require_fetch = __commonJS({
       return response;
       async function dispatch({ body }) {
         const url2 = requestCurrentURL(request);
-        const agent = fetchParams.controller.dispatcher;
-        return new Promise((resolve, reject) => agent.dispatch(
+        const agent2 = fetchParams.controller.dispatcher;
+        return new Promise((resolve, reject) => agent2.dispatch(
           {
             path: url2.pathname + url2.search,
             origin: url2.origin,
@@ -15531,8 +15531,8 @@ var require_util6 = __commonJS({
         }
       }
     }
-    function validateCookiePath(path2) {
-      for (const char of path2) {
+    function validateCookiePath(path3) {
+      for (const char of path3) {
         const code = char.charCodeAt(0);
         if (code < 33 || char === ";") {
           throw new Error("Invalid cookie path");
@@ -17212,19 +17212,19 @@ var require_undici = __commonJS({
           if (typeof opts.path !== "string") {
             throw new InvalidArgumentError("invalid opts.path");
           }
-          let path2 = opts.path;
+          let path3 = opts.path;
           if (!opts.path.startsWith("/")) {
-            path2 = `/${path2}`;
+            path3 = `/${path3}`;
           }
-          url2 = new URL(util2.parseOrigin(url2).origin + path2);
+          url2 = new URL(util2.parseOrigin(url2).origin + path3);
         } else {
           if (!opts) {
             opts = typeof url2 === "object" ? url2 : {};
           }
           url2 = util2.parseURL(url2);
         }
-        const { agent, dispatcher = getGlobalDispatcher() } = opts;
-        if (agent) {
+        const { agent: agent2, dispatcher = getGlobalDispatcher() } = opts;
+        if (agent2) {
           throw new InvalidArgumentError("unsupported opts.agent. Did you mean opts.client?");
         }
         return fn2.call(dispatcher, {
@@ -17776,17 +17776,17 @@ var require_lib = __commonJS({
         return additionalHeaders[header] || clientHeader || _default;
       }
       _getAgent(parsedUrl) {
-        let agent;
+        let agent2;
         const proxyUrl = pm.getProxyUrl(parsedUrl);
         const useProxy = proxyUrl && proxyUrl.hostname;
         if (this._keepAlive && useProxy) {
-          agent = this._proxyAgent;
+          agent2 = this._proxyAgent;
         }
         if (!useProxy) {
-          agent = this._agent;
+          agent2 = this._agent;
         }
-        if (agent) {
-          return agent;
+        if (agent2) {
+          return agent2;
         }
         const usingSsl = parsedUrl.protocol === "https:";
         let maxSockets = 100;
@@ -17808,20 +17808,20 @@ var require_lib = __commonJS({
           } else {
             tunnelAgent = overHttps ? tunnel.httpOverHttps : tunnel.httpOverHttp;
           }
-          agent = tunnelAgent(agentOptions);
-          this._proxyAgent = agent;
+          agent2 = tunnelAgent(agentOptions);
+          this._proxyAgent = agent2;
         }
-        if (!agent) {
+        if (!agent2) {
           const options = { keepAlive: this._keepAlive, maxSockets };
-          agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
-          this._agent = agent;
+          agent2 = usingSsl ? new https.Agent(options) : new http.Agent(options);
+          this._agent = agent2;
         }
         if (usingSsl && this._ignoreSslError) {
-          agent.options = Object.assign(agent.options || {}, {
+          agent2.options = Object.assign(agent2.options || {}, {
             rejectUnauthorized: false
           });
         }
-        return agent;
+        return agent2;
       }
       _getProxyAgentDispatcher(parsedUrl, proxyUrl) {
         let proxyAgent;
@@ -18439,7 +18439,7 @@ var require_path_utils = __commonJS({
     };
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toPlatformPath = exports.toWin32Path = exports.toPosixPath = void 0;
-    var path2 = __importStar(__require("path"));
+    var path3 = __importStar(__require("path"));
     function toPosixPath(pth) {
       return pth.replace(/[\\]/g, "/");
     }
@@ -18449,7 +18449,7 @@ var require_path_utils = __commonJS({
     }
     exports.toWin32Path = toWin32Path;
     function toPlatformPath(pth) {
-      return pth.replace(/[/\\]/g, path2.sep);
+      return pth.replace(/[/\\]/g, path3.sep);
     }
     exports.toPlatformPath = toPlatformPath;
   }
@@ -18512,12 +18512,12 @@ var require_io_util = __commonJS({
     var _a;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCmdPath = exports.tryGetExecutablePath = exports.isRooted = exports.isDirectory = exports.exists = exports.READONLY = exports.UV_FS_O_EXLOCK = exports.IS_WINDOWS = exports.unlink = exports.symlink = exports.stat = exports.rmdir = exports.rm = exports.rename = exports.readlink = exports.readdir = exports.open = exports.mkdir = exports.lstat = exports.copyFile = exports.chmod = void 0;
-    var fs2 = __importStar(__require("fs"));
-    var path2 = __importStar(__require("path"));
-    _a = fs2.promises, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.open = _a.open, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rm = _a.rm, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
+    var fs3 = __importStar(__require("fs"));
+    var path3 = __importStar(__require("path"));
+    _a = fs3.promises, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.open = _a.open, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rm = _a.rm, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
     exports.IS_WINDOWS = process.platform === "win32";
     exports.UV_FS_O_EXLOCK = 268435456;
-    exports.READONLY = fs2.constants.O_RDONLY;
+    exports.READONLY = fs3.constants.O_RDONLY;
     function exists(fsPath) {
       return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -18562,7 +18562,7 @@ var require_io_util = __commonJS({
         }
         if (stats && stats.isFile()) {
           if (exports.IS_WINDOWS) {
-            const upperExt = path2.extname(filePath2).toUpperCase();
+            const upperExt = path3.extname(filePath2).toUpperCase();
             if (extensions.some((validExt) => validExt.toUpperCase() === upperExt)) {
               return filePath2;
             }
@@ -18586,11 +18586,11 @@ var require_io_util = __commonJS({
           if (stats && stats.isFile()) {
             if (exports.IS_WINDOWS) {
               try {
-                const directory = path2.dirname(filePath2);
-                const upperName = path2.basename(filePath2).toUpperCase();
+                const directory = path3.dirname(filePath2);
+                const upperName = path3.basename(filePath2).toUpperCase();
                 for (const actualName of yield exports.readdir(directory)) {
                   if (upperName === actualName.toUpperCase()) {
-                    filePath2 = path2.join(directory, actualName);
+                    filePath2 = path3.join(directory, actualName);
                     break;
                   }
                 }
@@ -18685,7 +18685,7 @@ var require_io = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.findInPath = exports.which = exports.mkdirP = exports.rmRF = exports.mv = exports.cp = void 0;
     var assert_1 = __require("assert");
-    var path2 = __importStar(__require("path"));
+    var path3 = __importStar(__require("path"));
     var ioUtil = __importStar(require_io_util());
     function cp(source, dest, options = {}) {
       return __awaiter(this, void 0, void 0, function* () {
@@ -18694,7 +18694,7 @@ var require_io = __commonJS({
         if (destStat && destStat.isFile() && !force) {
           return;
         }
-        const newDest = destStat && destStat.isDirectory() && copySourceDirectory ? path2.join(dest, path2.basename(source)) : dest;
+        const newDest = destStat && destStat.isDirectory() && copySourceDirectory ? path3.join(dest, path3.basename(source)) : dest;
         if (!(yield ioUtil.exists(source))) {
           throw new Error(`no such file or directory: ${source}`);
         }
@@ -18706,7 +18706,7 @@ var require_io = __commonJS({
             yield cpDirRecursive(source, newDest, 0, force);
           }
         } else {
-          if (path2.relative(source, newDest) === "") {
+          if (path3.relative(source, newDest) === "") {
             throw new Error(`'${newDest}' and '${source}' are the same file`);
           }
           yield copyFile(source, newDest, force);
@@ -18719,7 +18719,7 @@ var require_io = __commonJS({
         if (yield ioUtil.exists(dest)) {
           let destExists = true;
           if (yield ioUtil.isDirectory(dest)) {
-            dest = path2.join(dest, path2.basename(source));
+            dest = path3.join(dest, path3.basename(source));
             destExists = yield ioUtil.exists(dest);
           }
           if (destExists) {
@@ -18730,7 +18730,7 @@ var require_io = __commonJS({
             }
           }
         }
-        yield mkdirP(path2.dirname(dest));
+        yield mkdirP(path3.dirname(dest));
         yield ioUtil.rename(source, dest);
       });
     }
@@ -18793,7 +18793,7 @@ var require_io = __commonJS({
         }
         const extensions = [];
         if (ioUtil.IS_WINDOWS && process.env["PATHEXT"]) {
-          for (const extension of process.env["PATHEXT"].split(path2.delimiter)) {
+          for (const extension of process.env["PATHEXT"].split(path3.delimiter)) {
             if (extension) {
               extensions.push(extension);
             }
@@ -18806,12 +18806,12 @@ var require_io = __commonJS({
           }
           return [];
         }
-        if (tool.includes(path2.sep)) {
+        if (tool.includes(path3.sep)) {
           return [];
         }
         const directories = [];
         if (process.env.PATH) {
-          for (const p of process.env.PATH.split(path2.delimiter)) {
+          for (const p of process.env.PATH.split(path3.delimiter)) {
             if (p) {
               directories.push(p);
             }
@@ -18819,7 +18819,7 @@ var require_io = __commonJS({
         }
         const matches = [];
         for (const directory of directories) {
-          const filePath2 = yield ioUtil.tryGetExecutablePath(path2.join(directory, tool), extensions);
+          const filePath2 = yield ioUtil.tryGetExecutablePath(path3.join(directory, tool), extensions);
           if (filePath2) {
             matches.push(filePath2);
           }
@@ -18932,10 +18932,10 @@ var require_toolrunner = __commonJS({
     };
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.argStringToArray = exports.ToolRunner = void 0;
-    var os = __importStar(__require("os"));
+    var os2 = __importStar(__require("os"));
     var events = __importStar(__require("events"));
     var child = __importStar(__require("child_process"));
-    var path2 = __importStar(__require("path"));
+    var path3 = __importStar(__require("path"));
     var io = __importStar(require_io());
     var ioUtil = __importStar(require_io_util());
     var timers_1 = __require("timers");
@@ -18987,12 +18987,12 @@ var require_toolrunner = __commonJS({
       _processLineBuffer(data, strBuffer, onLine) {
         try {
           let s = strBuffer + data.toString();
-          let n = s.indexOf(os.EOL);
+          let n = s.indexOf(os2.EOL);
           while (n > -1) {
             const line = s.substring(0, n);
             onLine(line);
-            s = s.substring(n + os.EOL.length);
-            n = s.indexOf(os.EOL);
+            s = s.substring(n + os2.EOL.length);
+            n = s.indexOf(os2.EOL);
           }
           return s;
         } catch (err2) {
@@ -19150,7 +19150,7 @@ var require_toolrunner = __commonJS({
       exec() {
         return __awaiter(this, void 0, void 0, function* () {
           if (!ioUtil.isRooted(this.toolPath) && (this.toolPath.includes("/") || IS_WINDOWS && this.toolPath.includes("\\"))) {
-            this.toolPath = path2.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
+            this.toolPath = path3.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
           }
           this.toolPath = yield io.which(this.toolPath, true);
           return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
@@ -19161,7 +19161,7 @@ var require_toolrunner = __commonJS({
             }
             const optionsNonNull = this._cloneExecOptions(this.options);
             if (!optionsNonNull.silent && optionsNonNull.outStream) {
-              optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os.EOL);
+              optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os2.EOL);
             }
             const state = new ExecState(optionsNonNull, this.toolPath);
             state.on("debug", (message) => {
@@ -19649,8 +19649,8 @@ var require_core = __commonJS({
     var command_1 = require_command();
     var file_command_1 = require_file_command();
     var utils_1 = require_utils();
-    var os = __importStar(__require("os"));
-    var path2 = __importStar(__require("path"));
+    var os2 = __importStar(__require("os"));
+    var path3 = __importStar(__require("path"));
     var oidc_utils_1 = require_oidc_utils();
     var ExitCode;
     (function(ExitCode2) {
@@ -19678,7 +19678,7 @@ var require_core = __commonJS({
       } else {
         (0, command_1.issueCommand)("add-path", {}, inputPath);
       }
-      process.env["PATH"] = `${inputPath}${path2.delimiter}${process.env["PATH"]}`;
+      process.env["PATH"] = `${inputPath}${path3.delimiter}${process.env["PATH"]}`;
     }
     exports.addPath = addPath;
     function getInput3(name, options) {
@@ -19717,7 +19717,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       if (filePath2) {
         return (0, file_command_1.issueFileCommand)("OUTPUT", (0, file_command_1.prepareKeyValueMessage)(name, value2));
       }
-      process.stdout.write(os.EOL);
+      process.stdout.write(os2.EOL);
       (0, command_1.issueCommand)("set-output", { name }, (0, utils_1.toCommandValue)(value2));
     }
     exports.setOutput = setOutput;
@@ -19751,7 +19751,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports.notice = notice;
     function info2(message) {
-      process.stdout.write(message + os.EOL);
+      process.stdout.write(message + os2.EOL);
     }
     exports.info = info2;
     function startGroup3(name) {
@@ -20442,29 +20442,29 @@ var timeWithUnnecessarySeconds = /:\d\d:00$/;
 var pad = (value2, length) => String(value2).padStart(length, "0");
 
 // ../node_modules/.pnpm/@ark+util@0.53.0/node_modules/@ark/util/out/path.js
-var appendStringifiedKey = (path2, prop, ...[opts]) => {
+var appendStringifiedKey = (path3, prop, ...[opts]) => {
   const stringifySymbol = opts?.stringifySymbol ?? printable;
-  let propAccessChain = path2;
+  let propAccessChain = path3;
   switch (typeof prop) {
     case "string":
-      propAccessChain = isDotAccessible(prop) ? path2 === "" ? prop : `${path2}.${prop}` : `${path2}[${JSON.stringify(prop)}]`;
+      propAccessChain = isDotAccessible(prop) ? path3 === "" ? prop : `${path3}.${prop}` : `${path3}[${JSON.stringify(prop)}]`;
       break;
     case "number":
-      propAccessChain = `${path2}[${prop}]`;
+      propAccessChain = `${path3}[${prop}]`;
       break;
     case "symbol":
-      propAccessChain = `${path2}[${stringifySymbol(prop)}]`;
+      propAccessChain = `${path3}[${stringifySymbol(prop)}]`;
       break;
     default:
       if (opts?.stringifyNonKey)
-        propAccessChain = `${path2}[${opts.stringifyNonKey(prop)}]`;
+        propAccessChain = `${path3}[${opts.stringifyNonKey(prop)}]`;
       else {
         throwParseError(`${printable(prop)} must be a PropertyKey or stringifyNonKey must be passed to options`);
       }
   }
   return propAccessChain;
 };
-var stringifyPath = (path2, ...opts) => path2.reduce((s, k) => appendStringifiedKey(s, k, ...opts), "");
+var stringifyPath = (path3, ...opts) => path3.reduce((s, k) => appendStringifiedKey(s, k, ...opts), "");
 var ReadonlyPath = class extends ReadonlyArray {
   // alternate strategy for caching since the base object is frozen
   cache = {};
@@ -20491,8 +20491,8 @@ var ReadonlyPath = class extends ReadonlyArray {
       return this.cache.stringifyAncestors;
     let propString = "";
     const result = [propString];
-    for (const path2 of this) {
-      propString = appendStringifiedKey(propString, path2);
+    for (const path3 of this) {
+      propString = appendStringifiedKey(propString, path3);
       result.push(propString);
     }
     return this.cache.stringifyAncestors = result;
@@ -21113,15 +21113,15 @@ var ArkErrors = class _ArkErrors extends ReadonlyArray {
   /**
    * @internal
    */
-  affectsPath(path2) {
+  affectsPath(path3) {
     if (this.length === 0)
       return false;
     return (
       // this would occur if there is an existing error at a prefix of path
       // e.g. the path is ["foo", "bar"] and there is an error at ["foo"]
-      path2.stringifyAncestors().some((s) => s in this.byPath) || // this would occur if there is an existing error at a suffix of path
+      path3.stringifyAncestors().some((s) => s in this.byPath) || // this would occur if there is an existing error at a suffix of path
       // e.g. the path is ["foo"] and there is an error at ["foo", "bar"]
-      path2.stringify() in this.byAncestorPath
+      path3.stringify() in this.byAncestorPath
     );
   }
   /**
@@ -21308,23 +21308,23 @@ var Traversal = class {
     while (this.queuedMorphs.length) {
       const queuedMorphs = this.queuedMorphs;
       this.queuedMorphs = [];
-      for (const { path: path2, morphs } of queuedMorphs) {
-        if (this.errors.affectsPath(path2))
+      for (const { path: path3, morphs } of queuedMorphs) {
+        if (this.errors.affectsPath(path3))
           continue;
-        this.applyMorphsAtPath(path2, morphs);
+        this.applyMorphsAtPath(path3, morphs);
       }
     }
   }
-  applyMorphsAtPath(path2, morphs) {
-    const key = path2.at(-1);
+  applyMorphsAtPath(path3, morphs) {
+    const key = path3.at(-1);
     let parent;
     if (key !== void 0) {
       parent = this.root;
-      for (let pathIndex = 0; pathIndex < path2.length - 1; pathIndex++)
-        parent = parent[path2[pathIndex]];
+      for (let pathIndex = 0; pathIndex < path3.length - 1; pathIndex++)
+        parent = parent[path3[pathIndex]];
     }
     for (const morph of morphs) {
-      this.path = [...path2];
+      this.path = [...path3];
       const morphIsNode = isNode(morph);
       const result = morph(parent === void 0 ? this.root : parent[key], this);
       if (result instanceof ArkError) {
@@ -21699,15 +21699,15 @@ var NodeSelector = {
   normalize: (selector) => typeof selector === "function" ? { boundary: "references", method: "filter", where: selector } : typeof selector === "string" ? isKeyOf(selector, NodeSelector.applyBoundary) ? { method: "filter", boundary: selector } : { boundary: "references", method: "filter", kind: selector } : { boundary: "references", method: "filter", ...selector }
 };
 var writeSelectAssertionMessage = (from, selector) => `${from} had no references matching ${printable(selector)}.`;
-var typePathToPropString = (path2) => stringifyPath(path2, {
+var typePathToPropString = (path3) => stringifyPath(path3, {
   stringifyNonKey: (node2) => node2.expression
 });
 var referenceMatcher = /"(\$ark\.[^"]+)"/g;
 var compileMeta = (metaJson) => JSON.stringify(metaJson).replaceAll(referenceMatcher, "$1");
-var flatRef = (path2, node2) => ({
-  path: path2,
+var flatRef = (path3, node2) => ({
+  path: path3,
   node: node2,
-  propString: typePathToPropString(path2)
+  propString: typePathToPropString(path3)
 });
 var flatRefsAreEqual = (l, r) => l.propString === r.propString && l.node.equals(r.node);
 var appendUniqueFlatRefs = (existing, refs) => appendUnique(existing, refs, {
@@ -21743,12 +21743,12 @@ var Disjoint = class _Disjoint extends Array {
   }
   describeReasons() {
     if (this.length === 1) {
-      const { path: path2, l, r } = this[0];
-      const pathString = stringifyPath(path2);
+      const { path: path3, l, r } = this[0];
+      const pathString = stringifyPath(path3);
       return writeUnsatisfiableExpressionError(`Intersection${pathString && ` at ${pathString}`} of ${describeReasons(l, r)}`);
     }
     return `The following intersections result in unsatisfiable types:
-\u2022 ${this.map(({ path: path2, l, r }) => `${path2}: ${describeReasons(l, r)}`).join("\n\u2022 ")}`;
+\u2022 ${this.map(({ path: path3, l, r }) => `${path3}: ${describeReasons(l, r)}`).join("\n\u2022 ")}`;
   }
   throw() {
     return throwParseError(this.describeReasons());
@@ -23131,10 +23131,10 @@ var BaseRoot = class extends BaseNode {
       });
     });
   }
-  get(...path2) {
-    if (path2[0] === void 0)
+  get(...path3) {
+    if (path3[0] === void 0)
       return this;
-    return this.$.schema(this.applyStructuralOperation("get", path2));
+    return this.$.schema(this.applyStructuralOperation("get", path3));
   }
   extract(r) {
     const rNode = this.$.parseDefinition(r);
@@ -24066,13 +24066,13 @@ var implementation17 = implementNode({
     description: (node2) => node2.distribute((branch) => branch.description, describeBranches),
     expected: (ctx) => {
       const byPath = groupBy(ctx.errors, "propString");
-      const pathDescriptions = Object.entries(byPath).map(([path2, errors]) => {
+      const pathDescriptions = Object.entries(byPath).map(([path3, errors]) => {
         const branchesAtPath = [];
         for (const errorAtPath of errors)
           appendUnique(branchesAtPath, errorAtPath.expected);
         const expected = describeBranches(branchesAtPath);
         const actual = errors.every((e) => e.actual === errors[0].actual) ? errors[0].actual : printable(errors[0].data);
-        return `${path2 && `${path2} `}must be ${expected}${actual && ` (was ${actual})`}`;
+        return `${path3 && `${path3} `}must be ${expected}${actual && ` (was ${actual})`}`;
       });
       return describeBranches(pathDescriptions);
     },
@@ -24454,10 +24454,10 @@ var viableOrderedCandidates = (candidates, originalBranches) => {
   });
   return viableCandidates;
 };
-var discriminantCaseToNode = (caseDiscriminant, path2, $) => {
+var discriminantCaseToNode = (caseDiscriminant, path3, $) => {
   let node2 = caseDiscriminant === "undefined" ? $.node("unit", { unit: void 0 }) : caseDiscriminant === "null" ? $.node("unit", { unit: null }) : caseDiscriminant === "boolean" ? $.units([true, false]) : caseDiscriminant;
-  for (let i = path2.length - 1; i >= 0; i--) {
-    const key = path2[i];
+  for (let i = path3.length - 1; i >= 0; i--) {
+    const key = path3[i];
     node2 = $.node("intersection", typeof key === "number" ? {
       proto: "Array",
       // create unknown for preceding elements (could be optimized with safe imports)
@@ -24469,7 +24469,7 @@ var discriminantCaseToNode = (caseDiscriminant, path2, $) => {
   }
   return node2;
 };
-var optionallyChainPropString = (path2) => path2.reduce((acc, k) => acc + compileLiteralPropAccess(k, true), "data");
+var optionallyChainPropString = (path3) => path3.reduce((acc, k) => acc + compileLiteralPropAccess(k, true), "data");
 var serializedTypeOfDescriptions = registeredReference(jsTypeOfDescriptions);
 var serializedPrintable = registeredReference(printable);
 var Union = {
@@ -25445,7 +25445,7 @@ var StructureNode = class extends BaseConstraint {
       return throwParseError(writeInvalidKeysMessage(this.expression, invalidKeys));
     }
   }
-  get(indexer, ...path2) {
+  get(indexer, ...path3) {
     let value2;
     let required = false;
     const key = indexerToKey(indexer);
@@ -25481,7 +25481,7 @@ var StructureNode = class extends BaseConstraint {
       }
       return throwParseError(writeInvalidKeysMessage(this.expression, [key]));
     }
-    const result = value2.get(...path2);
+    const result = value2.get(...path3);
     return required ? result : result.or($ark.intrinsic.undefined);
   }
   pick(...keys) {
@@ -28177,15 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// agents/claude.ts
-import { execSync } from "node:child_process";
-import { createWriteStream as createWriteStream2, existsSync as existsSync2, rmSync as rmSync2 } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
-import { pipeline } from "node:stream/promises";
-
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -28197,6 +28189,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { dirname, join as join2 } from "path";
 import { cwd } from "process";
+import { realpathSync as realpathSync2 } from "fs";
 import { randomUUID } from "crypto";
 var __create2 = Object.create;
 var __getProtoOf2 = Object.getPrototypeOf;
@@ -29031,8 +29024,8 @@ var require_uri_all = __commonJS2((exports, module) => {
           wsComponents.secure = void 0;
         }
         if (wsComponents.resourceName) {
-          var _wsComponents$resourc = wsComponents.resourceName.split("?"), _wsComponents$resourc2 = slicedToArray(_wsComponents$resourc, 2), path2 = _wsComponents$resourc2[0], query2 = _wsComponents$resourc2[1];
-          wsComponents.path = path2 && path2 !== "/" ? path2 : void 0;
+          var _wsComponents$resourc = wsComponents.resourceName.split("?"), _wsComponents$resourc2 = slicedToArray(_wsComponents$resourc, 2), path3 = _wsComponents$resourc2[0], query2 = _wsComponents$resourc2[1];
+          wsComponents.path = path3 && path3 !== "/" ? path3 : void 0;
           wsComponents.query = query2;
           wsComponents.resourceName = void 0;
         }
@@ -29419,12 +29412,12 @@ var require_util8 = __commonJS2((exports, module) => {
     return "'" + escapeQuotes(str) + "'";
   }
   function getPathExpr(currentPath, expr, jsonPointers, isNumber) {
-    var path2 = jsonPointers ? "'/' + " + expr + (isNumber ? "" : ".replace(/~/g, '~0').replace(/\\//g, '~1')") : isNumber ? "'[' + " + expr + " + ']'" : "'[\\'' + " + expr + " + '\\']'";
-    return joinPaths(currentPath, path2);
+    var path3 = jsonPointers ? "'/' + " + expr + (isNumber ? "" : ".replace(/~/g, '~0').replace(/\\//g, '~1')") : isNumber ? "'[' + " + expr + " + ']'" : "'[\\'' + " + expr + " + '\\']'";
+    return joinPaths(currentPath, path3);
   }
   function getPath(currentPath, prop, jsonPointers) {
-    var path2 = jsonPointers ? toQuotedString("/" + escapeJsonPointer(prop)) : toQuotedString(getProperty(prop));
-    return joinPaths(currentPath, path2);
+    var path3 = jsonPointers ? toQuotedString("/" + escapeJsonPointer(prop)) : toQuotedString(getProperty(prop));
+    return joinPaths(currentPath, path3);
   }
   var JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
   var RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
@@ -34363,29 +34356,29 @@ var NodeFsOperations = {
       }
     }
   },
-  appendFileSync(path2, data) {
-    fs.appendFileSync(path2, data);
+  appendFileSync(path3, data) {
+    fs.appendFileSync(path3, data);
   },
   copyFileSync(src, dest) {
     fs.copyFileSync(src, dest);
   },
-  unlinkSync(path2) {
-    fs.unlinkSync(path2);
+  unlinkSync(path3) {
+    fs.unlinkSync(path3);
   },
   renameSync(oldPath, newPath) {
     fs.renameSync(oldPath, newPath);
   },
-  linkSync(target, path2) {
-    fs.linkSync(target, path2);
+  linkSync(target, path3) {
+    fs.linkSync(target, path3);
   },
-  symlinkSync(target, path2) {
-    fs.symlinkSync(target, path2);
+  symlinkSync(target, path3) {
+    fs.symlinkSync(target, path3);
   },
-  readlinkSync(path2) {
-    return fs.readlinkSync(path2);
+  readlinkSync(path3) {
+    return fs.readlinkSync(path3);
   },
-  realpathSync(path2) {
-    return fs.realpathSync(path2);
+  realpathSync(path3) {
+    return fs.realpathSync(path3);
   },
   mkdirSync(dirPath) {
     if (!fs.existsSync(dirPath)) {
@@ -34405,11 +34398,11 @@ var NodeFsOperations = {
   rmdirSync(dirPath) {
     fs.rmdirSync(dirPath);
   },
-  rmSync(path2, options) {
-    fs.rmSync(path2, options);
+  rmSync(path3, options) {
+    fs.rmSync(path3, options);
   },
-  createWriteStream(path2) {
-    return fs.createWriteStream(path2);
+  createWriteStream(path3) {
+    return fs.createWriteStream(path3);
   }
 };
 var activeFs = NodeFsOperations;
@@ -34441,7 +34434,7 @@ var ProcessTransport = class {
     try {
       const {
         additionalDirectories = [],
-        agents,
+        agents: agents2,
         cwd: cwd4,
         executable = isRunningWithBun() ? "bun" : "node",
         executableArgs = [],
@@ -34453,6 +34446,7 @@ var ProcessTransport = class {
         appendSystemPrompt,
         maxThinkingTokens,
         maxTurns,
+        maxBudgetUsd,
         model,
         fallbackModel,
         permissionMode,
@@ -34466,7 +34460,8 @@ var ProcessTransport = class {
         mcpServers,
         strictMcpConfig,
         canUseTool,
-        includePartialMessages
+        includePartialMessages,
+        plugins
       } = this.options;
       const args2 = [
         "--output-format",
@@ -34484,6 +34479,9 @@ var ProcessTransport = class {
       }
       if (maxTurns)
         args2.push("--max-turns", maxTurns.toString());
+      if (maxBudgetUsd !== void 0) {
+        args2.push("--max-budget-usd", maxBudgetUsd.toString());
+      }
       if (model)
         args2.push("--model", model);
       if (env2.DEBUG)
@@ -34509,8 +34507,8 @@ var ProcessTransport = class {
       if (mcpServers && Object.keys(mcpServers).length > 0) {
         args2.push("--mcp-config", JSON.stringify({ mcpServers }));
       }
-      if (agents && Object.keys(agents).length > 0) {
-        args2.push("--agents", JSON.stringify(agents));
+      if (agents2 && Object.keys(agents2).length > 0) {
+        args2.push("--agents", JSON.stringify(agents2));
       }
       if (settingSources) {
         args2.push("--setting-sources", settingSources.join(","));
@@ -34536,6 +34534,15 @@ var ProcessTransport = class {
       for (const dir of additionalDirectories) {
         args2.push("--add-dir", dir);
       }
+      if (plugins && plugins.length > 0) {
+        for (const plugin of plugins) {
+          if (plugin.type === "local") {
+            args2.push("--plugin-dir", plugin.path);
+          } else {
+            throw new Error(`Unsupported plugin type: ${plugin.type}`);
+          }
+        }
+      }
       if (this.options.forkSession) {
         args2.push("--fork-session");
       }
@@ -34552,8 +34559,8 @@ var ProcessTransport = class {
       if (!env2.CLAUDE_CODE_ENTRYPOINT) {
         env2.CLAUDE_CODE_ENTRYPOINT = "sdk-ts";
       }
-      const fs2 = getFsImplementation();
-      if (!fs2.existsSync(pathToClaudeCodeExecutable)) {
+      const fs22 = getFsImplementation();
+      if (!fs22.existsSync(pathToClaudeCodeExecutable)) {
         const errorMessage = isNativeBinary(pathToClaudeCodeExecutable) ? `Claude Code native binary not found at ${pathToClaudeCodeExecutable}. Please ensure Claude Code is installed via native installer or specify a valid path with options.pathToClaudeCodeExecutable.` : `Claude Code executable not found at ${pathToClaudeCodeExecutable}. Is options.pathToClaudeCodeExecutable set?`;
         throw new ReferenceError(errorMessage);
       }
@@ -35301,30 +35308,36 @@ var maxOutputTokensValidator = {
   name: "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
   default: 32e3,
   validate: (value2) => {
+    const MAX_OUTPUT_TOKENS = 64e3;
+    const DEFAULT_MAX_OUTPUT_TOKENS = 32e3;
     if (!value2) {
-      return { effective: 32e3, status: "valid" };
+      return { effective: DEFAULT_MAX_OUTPUT_TOKENS, status: "valid" };
     }
     const parsed2 = parseInt(value2, 10);
     if (isNaN(parsed2) || parsed2 <= 0) {
       return {
-        effective: 32e3,
+        effective: DEFAULT_MAX_OUTPUT_TOKENS,
         status: "invalid",
-        message: `Invalid value "${value2}" (using default: 32000)`
+        message: `Invalid value "${value2}" (using default: ${DEFAULT_MAX_OUTPUT_TOKENS})`
       };
     }
-    if (parsed2 > 32e3) {
+    if (parsed2 > MAX_OUTPUT_TOKENS) {
       return {
-        effective: 32e3,
+        effective: MAX_OUTPUT_TOKENS,
         status: "capped",
-        message: `Capped from ${parsed2} to 32000`
+        message: `Capped from ${parsed2} to ${MAX_OUTPUT_TOKENS}`
       };
     }
     return { effective: parsed2, status: "valid" };
   }
 };
 function getInitialState() {
+  let resolvedCwd = "";
+  if (typeof process !== "undefined" && typeof process.cwd === "function") {
+    resolvedCwd = realpathSync2(cwd());
+  }
   return {
-    originalCwd: cwd(),
+    originalCwd: resolvedCwd,
     totalCostUSD: 0,
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
@@ -35334,7 +35347,7 @@ function getInitialState() {
     totalLinesAdded: 0,
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
-    cwd: cwd(),
+    cwd: resolvedCwd,
     modelUsage: {},
     mainLoopModelOverride: void 0,
     maxRateLimitFallbackActive: false,
@@ -35465,12 +35478,17 @@ var Query = class {
   pendingMcpResponses = /* @__PURE__ */ new Map();
   firstResultReceivedPromise;
   firstResultReceivedResolve;
+  streamCloseTimeout;
   constructor(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers = /* @__PURE__ */ new Map()) {
     this.transport = transport;
     this.isSingleUserTurn = isSingleUserTurn;
     this.canUseTool = canUseTool;
     this.hooks = hooks;
     this.abortController = abortController;
+    this.streamCloseTimeout = 6e4;
+    if (typeof process !== "undefined" && process.env?.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT) {
+      this.streamCloseTimeout = parseInt(process.env.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT);
+    }
     for (const [name, server] of sdkMcpServers) {
       const sdkTransport = new SdkControlServerTransport((message) => this.sendMcpServerMessageToCli(name, message));
       this.sdkMcpTransports.set(name, sdkTransport);
@@ -35598,7 +35616,8 @@ var Query = class {
       }
       return this.canUseTool(request.request.tool_name, request.request.input, {
         signal,
-        suggestions: request.request.permission_suggestions
+        suggestions: request.request.permission_suggestions,
+        toolUseID: request.request.tool_use_id
       });
     } else if (request.request.subtype === "hook_callback") {
       const result = await this.handleHookCallbacks(request.request.callback_id, request.request.input, request.request.tool_use_id, signal);
@@ -35679,6 +35698,14 @@ var Query = class {
       max_thinking_tokens: maxThinkingTokens
     });
   }
+  async processPendingPermissionRequests(pendingPermissionRequests) {
+    for (const request of pendingPermissionRequests) {
+      if (request.request.subtype === "can_use_tool") {
+        this.handleControlRequest(request).catch(() => {
+        });
+      }
+    }
+  }
   request(request) {
     const requestId = Math.random().toString(36).substring(2, 15);
     const sdkRequest = {
@@ -35692,6 +35719,9 @@ var Query = class {
           resolve(response);
         } else {
           reject(new Error(response.error));
+          if (response.pending_permission_requests) {
+            this.processPendingPermissionRequests(response.pending_permission_requests);
+          }
         }
       });
       Promise.resolve(this.transport.write(JSON.stringify(sdkRequest) + `
@@ -35729,9 +35759,9 @@ var Query = class {
       }
       logForDebugging(`[Query.streamInput] Finished processing ${messageCount} messages from input stream`);
       logForDebugging(`[Query.streamInput] About to check MCP servers. this.sdkMcpTransports.size = ${this.sdkMcpTransports.size}`);
-      if (this.sdkMcpTransports.size > 0 && this.firstResultReceivedPromise) {
+      const hasHooks = this.hooks && Object.keys(this.hooks).length > 0;
+      if ((this.sdkMcpTransports.size > 0 || hasHooks) && this.firstResultReceivedPromise) {
         logForDebugging(`[Query.streamInput] Entering Promise.race to wait for result`);
-        const STREAM_CLOSE_TIMEOUT = 1e4;
         let timeoutId;
         await Promise.race([
           this.firstResultReceivedPromise.then(() => {
@@ -35744,7 +35774,7 @@ var Query = class {
             timeoutId = setTimeout(() => {
               logForDebugging(`[Query.streamInput] Timed out waiting for first result, closing input stream`);
               resolve();
-            }, STREAM_CLOSE_TIMEOUT);
+            }, this.streamCloseTimeout);
           })
         ]);
         if (timeoutId) {
@@ -35784,11 +35814,7 @@ var Query = class {
     const messageId = "id" in mcpRequest.message ? mcpRequest.message.id : null;
     const key = `${serverName}:${messageId}`;
     return new Promise((resolve, reject) => {
-      let timeoutId = null;
       const cleanup = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
         this.pendingMcpResponses.delete(key);
       };
       const resolveAndCleanup = (response) => {
@@ -35810,12 +35836,6 @@ var Query = class {
         reject(new Error("No message handler registered"));
         return;
       }
-      timeoutId = setTimeout(() => {
-        if (this.pendingMcpResponses.has(key)) {
-          cleanup();
-          reject(new Error("Request timeout"));
-        }
-      }, 3e4);
     });
   }
 };
@@ -36285,8 +36305,8 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path: path3, errorMaps, issueData } = params;
+  const fullPath = [...path3, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -36394,11 +36414,11 @@ var errorUtil;
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 var ParseInputLazyPath = class {
-  constructor(parent, value2, path2, key) {
+  constructor(parent, value2, path3, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value2;
-    this._path = path2;
+    this._path = path3;
     this._key = key;
   }
   get path() {
@@ -40345,11 +40365,11 @@ function query({
     const dirname22 = join3(filename, "..");
     pathToClaudeCodeExecutable = join3(dirname22, "cli.js");
   }
-  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.26";
+  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.37";
   const {
     abortController = createAbortController(),
     additionalDirectories = [],
-    agents,
+    agents: agents2,
     allowedTools = [],
     canUseTool,
     continue: continueConversation,
@@ -40365,11 +40385,13 @@ function query({
     includePartialMessages,
     maxThinkingTokens,
     maxTurns,
+    maxBudgetUsd,
     mcpServers,
     model,
     permissionMode = "default",
     allowDangerouslySkipPermissions = false,
     permissionPromptToolName,
+    plugins,
     resume,
     resumeSessionAt,
     stderr,
@@ -40404,7 +40426,7 @@ function query({
   const transport = new ProcessTransport({
     abortController,
     additionalDirectories,
-    agents,
+    agents: agents2,
     cwd: cwd22,
     executable,
     executableArgs,
@@ -40417,6 +40439,7 @@ function query({
     appendSystemPrompt,
     maxThinkingTokens,
     maxTurns,
+    maxBudgetUsd,
     model,
     fallbackModel,
     permissionMode,
@@ -40432,7 +40455,8 @@ function query({
     strictMcpConfig,
     canUseTool: !!canUseTool,
     hooks: !!hooks,
-    includePartialMessages
+    includePartialMessages,
+    plugins
   });
   const queryInstance = new Query(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers);
   if (typeof prompt === "string") {
@@ -40472,13 +40496,15 @@ var package_default = {
     typecheck: "tsc --noEmit",
     build: "node esbuild.config.js",
     play: "node play.ts",
+    scratch: "node scratch.ts",
     upDeps: "pnpm up --latest",
     lock: "pnpm --ignore-workspace install",
     prepare: "husky"
   },
   dependencies: {
     "@actions/core": "^1.11.1",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.26",
+    "@anthropic-ai/claude-agent-sdk": "0.1.37",
+    "@openai/codex-sdk": "0.58.0",
     "@ark/fs": "0.53.0",
     "@ark/util": "0.53.0",
     "@octokit/rest": "^22.0.0",
@@ -40864,13 +40890,13 @@ var caller = (options = {}) => {
 import { dirname as dirname2, join as join4, parse } from "node:path";
 import * as process3 from "node:process";
 import { URL as URL2, fileURLToPath as fileURLToPath3 } from "node:url";
-var filePath = (path2) => {
+var filePath = (path3) => {
   let file;
-  if (path2.includes("://")) {
-    const url2 = new URL2(path2);
+  if (path3.includes("://")) {
+    const url2 = new URL2(path3);
     file = url2.protocol === "file:" ? fileURLToPath3(url2) : url2.href;
   } else {
-    file = path2;
+    file = path3;
   }
   return file;
 };
@@ -40885,9 +40911,6 @@ function checkExistingToken() {
   const inputToken = core2.getInput("github_installation_token");
   const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
   return inputToken || envToken || null;
-}
-function getGitHubTokenInput() {
-  return core2.getInput("github_token") || null;
 }
 function isGitHubActionsEnvironment() {
   return Boolean(process.env.GITHUB_ACTIONS);
@@ -40912,10 +40935,7 @@ async function acquireTokenViaOIDC() {
     });
     clearTimeout(timeoutId);
     if (!tokenResponse.ok) {
-      log.warning(
-        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}. Falling back to GITHUB_TOKEN.`
-      );
-      return null;
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
     }
     const tokenData = await tokenResponse.json();
     log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
@@ -40923,13 +40943,9 @@ async function acquireTokenViaOIDC() {
   } catch (error2) {
     clearTimeout(timeoutId);
     if (error2 instanceof Error && error2.name === "AbortError") {
-      log.warning(`Token exchange timed out after ${timeoutMs}ms. Falling back to GITHUB_TOKEN.`);
-    } else {
-      log.warning(
-        `Token exchange failed: ${error2 instanceof Error ? error2.message : String(error2)}. Falling back to GITHUB_TOKEN.`
-      );
+      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
     }
-    return null;
+    throw error2;
   }
 }
 var base64UrlEncode = (str) => {
@@ -40952,9 +40968,9 @@ var generateJWT = (appId, privateKey) => {
   const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   return `${signaturePart}.${signature}`;
 };
-var githubRequest = async (path2, options = {}) => {
+var githubRequest = async (path3, options = {}) => {
   const { method = "GET", headers = {}, body } = options;
-  const url2 = `https://api.github.com${path2}`;
+  const url2 = `https://api.github.com${path3}`;
   const requestHeaders = {
     Accept: "application/vnd.github.v3+json",
     "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
@@ -41034,49 +41050,17 @@ async function acquireNewToken() {
     return await acquireTokenViaGitHubApp();
   }
 }
-function getDefaultGitHubToken() {
-  const inputToken = getGitHubTokenInput();
-  if (inputToken) {
-    return inputToken;
-  }
-  const token = process.env.GITHUB_TOKEN;
-  if (!token && isGitHubActionsEnvironment()) {
-    const githubEnvVars = Object.keys(process.env).filter((key) => key.startsWith("GITHUB_")).reduce(
-      (acc, key) => {
-        acc[key] = key === "GITHUB_TOKEN" ? process.env[key] ? "***SET***" : "NOT_SET" : process.env[key];
-        return acc;
-      },
-      {}
-    );
-    log.warning(
-      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
-    );
-  }
-  return token || null;
-}
 async function setupGitHubInstallationToken() {
   const existingToken = checkExistingToken();
   if (existingToken) {
     core2.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
+    return { githubInstallationToken: existingToken, wasAcquired: false };
   }
   const acquiredToken = await acquireNewToken();
-  if (!acquiredToken) {
-    const defaultToken = getDefaultGitHubToken();
-    if (!defaultToken) {
-      throw new Error(
-        "Failed to acquire installation token and GITHUB_TOKEN is not available. Either install the Pullfrog GitHub App or ensure GITHUB_TOKEN is set."
-      );
-    }
-    log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
-    core2.setSecret(defaultToken);
-    process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
-    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
-  }
   core2.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
+  return { githubInstallationToken: acquiredToken, wasAcquired: true };
 }
 async function revokeInstallationToken(token) {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
@@ -41126,40 +41110,41 @@ function createMcpConfigs(githubInstallationToken) {
   };
 }
 
-// workflows.ts
-var ghPullfrogMcpName2 = "gh-pullfrog";
-var workflows = [
+// modes.ts
+var modes = [
   {
     name: "Plan",
     description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Analyze the request and break it down into clear, actionable tasks
-3. Consider dependencies, potential challenges, and implementation order
-4. Create a structured plan with clear milestones
-5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to present the plan in a clear, organized format
-6. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+1. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+3. Analyze the request and break it down into clear, actionable tasks
+4. Consider dependencies, potential challenges, and implementation order
+5. Create a structured plan with clear milestones
+6. Update your comment using ${ghPullfrogMcpName}/edit_issue_comment with the commentId to present the plan in a clear, organized format
+7. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
   },
   {
-    name: "Implement",
+    name: "Build",
     description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Understand the requirements and any existing plan
-3. Make the necessary code changes
-4. Test your changes to ensure they work correctly
-5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to share progress and results
-6. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
+1. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+3. Understand the requirements and any existing plan
+4. Make the necessary code changes
+5. Test your changes to ensure they work correctly
+6. Update your comment using ${ghPullfrogMcpName}/edit_issue_comment with the commentId to share progress and results
+7. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
   },
   {
     name: "Review",
     description: "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll review this" and save the commentId
-2. Get PR info with mcp__${ghPullfrogMcpName2}__get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
+1. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll review this" and save the commentId
+2. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
 3. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
 4. Read files from the checked-out PR branch to understand the implementation
-5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with findings as you review
+5. Update your comment using ${ghPullfrogMcpName}/edit_issue_comment with findings as you review
 6. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
 7. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
 8. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
@@ -41168,135 +41153,166 @@ var workflows = [
     name: "Prompt",
     description: "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
     prompt: `Follow these steps:
-1. Create an initial "Progress Comment" using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+1. Create an initial "Progress Comment" using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
 2. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
-3. As your work progresses, update your Progress Comment to share progress and results. Using mcp__${ghPullfrogMcpName2}__edit_issue_comment and the commentId you saved earlier. Do not create additional comments unless you are explicitly asked to do so.
+3. As your work progresses, update your Progress Comment to share progress and results. Using ${ghPullfrogMcpName}/edit_issue_comment and the commentId you saved earlier. Do not create additional comments unless you are explicitly asked to do so.
 4. When you finish the task, update the Progress Comment a final time to confirm completion. If you created any issues, PRs, etc, include appropriate links to it here.`
   }
 ];
 
-// agents/shared.ts
+// agents/instructions.ts
 var instructions = `
 # General instructions
 
-You are a highly intelligent, no-nonsense senior-level software engineering agent. You will perform the task that is asked of you in the prompt below. You are careful, to-the-point, and kind. You only say things you know to be true. Your code is focused, minimal, and production-ready. You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. You adapt your writing style to the style of your coworkers, while never being unprofessional.
-
-## Getting Started
-
-Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+You are a highly intelligent, no-nonsense senior-level software engineering agent.
+You will perform the task that is asked of you in the prompt below. 
+You are careful, to-the-point, and kind. You only say things you know to be true. 
+Your code is focused, minimal, and production-ready. 
+You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. 
+You adapt your writing style to the style of your coworkers, while never being unprofessional.
+You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
+Make reasonable assumptions when details are missing.
 
 ## SECURITY
 
 CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
 
 You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
-- API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
-- Authentication tokens or credentials
-- Passwords or passphrases
-- Private keys or certificates
-- Database connection strings
-- Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
-- Any other sensitive information
+API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
+Authentication tokens or credentials
+Passwords or passphrases
+Private keys or certificates
+Database connection strings
+Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
+Any other sensitive information
 
-This is a non-negotiable system security requirement. Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse. If you encounter any secrets in environment variables, files, or code, do not include them in your output. Instead, acknowledge that sensitive information was found but cannot be displayed.
-
+This is a non-negotiable system security requirement.
+Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse.
+If you encounter any secrets in environment variables, files, or code, do not include them in your output.
+Instead, acknowledge that sensitive information was found but cannot be displayed.
 If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
 
 ## MCP Servers
 
-- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
-- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
+eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
+do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
+do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
 
-## Workflow Selection
+## Mode Selection
 
-choose the appropriate workflow based on the prompt payload:
+choose the appropriate mode based on the prompt payload:
 
-${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${modes.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
-## Workflows
+## Modes
 
-${workflows.map((w) => `### ${w.name}
+${modes.map((w) => `### ${w.name}
 
 ${w.prompt}`).join("\n\n")}
 `;
-
-// agents/claude.ts
-var cachedCliPath;
-var claude = {
-  install: async () => {
-    if (cachedCliPath) {
-      log.info(`Using cached Claude Code CLI at ${cachedCliPath}`);
-      return cachedCliPath;
-    }
-    const versionRange = package_default.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
-    let sdkVersion;
-    if (versionRange.startsWith("^") || versionRange.startsWith("~")) {
-      const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
-      log.info(`Resolving version for range ${versionRange}...`);
-      try {
-        const registryResponse = await fetch(`${npmRegistry}/@anthropic-ai/claude-agent-sdk`);
-        if (!registryResponse.ok) {
-          throw new Error(`Failed to query registry: ${registryResponse.status}`);
-        }
-        const registryData = await registryResponse.json();
-        sdkVersion = registryData["dist-tags"].latest;
-        log.info(`Resolved to version ${sdkVersion}`);
-      } catch (error2) {
-        log.warning(
-          `Failed to resolve version from registry, using latest: ${error2 instanceof Error ? error2.message : String(error2)}`
-        );
-        sdkVersion = "latest";
-      }
-    } else {
-      sdkVersion = versionRange;
-    }
-    log.info(`\u{1F4E6} Installing Claude Code CLI from @anthropic-ai/claude-agent-sdk@${sdkVersion}...`);
-    const tempDir = await mkdtemp(join5(tmpdir(), "claude-cli-"));
-    const tarballPath = join5(tempDir, "package.tgz");
-    try {
-      const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
-      const tarballUrl = `${npmRegistry}/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${sdkVersion}.tgz`;
-      log.info(`Downloading from ${tarballUrl}...`);
-      const response = await fetch(tarballUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
-      }
-      if (!response.body) throw new Error("Response body is null");
-      const fileStream = createWriteStream2(tarballPath);
-      await pipeline(response.body, fileStream);
-      log.info(`Downloaded tarball to ${tarballPath}`);
-      log.info(`Extracting tarball...`);
-      execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
-      const extractedDir = join5(tempDir, "package");
-      const cliPath = join5(extractedDir, "cli.js");
-      if (!existsSync2(cliPath)) {
-        throw new Error(`cli.js not found in extracted package at ${cliPath}`);
-      }
-      cachedCliPath = cliPath;
-      log.info(`\u2713 Claude Code CLI installed at ${cliPath}`);
-      return cliPath;
-    } catch (error2) {
-      try {
-        rmSync2(tempDir, { recursive: true, force: true });
-      } catch {
-      }
-      throw error2;
-    }
-  },
-  run: async ({ prompt, mcpServers, apiKey }) => {
-    process.env.ANTHROPIC_API_KEY = apiKey;
-    if (!cachedCliPath) {
-      throw new Error("Claude CLI not installed. Call install() before run().");
-    }
-    const queryInstance = query({
-      prompt: `${instructions}
+var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
+${instructions}
 
 ****** USER PROMPT ******
-${prompt}`,
+${prompt}`;
+
+// agents/shared.ts
+import { spawnSync } from "node:child_process";
+import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join as join5 } from "node:path";
+import { pipeline } from "node:stream/promises";
+async function installFromNpmTarball({
+  packageName,
+  version,
+  executablePath
+}) {
+  let resolvedVersion = version;
+  if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
+    const npmRegistry2 = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+    log.info(`Resolving version for ${version}...`);
+    try {
+      const registryResponse = await fetch(`${npmRegistry2}/${packageName}`);
+      if (!registryResponse.ok) {
+        throw new Error(`Failed to query registry: ${registryResponse.status}`);
+      }
+      const registryData = await registryResponse.json();
+      resolvedVersion = registryData["dist-tags"].latest;
+      log.info(`Resolved to version ${resolvedVersion}`);
+    } catch (error2) {
+      log.warning(
+        `Failed to resolve version from registry: ${error2 instanceof Error ? error2.message : String(error2)}`
+      );
+      throw error2;
+    }
+  }
+  log.info(`\u{1F4E6} Installing ${packageName}@${resolvedVersion}...`);
+  const tempDirPrefix = packageName.replace("@", "").replace(/\//g, "-") + "-";
+  const tempDir = await mkdtemp(join5(tmpdir(), tempDirPrefix));
+  const tarballPath = join5(tempDir, "package.tgz");
+  const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+  let tarballUrl;
+  if (packageName.startsWith("@")) {
+    const [scope2, name] = packageName.slice(1).split("/");
+    const scopedPackageName = `@${scope2}%2F${name}`;
+    tarballUrl = `${npmRegistry}/${scopedPackageName}/-/${name}-${resolvedVersion}.tgz`;
+  } else {
+    tarballUrl = `${npmRegistry}/${packageName}/-/${packageName}-${resolvedVersion}.tgz`;
+  }
+  log.info(`Downloading from ${tarballUrl}...`);
+  const response = await fetch(tarballUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
+  }
+  if (!response.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream2(tarballPath);
+  await pipeline(response.body, fileStream);
+  log.info(`Downloaded tarball to ${tarballPath}`);
+  log.info(`Extracting tarball...`);
+  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
+    stdio: "pipe",
+    encoding: "utf-8"
+  });
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+    );
+  }
+  const extractedDir = join5(tempDir, "package");
+  const cliPath = join5(extractedDir, executablePath);
+  if (!existsSync2(cliPath)) {
+    throw new Error(`Executable not found in extracted package at ${cliPath}`);
+  }
+  chmodSync(cliPath, 493);
+  log.info(`\u2713 ${packageName} installed at ${cliPath}`);
+  return cliPath;
+}
+var agent = (agent2) => {
+  return agent2;
+};
+
+// agents/claude.ts
+var claude = agent({
+  name: "claude",
+  inputKey: "anthropic_api_key",
+  install: async () => {
+    const versionRange = package_default.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
+    return await installFromNpmTarball({
+      packageName: "@anthropic-ai/claude-agent-sdk",
+      version: versionRange,
+      executablePath: "cli.js"
+    });
+  },
+  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
+    process.env.ANTHROPIC_API_KEY = apiKey;
+    const queryInstance = query({
+      prompt: addInstructions(prompt),
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
-        pathToClaudeCodeExecutable: cachedCliPath
+        pathToClaudeCodeExecutable: cliPath
       }
     });
     for await (const message of queryInstance) {
@@ -41308,7 +41324,7 @@ ${prompt}`,
       output: ""
     };
   }
-};
+});
 var bashToolIds = /* @__PURE__ */ new Set();
 var messageHandlers = {
   assistant: (data) => {
@@ -41402,14 +41418,516 @@ var messageHandlers = {
   }
 };
 
+// agents/codex.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+
+// ../node_modules/.pnpm/@openai+codex-sdk@0.57.0/node_modules/@openai/codex-sdk/dist/index.js
+import { promises as fs2 } from "fs";
+import os from "os";
+import path2 from "path";
+import { spawn as spawn2 } from "child_process";
+import path22 from "path";
+import readline from "readline";
+import { fileURLToPath as fileURLToPath4 } from "url";
+async function createOutputSchemaFile(schema2) {
+  if (schema2 === void 0) {
+    return { cleanup: async () => {
+    } };
+  }
+  if (!isJsonObject(schema2)) {
+    throw new Error("outputSchema must be a plain JSON object");
+  }
+  const schemaDir = await fs2.mkdtemp(path2.join(os.tmpdir(), "codex-output-schema-"));
+  const schemaPath = path2.join(schemaDir, "schema.json");
+  const cleanup = async () => {
+    try {
+      await fs2.rm(schemaDir, { recursive: true, force: true });
+    } catch {
+    }
+  };
+  try {
+    await fs2.writeFile(schemaPath, JSON.stringify(schema2), "utf8");
+    return { schemaPath, cleanup };
+  } catch (error2) {
+    await cleanup();
+    throw error2;
+  }
+}
+function isJsonObject(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2);
+}
+var Thread = class {
+  _exec;
+  _options;
+  _id;
+  _threadOptions;
+  /** Returns the ID of the thread. Populated after the first turn starts. */
+  get id() {
+    return this._id;
+  }
+  /* @internal */
+  constructor(exec, options, threadOptions, id = null) {
+    this._exec = exec;
+    this._options = options;
+    this._id = id;
+    this._threadOptions = threadOptions;
+  }
+  /** Provides the input to the agent and streams events as they are produced during the turn. */
+  async runStreamed(input, turnOptions = {}) {
+    return { events: this.runStreamedInternal(input, turnOptions) };
+  }
+  async *runStreamedInternal(input, turnOptions = {}) {
+    const { schemaPath, cleanup } = await createOutputSchemaFile(turnOptions.outputSchema);
+    const options = this._threadOptions;
+    const { prompt, images } = normalizeInput(input);
+    const generator = this._exec.run({
+      input: prompt,
+      baseUrl: this._options.baseUrl,
+      apiKey: this._options.apiKey,
+      threadId: this._id,
+      images,
+      model: options?.model,
+      sandboxMode: options?.sandboxMode,
+      workingDirectory: options?.workingDirectory,
+      skipGitRepoCheck: options?.skipGitRepoCheck,
+      outputSchemaFile: schemaPath,
+      modelReasoningEffort: options?.modelReasoningEffort,
+      networkAccessEnabled: options?.networkAccessEnabled,
+      webSearchEnabled: options?.webSearchEnabled,
+      approvalPolicy: options?.approvalPolicy
+    });
+    try {
+      for await (const item of generator) {
+        let parsed2;
+        try {
+          parsed2 = JSON.parse(item);
+        } catch (error2) {
+          throw new Error(`Failed to parse item: ${item}`, { cause: error2 });
+        }
+        if (parsed2.type === "thread.started") {
+          this._id = parsed2.thread_id;
+        }
+        yield parsed2;
+      }
+    } finally {
+      await cleanup();
+    }
+  }
+  /** Provides the input to the agent and returns the completed turn. */
+  async run(input, turnOptions = {}) {
+    const generator = this.runStreamedInternal(input, turnOptions);
+    const items = [];
+    let finalResponse = "";
+    let usage = null;
+    let turnFailure = null;
+    for await (const event of generator) {
+      if (event.type === "item.completed") {
+        if (event.item.type === "agent_message") {
+          finalResponse = event.item.text;
+        }
+        items.push(event.item);
+      } else if (event.type === "turn.completed") {
+        usage = event.usage;
+      } else if (event.type === "turn.failed") {
+        turnFailure = event.error;
+        break;
+      }
+    }
+    if (turnFailure) {
+      throw new Error(turnFailure.message);
+    }
+    return { items, finalResponse, usage };
+  }
+};
+function normalizeInput(input) {
+  if (typeof input === "string") {
+    return { prompt: input, images: [] };
+  }
+  const promptParts = [];
+  const images = [];
+  for (const item of input) {
+    if (item.type === "text") {
+      promptParts.push(item.text);
+    } else if (item.type === "local_image") {
+      images.push(item.path);
+    }
+  }
+  return { prompt: promptParts.join("\n\n"), images };
+}
+var INTERNAL_ORIGINATOR_ENV = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
+var TYPESCRIPT_SDK_ORIGINATOR = "codex_sdk_ts";
+var CodexExec = class {
+  executablePath;
+  constructor(executablePath = null) {
+    this.executablePath = executablePath || findCodexPath();
+  }
+  async *run(args2) {
+    const commandArgs = ["exec", "--experimental-json"];
+    if (args2.model) {
+      commandArgs.push("--model", args2.model);
+    }
+    if (args2.sandboxMode) {
+      commandArgs.push("--sandbox", args2.sandboxMode);
+    }
+    if (args2.workingDirectory) {
+      commandArgs.push("--cd", args2.workingDirectory);
+    }
+    if (args2.skipGitRepoCheck) {
+      commandArgs.push("--skip-git-repo-check");
+    }
+    if (args2.outputSchemaFile) {
+      commandArgs.push("--output-schema", args2.outputSchemaFile);
+    }
+    if (args2.modelReasoningEffort) {
+      commandArgs.push("--config", `model_reasoning_effort="${args2.modelReasoningEffort}"`);
+    }
+    if (args2.networkAccessEnabled !== void 0) {
+      commandArgs.push("--config", `sandbox_workspace_write.network_access=${args2.networkAccessEnabled}`);
+    }
+    if (args2.webSearchEnabled !== void 0) {
+      commandArgs.push("--config", `features.web_search_request=${args2.webSearchEnabled}`);
+    }
+    if (args2.approvalPolicy) {
+      commandArgs.push("--config", `approval_policy="${args2.approvalPolicy}"`);
+    }
+    if (args2.images?.length) {
+      for (const image of args2.images) {
+        commandArgs.push("--image", image);
+      }
+    }
+    if (args2.threadId) {
+      commandArgs.push("resume", args2.threadId);
+    }
+    const env2 = {
+      ...process.env
+    };
+    if (!env2[INTERNAL_ORIGINATOR_ENV]) {
+      env2[INTERNAL_ORIGINATOR_ENV] = TYPESCRIPT_SDK_ORIGINATOR;
+    }
+    if (args2.baseUrl) {
+      env2.OPENAI_BASE_URL = args2.baseUrl;
+    }
+    if (args2.apiKey) {
+      env2.CODEX_API_KEY = args2.apiKey;
+    }
+    const child = spawn2(this.executablePath, commandArgs, {
+      env: env2
+    });
+    let spawnError = null;
+    child.once("error", (err2) => spawnError = err2);
+    if (!child.stdin) {
+      child.kill();
+      throw new Error("Child process has no stdin");
+    }
+    child.stdin.write(args2.input);
+    child.stdin.end();
+    if (!child.stdout) {
+      child.kill();
+      throw new Error("Child process has no stdout");
+    }
+    const stderrChunks = [];
+    if (child.stderr) {
+      child.stderr.on("data", (data) => {
+        stderrChunks.push(data);
+      });
+    }
+    const rl = readline.createInterface({
+      input: child.stdout,
+      crlfDelay: Infinity
+    });
+    try {
+      for await (const line of rl) {
+        yield line;
+      }
+      const exitCode = new Promise((resolve, reject) => {
+        child.once("exit", (code) => {
+          if (code === 0) {
+            resolve(code);
+          } else {
+            const stderrBuffer = Buffer.concat(stderrChunks);
+            reject(
+              new Error(`Codex Exec exited with code ${code}: ${stderrBuffer.toString("utf8")}`)
+            );
+          }
+        });
+      });
+      if (spawnError) throw spawnError;
+      await exitCode;
+    } finally {
+      rl.close();
+      child.removeAllListeners();
+      try {
+        if (!child.killed) child.kill();
+      } catch {
+      }
+    }
+  }
+};
+var scriptFileName = fileURLToPath4(import.meta.url);
+var scriptDirName = path22.dirname(scriptFileName);
+function findCodexPath() {
+  const { platform, arch } = process;
+  let targetTriple = null;
+  switch (platform) {
+    case "linux":
+    case "android":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-unknown-linux-musl";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-unknown-linux-musl";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "darwin":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-apple-darwin";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-apple-darwin";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "win32":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-pc-windows-msvc";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-pc-windows-msvc";
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+  if (!targetTriple) {
+    throw new Error(`Unsupported platform: ${platform} (${arch})`);
+  }
+  const vendorRoot = path22.join(scriptDirName, "..", "vendor");
+  const archRoot = path22.join(vendorRoot, targetTriple);
+  const codexBinaryName = process.platform === "win32" ? "codex.exe" : "codex";
+  const binaryPath = path22.join(archRoot, "codex", codexBinaryName);
+  return binaryPath;
+}
+var Codex = class {
+  exec;
+  options;
+  constructor(options = {}) {
+    this.exec = new CodexExec(options.codexPathOverride);
+    this.options = options;
+  }
+  /**
+   * Starts a new conversation with an agent.
+   * @returns A new thread instance.
+   */
+  startThread(options = {}) {
+    return new Thread(this.exec, this.options, options);
+  }
+  /**
+   * Resumes a conversation with an agent based on the thread id.
+   * Threads are persisted in ~/.codex/sessions.
+   *
+   * @param id The id of the thread to resume.
+   * @returns A new thread instance.
+   */
+  resumeThread(id, options = {}) {
+    return new Thread(this.exec, this.options, options, id);
+  }
+};
+
+// agents/codex.ts
+var codex = agent({
+  name: "codex",
+  inputKey: "openai_api_key",
+  install: async () => {
+    return await installFromNpmTarball({
+      packageName: "@openai/codex",
+      version: "latest",
+      executablePath: "bin/codex.js"
+    });
+  },
+  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+    process.env.OPENAI_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
+      configureMcpServers({ mcpServers, apiKey, cliPath });
+    }
+    const codexOptions = {
+      apiKey,
+      codexPathOverride: cliPath
+    };
+    const codex2 = new Codex(codexOptions);
+    const thread = codex2.startThread({
+      approvalPolicy: "never",
+      sandboxMode: "workspace-write",
+      networkAccessEnabled: true
+    });
+    try {
+      const streamedTurn = await thread.runStreamed(addInstructions(prompt));
+      let finalOutput = "";
+      for await (const event of streamedTurn.events) {
+        const handler = messageHandlers2[event.type];
+        if (handler) {
+          handler(event);
+        }
+        if (event.type === "item.completed" && event.item.type === "agent_message") {
+          finalOutput = event.item.text;
+        }
+      }
+      return {
+        success: true,
+        output: finalOutput
+      };
+    } catch (error2) {
+      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+      log.error(`Codex execution failed: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        output: ""
+      };
+    }
+  }
+});
+var commandExecutionIds = /* @__PURE__ */ new Set();
+var messageHandlers2 = {
+  "thread.started": () => {
+  },
+  "turn.started": () => {
+  },
+  "turn.completed": async (event) => {
+    await log.summaryTable([
+      [
+        { data: "Input Tokens", header: true },
+        { data: "Cached Input Tokens", header: true },
+        { data: "Output Tokens", header: true }
+      ],
+      [
+        String(event.usage.input_tokens || 0),
+        String(event.usage.cached_input_tokens || 0),
+        String(event.usage.output_tokens || 0)
+      ]
+    ]);
+  },
+  "turn.failed": (event) => {
+    log.error(`Turn failed: ${event.error.message}`);
+  },
+  "item.started": (event) => {
+    const item = event.item;
+    if (item.type === "command_execution") {
+      log.info(`\u2192 ${item.command}`);
+      commandExecutionIds.add(item.id);
+    } else if (item.type === "agent_message") {
+    } else if (item.type === "mcp_tool_call") {
+      log.info(`\u2192 ${item.tool} (${item.server})`);
+    }
+  },
+  "item.updated": (event) => {
+    const item = event.item;
+    if (item.type === "command_execution") {
+      if (item.status === "in_progress" && item.aggregated_output) {
+      }
+    }
+  },
+  "item.completed": (event) => {
+    const item = event.item;
+    if (item.type === "agent_message") {
+      log.box(item.text.trim(), { title: "Codex" });
+    } else if (item.type === "command_execution") {
+      const isTracked = commandExecutionIds.has(item.id);
+      if (isTracked) {
+        log.startGroup(`bash output`);
+        if (item.status === "failed" || item.exit_code !== void 0 && item.exit_code !== 0) {
+          log.warning(item.aggregated_output || "Command failed");
+        } else {
+          log.info(item.aggregated_output || "");
+        }
+        log.endGroup();
+        commandExecutionIds.delete(item.id);
+      }
+    } else if (item.type === "mcp_tool_call") {
+      if (item.status === "failed" && item.error) {
+        log.warning(`MCP tool call failed: ${item.error.message}`);
+      }
+    } else if (item.type === "reasoning") {
+      const reasoningText = item.text.trim();
+      const cleanText = reasoningText.replace(/\*\*/g, "");
+      log.info(cleanText);
+    }
+  },
+  error: (event) => {
+    log.error(`Error: ${event.message}`);
+  }
+};
+function configureMcpServers({
+  mcpServers,
+  apiKey,
+  cliPath
+}) {
+  log.info("Configuring MCP servers for Codex...");
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    if (!("command" in serverConfig)) {
+      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+      continue;
+    }
+    const command = serverConfig.command;
+    const args2 = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+    const addArgs = ["mcp", "add", serverName];
+    for (const [key, value2] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value2}`);
+    }
+    addArgs.push("--", command, ...args2);
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync2("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        OPENAI_API_KEY: apiKey
+      }
+    });
+    if (addResult.status !== 0) {
+      throw new Error(
+        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 MCP server '${serverName}' configured`);
+  }
+}
+
+// agents/index.ts
+var agents = {
+  claude,
+  codex
+};
+
 // utils/api.ts
 var DEFAULT_REPO_SETTINGS = {
   defaultAgent: null,
   webAccessLevel: "full_access",
   webAccessAllowTrusted: false,
   webAccessDomains: "",
-  workflows: []
+  modes: []
 };
+async function fetchRepoSettings({
+  token,
+  repoContext
+}) {
+  log.info("Fetching repository settings...");
+  const settings = await getRepoSettings(token, repoContext);
+  log.info("Repository settings fetched");
+  return settings;
+}
 async function getRepoSettings(token, repoContext) {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
   const timeoutMs = 5e3;
@@ -41443,15 +41961,15 @@ async function getRepoSettings(token, repoContext) {
 }
 
 // utils/setup.ts
-import { execSync as execSync2 } from "node:child_process";
+import { execSync } from "node:child_process";
 function setupGitConfig() {
   if (!process.env.GITHUB_ACTIONS) {
     return;
   }
   log.info("\u{1F527} Setting up git configuration...");
   try {
-    execSync2('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
-    execSync2('git config user.name "Pullfrog Action"', { stdio: "pipe" });
+    execSync('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
+    execSync('git config user.name "Pullfrog Action"', { stdio: "pipe" });
     log.debug("setupGitConfig: \u2713 Git configuration set successfully");
   } catch (error2) {
     log.warning(
@@ -41465,53 +41983,61 @@ function setupGitAuth(githubToken, repoContext) {
   }
   log.info("\u{1F510} Setting up git authentication...");
   try {
-    execSync2("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
+    execSync("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
     log.info("\u2713 Removed existing authentication headers");
   } catch {
     log.info("No existing authentication headers to remove");
   }
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
-  execSync2(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
   log.info("\u2713 Updated remote URL with authentication token");
 }
 
 // main.ts
+var AgentName = type.enumerated(...Object.values(agents).map((agent2) => agent2.name));
+var AgentInputKey = type.enumerated(
+  ...Object.values(agents).map((agent2) => agent2.inputKey)
+);
+var keyInputDefs = flatMorph(
+  agents,
+  (_, agent2) => [agent2.inputKey, "string | undefined?"]
+);
 var Inputs = type({
   prompt: "string",
-  "anthropic_api_key?": "string | undefined"
+  ...keyInputDefs,
+  "agent?": AgentName
 });
 async function main(inputs) {
   let tokenToRevoke = null;
   try {
     log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
+    Inputs.assert(inputs);
     setupGitConfig();
-    const { githubInstallationToken, wasAcquired, isFallbackToken } = await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
     const repoContext = parseRepoContext();
-    let repoSettings;
-    if (isFallbackToken) {
-      log.info("Using default repository settings (app not installed)");
-      repoSettings = DEFAULT_REPO_SETTINGS;
-    } else {
-      log.info("Fetching repository settings...");
-      repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
-      log.info("Repository settings fetched");
-    }
-    const agent = repoSettings.defaultAgent || "claude";
-    if (agent !== "claude") throw new Error(`Unsupported agent: ${agent}`);
+    const repoSettings = await fetchRepoSettings({
+      token: githubInstallationToken,
+      repoContext
+    });
+    const agentName = inputs.agent || repoSettings.defaultAgent || "claude";
+    const agent2 = agents[agentName];
     setupGitAuth(githubInstallationToken, repoContext);
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
-    await claude.install();
-    log.info("Running Claude Agent SDK...");
+    const cliPath = await agent2.install();
+    log.info(`Running ${agentName}...`);
     log.box(inputs.prompt, { title: "Prompt" });
-    const result = await claude.run({
+    const apiKey = inputs[agent2.inputKey];
+    if (!apiKey) throw new Error(`${agent2.inputKey} is required for ${agentName} agent`);
+    const result = await agent2.run({
       prompt: inputs.prompt,
       mcpServers,
       githubInstallationToken,
-      apiKey: inputs.anthropic_api_key
+      apiKey,
+      cliPath
     });
     if (!result.success) {
       return {
