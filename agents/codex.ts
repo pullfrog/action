@@ -1,43 +1,18 @@
 import { spawnSync } from "node:child_process";
 
-import { findCliPath, log } from "../utils/cli.ts";
-import { addInstructions, agent } from "./shared.ts";
+import { log } from "../utils/cli.ts";
+import { addInstructions, agent, installFromNpmTarball } from "./shared.ts";
 
 export const codex = agent({
   name: "codex",
   inputKey: "openai_api_key",
   install: async () => {
-    const globalCodexPath = findCliPath("codex");
-    if (globalCodexPath) {
-      log.info(`Using global Codex CLI at ${globalCodexPath}`);
-      return globalCodexPath;
-    }
-
-    // Install Codex CLI globally using npm
-    log.info(`📦 Installing Codex CLI globally with npm...`);
-    try {
-      const installResult = spawnSync("npm", ["install", "-g", "codex"], {
-        stdio: "inherit",
-        encoding: "utf-8",
-      });
-
-      if (installResult.status !== 0) {
-        throw new Error(`npm install failed with status ${installResult.status}`);
-      }
-
-      // Verify installation
-      const installedPath = findCliPath("codex");
-      if (installedPath) {
-        log.info(`✓ Codex CLI installed at ${installedPath}`);
-        return installedPath;
-      }
-
-      throw new Error("Codex CLI installation completed but executable not found");
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      log.error(`Failed to install Codex CLI: ${errorMessage}`);
-      throw new Error(`Codex CLI installation failed: ${errorMessage}`);
-    }
+    return await installFromNpmTarball({
+      packageName: "codex",
+      version: "latest",
+      executablePath: "bin/codex",
+      installDependencies: true,
+    });
   },
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.OPENAI_API_KEY = apiKey;
