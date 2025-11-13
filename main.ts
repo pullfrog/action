@@ -74,7 +74,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // Install agent CLI before running
     const cliPath = await agent.install();
 
-    log.info(`Running ${agentName} Agent SDK...`);
+    log.info(`Running ${agentName}...`);
     log.box(inputs.prompt, { title: "Prompt" });
 
     // TODO: check if `inputs.prompts` is JSON

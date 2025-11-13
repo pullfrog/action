@@ -41115,8 +41115,8 @@ var modes = [
     name: "Plan",
     description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
     prompt: `Follow these steps:
-1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
-2. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+1. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 3. Analyze the request and break it down into clear, actionable tasks
 4. Consider dependencies, potential challenges, and implementation order
 5. Create a structured plan with clear milestones
@@ -41127,8 +41127,8 @@ var modes = [
     name: "Build",
     description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
-1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
-2. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+1. Create initial response comment using ${ghPullfrogMcpName}/create_issue_comment saying "I'll {summary of request}" and save the commentId
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 3. Understand the requirements and any existing plan
 4. Make the necessary code changes
 5. Test your changes to ensure they work correctly
@@ -41775,7 +41775,6 @@ var codex = agent({
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers2[event.type];
-        console.log(JSON.stringify(event, null, 2));
         if (handler) {
           handler(event);
         }
@@ -42028,7 +42027,7 @@ async function main(inputs) {
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
     const cliPath = await agent2.install();
-    log.info(`Running ${agentName} Agent SDK...`);
+    log.info(`Running ${agentName}...`);
     log.box(inputs.prompt, { title: "Prompt" });
     const apiKey = inputs[agent2.inputKey];
     if (!apiKey) throw new Error(`${agent2.inputKey} is required for ${agentName} agent`);

@@ -1,12 +1,13 @@
 ## CURRENT
 
-[] try to find heavy claude code user
-[] investigate including terminal output from bash commands as collapsed groups
-[] test initialization trade offs for pullfrog.yml
+[] handle progressive comment updating from pullfrog mcp
 
 ## MAYBE
 
 [] investigate repo config file
+[] try to find heavy claude code user
+[] investigate including terminal output from bash commands as collapsed groups from claude
+[] test initialization trade offs for pullfrog.yml
 
 ## DONE
  

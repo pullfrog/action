@@ -48,7 +48,6 @@ export const codex = agent({
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers[event.type];
-        console.log(JSON.stringify(event, null, 2));
         if (handler) {
           handler(event as never);
         }
