@@ -1,12 +1,12 @@
 # Ensure lockfile is up to date if package.json changed
 if git diff --cached --name-only | grep -q "^package.json$"; then
-  echo "🔒 Updating lockfile..."
-  pnpm lock
+    echo "🔒 Updating lockfile..."
+    pnpm lock
+
+    # Build the action before committing
+    echo "🔨 Building action..."
+    pnpm build
+
+    # Add the built files and lockfile to the commit
+    git add entry.js mcp-server.js pnpm-lock.yaml
 fi
-
-# Build the action before committing
-echo "🔨 Building action..."
-pnpm build
-
-# Add the built files and lockfile to the commit
-git add entry.js mcp-server.js pnpm-lock.yaml
