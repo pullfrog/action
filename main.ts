@@ -1,4 +1,5 @@
 import { type } from "arktype";
+import { agents } from "./agents/index.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { fetchRepoSettings } from "./utils/api.ts";
@@ -9,7 +10,6 @@ import {
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
-import { agents } from "./agents/index.ts";
 
 export const AgentName = type.enumerated("codex", "claude");
 export type AgentName = typeof AgentName.infer;
@@ -40,8 +40,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     Inputs.assert(inputs);
     setupGitConfig();
 
-    const { githubInstallationToken, wasAcquired, isFallbackToken } =
-      await setupGitHubInstallationToken();
+    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
@@ -50,7 +49,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const repoSettings = await fetchRepoSettings({
       token: githubInstallationToken,
       repoContext,
-      isFallbackToken,
     });
 
     const agentName: AgentName = inputs.agent || repoSettings.defaultAgent || "claude";

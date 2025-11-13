@@ -24,23 +24,16 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
 };
 
 /**
- * Fetch repository settings with fallback handling
- * Uses API if token is available, otherwise returns defaults
+ * Fetch repository settings from the Pullfrog API
+ * Returns defaults if repo doesn't exist or fetch fails
  */
 export async function fetchRepoSettings({
   token,
   repoContext,
-  isFallbackToken,
 }: {
   token: string;
   repoContext: RepoContext;
-  isFallbackToken: boolean;
 }): Promise<RepoSettings> {
-  if (isFallbackToken) {
-    log.info("Using default repository settings (app not installed)");
-    return DEFAULT_REPO_SETTINGS;
-  }
-
   log.info("Fetching repository settings...");
   const settings = await getRepoSettings(token, repoContext);
   log.info("Repository settings fetched");

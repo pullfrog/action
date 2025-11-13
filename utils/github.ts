@@ -49,15 +49,11 @@ function checkExistingToken(): string | null {
   return inputToken || envToken || null;
 }
 
-function getGitHubTokenInput(): string | null {
-  return core.getInput("github_token") || null;
-}
-
 function isGitHubActionsEnvironment(): boolean {
   return Boolean(process.env.GITHUB_ACTIONS);
 }
 
-async function acquireTokenViaOIDC(): Promise<string | null> {
+async function acquireTokenViaOIDC(): Promise<string> {
   log.info("Generating OIDC token...");
 
   const oidcToken = await core.getIDToken("pullfrog-api");
@@ -85,10 +81,7 @@ async function acquireTokenViaOIDC(): Promise<string | null> {
     clearTimeout(timeoutId);
 
     if (!tokenResponse.ok) {
-      log.warning(
-        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}. Falling back to GITHUB_TOKEN.`
-      );
-      return null;
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
     }
 
     const tokenData = (await tokenResponse.json()) as InstallationToken;
@@ -99,13 +92,9 @@ async function acquireTokenViaOIDC(): Promise<string | null> {
     clearTimeout(timeoutId);
 
     if (error instanceof Error && error.name === "AbortError") {
-      log.warning(`Token exchange timed out after ${timeoutMs}ms. Falling back to GITHUB_TOKEN.`);
-    } else {
-      log.warning(
-        `Token exchange failed: ${error instanceof Error ? error.message : String(error)}. Falling back to GITHUB_TOKEN.`
-      );
+      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
     }
-    return null;
+    throw error;
   }
 }
 
@@ -250,7 +239,7 @@ async function acquireTokenViaGitHubApp(): Promise<string> {
   return token;
 }
 
-async function acquireNewToken(): Promise<string | null> {
+async function acquireNewToken(): Promise<string> {
   if (isGitHubActionsEnvironment()) {
     return await acquireTokenViaOIDC();
   } else {
@@ -258,78 +247,26 @@ async function acquireNewToken(): Promise<string | null> {
   }
 }
 
-function getDefaultGitHubToken(): string | null {
-  // Try input first (explicitly passed from workflow)
-  const inputToken = getGitHubTokenInput();
-  if (inputToken) {
-    return inputToken;
-  }
-
-  // Then try environment variable (automatically set by GitHub Actions)
-  const token = process.env.GITHUB_TOKEN;
-
-  // Log diagnostic info when GITHUB_TOKEN is missing
-  if (!token && isGitHubActionsEnvironment()) {
-    const githubEnvVars = Object.keys(process.env)
-      .filter((key) => key.startsWith("GITHUB_"))
-      .reduce(
-        (acc, key) => {
-          acc[key] =
-            key === "GITHUB_TOKEN"
-              ? process.env[key]
-                ? "***SET***"
-                : "NOT_SET"
-              : process.env[key];
-          return acc;
-        },
-        {} as Record<string, string | undefined>
-      );
-    log.warning(
-      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
-    );
-  }
-
-  return token || null;
-}
-
 /**
  * Setup GitHub installation token for the action
- * Returns the token, whether it was acquired (needs revocation), and whether we fell back to GITHUB_TOKEN
- * Falls back to GITHUB_TOKEN if app is not installed
+ * Returns the token and whether it was acquired (needs revocation)
  */
 export async function setupGitHubInstallationToken(): Promise<{
   githubInstallationToken: string;
   wasAcquired: boolean;
-  isFallbackToken: boolean;
 }> {
   const existingToken = checkExistingToken();
   if (existingToken) {
     core.setSecret(existingToken);
     log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
+    return { githubInstallationToken: existingToken, wasAcquired: false };
   }
 
   const acquiredToken = await acquireNewToken();
-
-  // If token acquisition failed (e.g., app not installed), fall back to GITHUB_TOKEN
-  if (!acquiredToken) {
-    const defaultToken = getDefaultGitHubToken();
-    if (!defaultToken) {
-      throw new Error(
-        "Failed to acquire installation token and GITHUB_TOKEN is not available. " +
-          "Either install the Pullfrog GitHub App or ensure GITHUB_TOKEN is set."
-      );
-    }
-    log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
-    core.setSecret(defaultToken);
-    process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
-    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
-  }
-
   core.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
 
-  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
+  return { githubInstallationToken: acquiredToken, wasAcquired: true };
 }
 
 /**
