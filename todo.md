@@ -3,6 +3,7 @@
 [] try to find heavy claude code user
 [] investigate including terminal output from bash commands as collapsed groups
 [] test initialization trade offs for pullfrog.yml
+[] input just accepts one key for API key
 
 ## MAYBE
 
