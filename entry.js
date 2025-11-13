@@ -41411,38 +41411,32 @@ var codex = agent({
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       log.info("Configuring MCP servers for Codex...");
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-        try {
-          if (!("command" in serverConfig)) {
-            log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
-            continue;
+        if (!("command" in serverConfig)) {
+          log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+          continue;
+        }
+        const command = serverConfig.command;
+        const args2 = serverConfig.args || [];
+        const envVars = serverConfig.env || {};
+        const addArgs = ["mcp", "add", serverName, "--", command, ...args2];
+        for (const [key, value2] of Object.entries(envVars)) {
+          addArgs.push("--env", `${key}=${value2}`);
+        }
+        log.info(`Adding MCP server '${serverName}'...`);
+        const addResult = spawnSync2("node", [cliPath, ...addArgs], {
+          stdio: "pipe",
+          encoding: "utf-8",
+          env: {
+            ...process.env,
+            OPENAI_API_KEY: apiKey
           }
-          const command = serverConfig.command;
-          const args2 = serverConfig.args || [];
-          const envVars = serverConfig.env || {};
-          const addArgs = ["mcp", "add", serverName, "--", command, ...args2];
-          for (const [key, value2] of Object.entries(envVars)) {
-            addArgs.push("--env", `${key}=${value2}`);
-          }
-          log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync2("node", [cliPath, ...addArgs], {
-            stdio: "pipe",
-            encoding: "utf-8",
-            env: {
-              ...process.env,
-              OPENAI_API_KEY: apiKey
-            }
-          });
-          if (addResult.status !== 0) {
-            throw new Error(
-              `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-            );
-          }
-          log.info(`\u2713 MCP server '${serverName}' configured`);
-        } catch (error2) {
-          log.warning(
-            `Failed to configure MCP server '${serverName}': ${error2 instanceof Error ? error2.message : String(error2)}`
+        });
+        if (addResult.status !== 0) {
+          throw new Error(
+            `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
           );
         }
+        log.info(`\u2713 MCP server '${serverName}' configured`);
       }
     }
     log.info("Running Codex via CLI...");

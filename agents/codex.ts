@@ -21,49 +21,42 @@ export const codex = agent({
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       log.info("Configuring MCP servers for Codex...");
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-        try {
-          // Only configure stdio servers (Codex CLI supports stdio MCP servers)
-          // Check if it's a stdio server config (has 'command' property)
-          if (!("command" in serverConfig)) {
-            log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
-            continue;
-          }
-
-          // Build command and args
-          const command = serverConfig.command;
-          const args = serverConfig.args || [];
-          const envVars = serverConfig.env || {};
-
-          // Build the codex mcp add command with proper argument handling
-          const addArgs = ["mcp", "add", serverName, "--", command, ...args];
-
-          // Add environment variables as --env flags
-          for (const [key, value] of Object.entries(envVars)) {
-            addArgs.push("--env", `${key}=${value}`);
-          }
-
-          log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync("node", [cliPath, ...addArgs], {
-            stdio: "pipe",
-            encoding: "utf-8",
-            env: {
-              ...process.env,
-              OPENAI_API_KEY: apiKey,
-            },
-          });
-
-          if (addResult.status !== 0) {
-            throw new Error(
-              `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-            );
-          }
-          log.info(`✓ MCP server '${serverName}' configured`);
-        } catch (error) {
-          log.warning(
-            `Failed to configure MCP server '${serverName}': ${error instanceof Error ? error.message : String(error)}`
-          );
-          // Continue with other servers
+        // Only configure stdio servers (Codex CLI supports stdio MCP servers)
+        // Check if it's a stdio server config (has 'command' property)
+        if (!("command" in serverConfig)) {
+          log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+          continue;
         }
+
+        // Build command and args
+        const command = serverConfig.command;
+        const args = serverConfig.args || [];
+        const envVars = serverConfig.env || {};
+
+        // Build the codex mcp add command with proper argument handling
+        const addArgs = ["mcp", "add", serverName, "--", command, ...args];
+
+        // Add environment variables as --env flags
+        for (const [key, value] of Object.entries(envVars)) {
+          addArgs.push("--env", `${key}=${value}`);
+        }
+
+        log.info(`Adding MCP server '${serverName}'...`);
+        const addResult = spawnSync("node", [cliPath, ...addArgs], {
+          stdio: "pipe",
+          encoding: "utf-8",
+          env: {
+            ...process.env,
+            OPENAI_API_KEY: apiKey,
+          },
+        });
+
+        if (addResult.status !== 0) {
+          throw new Error(
+            `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+          );
+        }
+        log.info(`✓ MCP server '${serverName}' configured`);
       }
     }
 
