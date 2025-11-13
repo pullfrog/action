@@ -313,28 +313,28 @@ var require_tunnel = __commonJS({
     exports.httpOverHttps = httpOverHttps;
     exports.httpsOverHttps = httpsOverHttps;
     function httpOverHttp(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = http.request;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = http.request;
+      return agent2;
     }
     function httpsOverHttp(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = http.request;
-      agent.createSocket = createSecureSocket;
-      agent.defaultPort = 443;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = http.request;
+      agent2.createSocket = createSecureSocket;
+      agent2.defaultPort = 443;
+      return agent2;
     }
     function httpOverHttps(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = https.request;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = https.request;
+      return agent2;
     }
     function httpsOverHttps(options) {
-      var agent = new TunnelingAgent(options);
-      agent.request = https.request;
-      agent.createSocket = createSecureSocket;
-      agent.defaultPort = 443;
-      return agent;
+      var agent2 = new TunnelingAgent(options);
+      agent2.request = https.request;
+      agent2.createSocket = createSecureSocket;
+      agent2.defaultPort = 443;
+      return agent2;
     }
     function TunnelingAgent(options) {
       var self2 = this;
@@ -9136,18 +9136,18 @@ var require_agent = __commonJS({
             }
           }
         );
-        const agent = this;
+        const agent2 = this;
         this[kOnDrain] = (origin, targets) => {
-          agent.emit("drain", origin, [agent, ...targets]);
+          agent2.emit("drain", origin, [agent2, ...targets]);
         };
         this[kOnConnect] = (origin, targets) => {
-          agent.emit("connect", origin, [agent, ...targets]);
+          agent2.emit("connect", origin, [agent2, ...targets]);
         };
         this[kOnDisconnect] = (origin, targets, err2) => {
-          agent.emit("disconnect", origin, [agent, ...targets], err2);
+          agent2.emit("disconnect", origin, [agent2, ...targets], err2);
         };
         this[kOnConnectionError] = (origin, targets, err2) => {
-          agent.emit("connectionError", origin, [agent, ...targets], err2);
+          agent2.emit("connectionError", origin, [agent2, ...targets], err2);
         };
       }
       get [kRunning]() {
@@ -10527,16 +10527,16 @@ var require_mock_utils = __commonJS({
       return true;
     }
     function buildMockDispatch() {
-      const agent = this[kMockAgent];
+      const agent2 = this[kMockAgent];
       const origin = this[kOrigin];
       const originalDispatch = this[kOriginalDispatch];
       return function dispatch(opts, handler) {
-        if (agent.isMockActive) {
+        if (agent2.isMockActive) {
           try {
             mockDispatch.call(this, opts, handler);
           } catch (error2) {
             if (error2 instanceof MockNotMatchedError) {
-              const netConnect = agent[kGetNetConnect]();
+              const netConnect = agent2[kGetNetConnect]();
               if (netConnect === false) {
                 throw new MockNotMatchedError(`${error2.message}: subsequent request to origin ${origin} was not allowed (net.connect disabled)`);
               }
@@ -10565,7 +10565,7 @@ var require_mock_utils = __commonJS({
     }
     function buildMockOptions(opts) {
       if (opts) {
-        const { agent, ...mockOptions } = opts;
+        const { agent: agent2, ...mockOptions } = opts;
         return mockOptions;
       }
     }
@@ -10965,9 +10965,9 @@ var require_mock_agent = __commonJS({
         if (opts && opts.agent && typeof opts.agent.dispatch !== "function") {
           throw new InvalidArgumentError("Argument opts.agent must implement Agent");
         }
-        const agent = opts && opts.agent ? opts.agent : new Agent(opts);
-        this[kAgent] = agent;
-        this[kClients] = agent[kClients];
+        const agent2 = opts && opts.agent ? opts.agent : new Agent(opts);
+        this[kAgent] = agent2;
+        this[kClients] = agent2[kClients];
         this[kOptions] = buildMockOptions(opts);
       }
       get(origin) {
@@ -11493,12 +11493,12 @@ var require_global2 = __commonJS({
     if (getGlobalDispatcher() === void 0) {
       setGlobalDispatcher(new Agent());
     }
-    function setGlobalDispatcher(agent) {
-      if (!agent || typeof agent.dispatch !== "function") {
+    function setGlobalDispatcher(agent2) {
+      if (!agent2 || typeof agent2.dispatch !== "function") {
         throw new InvalidArgumentError("Argument agent must implement Agent");
       }
       Object.defineProperty(globalThis, globalDispatcher, {
-        value: agent,
+        value: agent2,
         writable: true,
         enumerable: false,
         configurable: false
@@ -13850,8 +13850,8 @@ var require_fetch = __commonJS({
       return response;
       async function dispatch({ body }) {
         const url2 = requestCurrentURL(request);
-        const agent = fetchParams.controller.dispatcher;
-        return new Promise((resolve, reject) => agent.dispatch(
+        const agent2 = fetchParams.controller.dispatcher;
+        return new Promise((resolve, reject) => agent2.dispatch(
           {
             path: url2.pathname + url2.search,
             origin: url2.origin,
@@ -17223,8 +17223,8 @@ var require_undici = __commonJS({
           }
           url2 = util2.parseURL(url2);
         }
-        const { agent, dispatcher = getGlobalDispatcher() } = opts;
-        if (agent) {
+        const { agent: agent2, dispatcher = getGlobalDispatcher() } = opts;
+        if (agent2) {
           throw new InvalidArgumentError("unsupported opts.agent. Did you mean opts.client?");
         }
         return fn2.call(dispatcher, {
@@ -17776,17 +17776,17 @@ var require_lib = __commonJS({
         return additionalHeaders[header] || clientHeader || _default;
       }
       _getAgent(parsedUrl) {
-        let agent;
+        let agent2;
         const proxyUrl = pm.getProxyUrl(parsedUrl);
         const useProxy = proxyUrl && proxyUrl.hostname;
         if (this._keepAlive && useProxy) {
-          agent = this._proxyAgent;
+          agent2 = this._proxyAgent;
         }
         if (!useProxy) {
-          agent = this._agent;
+          agent2 = this._agent;
         }
-        if (agent) {
-          return agent;
+        if (agent2) {
+          return agent2;
         }
         const usingSsl = parsedUrl.protocol === "https:";
         let maxSockets = 100;
@@ -17808,20 +17808,20 @@ var require_lib = __commonJS({
           } else {
             tunnelAgent = overHttps ? tunnel.httpOverHttps : tunnel.httpOverHttp;
           }
-          agent = tunnelAgent(agentOptions);
-          this._proxyAgent = agent;
+          agent2 = tunnelAgent(agentOptions);
+          this._proxyAgent = agent2;
         }
-        if (!agent) {
+        if (!agent2) {
           const options = { keepAlive: this._keepAlive, maxSockets };
-          agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
-          this._agent = agent;
+          agent2 = usingSsl ? new https.Agent(options) : new http.Agent(options);
+          this._agent = agent2;
         }
         if (usingSsl && this._ignoreSslError) {
-          agent.options = Object.assign(agent.options || {}, {
+          agent2.options = Object.assign(agent2.options || {}, {
             rejectUnauthorized: false
           });
         }
-        return agent;
+        return agent2;
       }
       _getProxyAgentDispatcher(parsedUrl, proxyUrl) {
         let proxyAgent;
@@ -41172,6 +41172,9 @@ var workflows = [
 ];
 
 // agents/shared.ts
+var agent = (agent2) => {
+  return agent2;
+};
 var instructions = `
 # General instructions
 
@@ -41217,13 +41220,10 @@ ${w.prompt}`).join("\n\n")}
 `;
 
 // agents/claude.ts
-var cachedCliPath;
-var claude = {
+var claude = agent({
+  name: "claude",
+  inputKey: "anthropic_api_key",
   install: async () => {
-    if (cachedCliPath) {
-      log.info(`Using cached Claude Code CLI at ${cachedCliPath}`);
-      return cachedCliPath;
-    }
     const versionRange = package_default.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
     let sdkVersion;
     if (versionRange.startsWith("^") || versionRange.startsWith("~")) {
@@ -41268,7 +41268,6 @@ var claude = {
       if (!existsSync3(cliPath)) {
         throw new Error(`cli.js not found in extracted package at ${cliPath}`);
       }
-      cachedCliPath = cliPath;
       log.info(`\u2713 Claude Code CLI installed at ${cliPath}`);
       return cliPath;
     } catch (error2) {
@@ -41279,11 +41278,8 @@ var claude = {
       throw error2;
     }
   },
-  run: async ({ prompt, mcpServers, apiKey }) => {
+  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
-    if (!cachedCliPath) {
-      throw new Error("Claude CLI not installed. Call install() before run().");
-    }
     const queryInstance = query({
       prompt: `${instructions}
 
@@ -41292,7 +41288,7 @@ ${prompt}`,
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
-        pathToClaudeCodeExecutable: cachedCliPath
+        pathToClaudeCodeExecutable: cliPath
       }
     });
     for await (const message of queryInstance) {
@@ -41304,7 +41300,7 @@ ${prompt}`,
       output: ""
     };
   }
-};
+});
 var bashToolIds = /* @__PURE__ */ new Set();
 var messageHandlers = {
   assistant: (data) => {
@@ -41400,7 +41396,9 @@ var messageHandlers = {
 
 // agents/codex.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
-var codex = {
+var codex = agent({
+  name: "codex",
+  inputKey: "openai_api_key",
   install: async () => {
     const globalCodexPath = findCliPath("codex");
     if (globalCodexPath) {
@@ -41507,7 +41505,7 @@ ${prompt}`;
       };
     }
   }
-};
+});
 
 // agents/index.ts
 var agents = {
@@ -41598,11 +41596,17 @@ function setupGitAuth(githubToken, repoContext) {
 }
 
 // main.ts
-var AgentName = type.enumerated("codex", "claude");
+var AgentName = type.enumerated(...Object.values(agents).map((agent2) => agent2.name));
+var AgentInputKey = type.enumerated(
+  ...Object.values(agents).map((agent2) => agent2.inputKey)
+);
+var keyInputDefs = flatMorph(
+  agents,
+  (_, agent2) => [agent2.inputKey, "string | undefined?"]
+);
 var Inputs = type({
   prompt: "string",
-  "anthropic_api_key?": "string | undefined",
-  "openai_api_key?": "string | undefined",
+  ...keyInputDefs,
   "agent?": AgentName
 });
 async function main(inputs) {
@@ -41621,28 +41625,16 @@ async function main(inputs) {
       repoContext
     });
     const agentName = inputs.agent || repoSettings.defaultAgent || "claude";
-    const agent = agents[agentName];
+    const agent2 = agents[agentName];
     setupGitAuth(githubInstallationToken, repoContext);
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
-    const cliPath = await agent.install();
+    const cliPath = await agent2.install();
     log.info(`Running ${agentName} Agent SDK...`);
     log.box(inputs.prompt, { title: "Prompt" });
-    let apiKey;
-    if (agentName === "claude") {
-      if (!inputs.anthropic_api_key) {
-        throw new Error("ANTHROPIC_API_KEY is required for Claude agent");
-      }
-      apiKey = inputs.anthropic_api_key;
-    } else if (agentName === "codex") {
-      if (!inputs.openai_api_key) {
-        throw new Error("OPENAI_API_KEY is required for Codex agent");
-      }
-      apiKey = inputs.openai_api_key;
-    } else {
-      throw new Error(`API key configuration not implemented for agent: ${agentName}`);
-    }
-    const result = await agent.run({
+    const apiKey = inputs[agent2.inputKey];
+    if (!apiKey) throw new Error(`${agent2.inputKey} is required for ${agentName} agent`);
+    const result = await agent2.run({
       prompt: inputs.prompt,
       mcpServers,
       githubInstallationToken,

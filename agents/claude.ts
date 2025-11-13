@@ -8,17 +8,12 @@ import { pipeline } from "node:stream/promises";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
-import { type Agent, instructions } from "./shared.ts";
+import { agent, instructions } from "./shared.ts";
 
-let cachedCliPath: string | undefined;
-
-export const claude: Agent = {
-  install: async (): Promise<string> => {
-    if (cachedCliPath) {
-      log.info(`Using cached Claude Code CLI at ${cachedCliPath}`);
-      return cachedCliPath;
-    }
-
+export const claude = agent({
+  name: "claude",
+  inputKey: "anthropic_api_key",
+  install: async () => {
     // Get the SDK version from package.json and resolve to actual version
     const versionRange = packageJson.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
     let sdkVersion: string;
@@ -83,8 +78,6 @@ export const claude: Agent = {
       if (!existsSync(cliPath)) {
         throw new Error(`cli.js not found in extracted package at ${cliPath}`);
       }
-
-      cachedCliPath = cliPath;
       log.info(`✓ Claude Code CLI installed at ${cliPath}`);
       return cliPath;
     } catch (error) {
@@ -97,19 +90,15 @@ export const claude: Agent = {
       throw error;
     }
   },
-  run: async ({ prompt, mcpServers, apiKey }) => {
+  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
-
-    if (!cachedCliPath) {
-      throw new Error("Claude CLI not installed. Call install() before run().");
-    }
 
     const queryInstance = query({
       prompt: `${instructions}\n\n****** USER PROMPT ******\n${prompt}`,
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
-        pathToClaudeCodeExecutable: cachedCliPath,
+        pathToClaudeCodeExecutable: cliPath,
       },
     });
 
@@ -124,7 +113,7 @@ export const claude: Agent = {
       output: "",
     };
   },
-};
+});
 
 type SDKMessageType = SDKMessage["type"];
 

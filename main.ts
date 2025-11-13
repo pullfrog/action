@@ -1,3 +1,4 @@
+import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -11,13 +12,22 @@ import {
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
-export const AgentName = type.enumerated("codex", "claude");
+export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
 export type AgentName = typeof AgentName.infer;
+
+export const AgentInputKey = type.enumerated(
+  ...Object.values(agents).map((agent) => agent.inputKey)
+);
+export type AgentInputKey = typeof AgentInputKey.infer;
+
+const keyInputDefs = flatMorph(
+  agents,
+  (_, agent) => [agent.inputKey, "string | undefined?"] as const
+);
 
 export const Inputs = type({
   prompt: "string",
-  "anthropic_api_key?": "string | undefined",
-  "openai_api_key?": "string | undefined",
+  ...keyInputDefs,
   "agent?": AgentName,
 });
 
@@ -72,20 +82,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // for webhook payloads, check the specified `agent` field
 
     // Get API key based on agent type
-    let apiKey: string;
-    if (agentName === "claude") {
-      if (!inputs.anthropic_api_key) {
-        throw new Error("ANTHROPIC_API_KEY is required for Claude agent");
-      }
-      apiKey = inputs.anthropic_api_key;
-    } else if (agentName === "codex") {
-      if (!inputs.openai_api_key) {
-        throw new Error("OPENAI_API_KEY is required for Codex agent");
-      }
-      apiKey = inputs.openai_api_key;
-    } else {
-      throw new Error(`API key configuration not implemented for agent: ${agentName}`);
-    }
+
+    const apiKey = inputs[agent.inputKey];
+
+    if (!apiKey) throw new Error(`${agent.inputKey} is required for ${agentName} agent`);
 
     const result = await agent.run({
       prompt: inputs.prompt,

@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
 
 import { findCliPath, log } from "../utils/cli.ts";
-import { type Agent, instructions } from "./shared.ts";
+import { agent, instructions } from "./shared.ts";
 
-export const codex: Agent = {
-  install: async (): Promise<string> => {
+export const codex = agent({
+  name: "codex",
+  inputKey: "openai_api_key",
+  install: async () => {
     const globalCodexPath = findCliPath("codex");
     if (globalCodexPath) {
       log.info(`Using global Codex CLI at ${globalCodexPath}`);
@@ -133,4 +135,4 @@ export const codex: Agent = {
       };
     }
   },
-};
+});

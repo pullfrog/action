@@ -28,6 +28,7 @@ export async function run(
     const inputs: Inputs = {
       prompt,
       openai_api_key: process.env.OPENAI_API_KEY,
+      anthropic_api_key: process.env.ANTHROPIC_API_KEY,
       agent: "codex",
     };
 
@@ -87,54 +88,55 @@ Examples:
     // Default to testing tool calls if no file specified
     const filePath = args._[0] || null;
     if (!filePath) {
-      prompt = "List all available MCP tools from the gh-pullfrog server and show what each tool does.";
+      prompt =
+        "List all available MCP tools from the gh-pullfrog server and show what each tool does.";
     } else {
-    const ext = extname(filePath).toLowerCase();
-    let resolvedPath: string;
+      const ext = extname(filePath).toLowerCase();
+      let resolvedPath: string;
 
-    const fixturesPath = fromHere("fixtures", filePath);
-    if (existsSync(fixturesPath)) {
-      resolvedPath = fixturesPath;
-    } else if (existsSync(filePath)) {
-      resolvedPath = resolve(filePath);
-    } else {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    switch (ext) {
-      case ".txt": {
-        prompt = readFileSync(resolvedPath, "utf8").trim();
-        break;
+      const fixturesPath = fromHere("fixtures", filePath);
+      if (existsSync(fixturesPath)) {
+        resolvedPath = fixturesPath;
+      } else if (existsSync(filePath)) {
+        resolvedPath = resolve(filePath);
+      } else {
+        throw new Error(`File not found: ${filePath}`);
       }
 
-      case ".json": {
-        const content = readFileSync(resolvedPath, "utf8");
-        const parsed = JSON.parse(content);
-        prompt = JSON.stringify(parsed, null, 2);
-        break;
-      }
-
-      case ".ts": {
-        const fileUrl = pathToFileURL(resolvedPath).href;
-        const module = await import(fileUrl);
-
-        if (!module.default) {
-          throw new Error(`TypeScript file ${filePath} must have a default export`);
+      switch (ext) {
+        case ".txt": {
+          prompt = readFileSync(resolvedPath, "utf8").trim();
+          break;
         }
 
-        if (typeof module.default === "string") {
-          prompt = module.default;
-        } else if (typeof module.default === "object" && module.default.prompt) {
-          prompt = module.default.prompt;
-        } else {
-          prompt = JSON.stringify(module.default, null, 2);
+        case ".json": {
+          const content = readFileSync(resolvedPath, "utf8");
+          const parsed = JSON.parse(content);
+          prompt = JSON.stringify(parsed, null, 2);
+          break;
         }
-        break;
-      }
 
-      default:
-        throw new Error(`Unsupported file type: ${ext}. Supported types: .txt, .json, .ts`);
-    }
+        case ".ts": {
+          const fileUrl = pathToFileURL(resolvedPath).href;
+          const module = await import(fileUrl);
+
+          if (!module.default) {
+            throw new Error(`TypeScript file ${filePath} must have a default export`);
+          }
+
+          if (typeof module.default === "string") {
+            prompt = module.default;
+          } else if (typeof module.default === "object" && module.default.prompt) {
+            prompt = module.default.prompt;
+          } else {
+            prompt = JSON.stringify(module.default, null, 2);
+          }
+          break;
+        }
+
+        default:
+          throw new Error(`Unsupported file type: ${ext}. Supported types: .txt, .json, .ts`);
+      }
     }
   }
 

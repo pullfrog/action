@@ -23,12 +23,15 @@ export interface AgentConfig {
   cliPath: string;
 }
 
-type InputKey = "anthropic_api_key" | "openai_api_key";
+export const agent = <const agent extends Agent>(agent: agent): agent => {
+  return agent;
+};
 
 export type Agent = {
+  name: string;
+  inputKey: string;
   install: () => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
-  inputKey: InputKey;
 };
 
 export const instructions = `
