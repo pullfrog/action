@@ -28177,7 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -40479,7 +40479,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.96",
+  version: "0.0.97",
   type: "module",
   files: [
     "index.js",
@@ -41421,7 +41421,7 @@ var messageHandlers = {
 // agents/codex.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
 
-// ../node_modules/.pnpm/@openai+codex-sdk@0.57.0/node_modules/@openai/codex-sdk/dist/index.js
+// ../node_modules/.pnpm/@openai+codex-sdk@0.58.0/node_modules/@openai/codex-sdk/dist/index.js
 import { promises as fs2 } from "fs";
 import os from "os";
 import path2 from "path";
