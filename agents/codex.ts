@@ -15,9 +15,9 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
+  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.OPENAI_API_KEY = apiKey;
-
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
     // Configure MCP servers for Codex (global config is fine - not part of repo)
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       configureMcpServers({ mcpServers, apiKey, cliPath });
@@ -192,12 +192,14 @@ function configureMcpServers({
     const envVars = serverConfig.env || {};
 
     // Build the codex mcp add command with proper argument handling
-    const addArgs = ["mcp", "add", serverName, "--", command, ...args];
+    const addArgs = ["mcp", "add", serverName];
 
     // Add environment variables as --env flags
     for (const [key, value] of Object.entries(envVars)) {
       addArgs.push("--env", `${key}=${value}`);
     }
+
+    addArgs.push("--", command, ...args);
 
     log.info(`Adding MCP server '${serverName}'...`);
     const addResult = spawnSync("node", [cliPath, ...addArgs], {
