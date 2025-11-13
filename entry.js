@@ -41138,8 +41138,7 @@ var workflows = [
 async function installFromNpmTarball({
   packageName,
   version,
-  executablePath,
-  installDependencies = false
+  executablePath
 }) {
   let resolvedVersion = version;
   if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
@@ -41196,22 +41195,6 @@ async function installFromNpmTarball({
   const cliPath = join5(extractedDir, executablePath);
   if (!existsSync2(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
-  }
-  if (installDependencies) {
-    const packageJsonPath = join5(extractedDir, "package.json");
-    if (existsSync2(packageJsonPath)) {
-      log.info(`Installing dependencies for ${packageName}...`);
-      const installResult = spawnSync("npm", ["install", "--production"], {
-        cwd: extractedDir,
-        stdio: "pipe",
-        encoding: "utf-8"
-      });
-      if (installResult.status !== 0) {
-        throw new Error(
-          `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
-        );
-      }
-    }
   }
   log.info(`\u2713 ${packageName} installed at ${cliPath}`);
   return cliPath;
@@ -41402,8 +41385,7 @@ var codex = agent({
     return await installFromNpmTarball({
       packageName: "@openai/codex",
       version: "latest",
-      executablePath: "bin/codex.js",
-      installDependencies: true
+      executablePath: "bin/codex.js"
     });
   },
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {

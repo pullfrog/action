@@ -11,7 +11,6 @@ export const codex = agent({
       packageName: "@openai/codex",
       version: "latest",
       executablePath: "bin/codex.js",
-      installDependencies: true,
     });
   },
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
