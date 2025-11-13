@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createWriteStream, existsSync } from "node:fs";
+import { chmodSync, createWriteStream, existsSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -118,6 +118,9 @@ export async function installFromNpmTarball({
   if (!existsSync(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
   }
+
+  // Make the file executable
+  chmodSync(cliPath, 0o755);
 
   log.info(`✓ ${packageName} installed at ${cliPath}`);
 
