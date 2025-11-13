@@ -28177,7 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
