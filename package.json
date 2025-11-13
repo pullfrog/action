@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "play": "node play.ts",
+    "scratch": "node scratch.ts",
     "upDeps": "pnpm up --latest",
     "lock": "pnpm --ignore-workspace install",
     "prepare": "husky"
@@ -30,7 +31,6 @@
     "@octokit/webhooks-types": "^7.6.1",
     "@standard-schema/spec": "1.0.0",
     "arktype": "2.1.25",
-    "convex": "^1.29.0",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "fastmcp": "^3.20.0",

@@ -1,31 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 
-import { log } from "../utils/cli.ts";
+import { findCliPath, log } from "../utils/cli.ts";
 import { type Agent, instructions } from "./shared.ts";
-
-let cachedCliPath: string | undefined;
 
 export const codex: Agent = {
   install: async (): Promise<string> => {
-    if (cachedCliPath) {
-      log.info(`Using cached Codex CLI at ${cachedCliPath}`);
-      return cachedCliPath;
-    }
-
-    // Check if codex CLI is already installed globally
-    try {
-      const result = spawnSync("which", ["codex"], { encoding: "utf-8" });
-      if (result.status === 0 && result.stdout) {
-        const globalCodexPath = result.stdout.trim();
-        if (globalCodexPath && existsSync(globalCodexPath)) {
-          cachedCliPath = globalCodexPath;
-          log.info(`Using global Codex CLI at ${globalCodexPath}`);
-          return cachedCliPath;
-        }
-      }
-    } catch {
-      // Codex CLI not found globally, continue with installation
+    const globalCodexPath = findCliPath("codex");
+    if (globalCodexPath) {
+      log.info(`Using global Codex CLI at ${globalCodexPath}`);
+      return globalCodexPath;
     }
 
     // Install Codex CLI globally using npm
@@ -41,14 +24,10 @@ export const codex: Agent = {
       }
 
       // Verify installation
-      const verifyResult = spawnSync("which", ["codex"], { encoding: "utf-8" });
-      if (verifyResult.status === 0 && verifyResult.stdout) {
-        const installedPath = verifyResult.stdout.trim();
-        if (installedPath && existsSync(installedPath)) {
-          cachedCliPath = installedPath;
-          log.info(`✓ Codex CLI installed at ${installedPath}`);
-          return cachedCliPath;
-        }
+      const installedPath = findCliPath("codex");
+      if (installedPath) {
+        log.info(`✓ Codex CLI installed at ${installedPath}`);
+        return installedPath;
       }
 
       throw new Error("Codex CLI installation completed but executable not found");
@@ -58,12 +37,8 @@ export const codex: Agent = {
       throw new Error(`Codex CLI installation failed: ${errorMessage}`);
     }
   },
-  run: async ({ prompt, mcpServers, apiKey }) => {
+  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.OPENAI_API_KEY = apiKey;
-
-    if (!cachedCliPath) {
-      throw new Error("Codex CLI not installed. Call install() before run().");
-    }
 
     // Configure MCP servers for Codex (global config is fine - not part of repo)
     if (mcpServers && Object.keys(mcpServers).length > 0) {
@@ -84,14 +59,14 @@ export const codex: Agent = {
 
           // Build the codex mcp add command with proper argument handling
           const addArgs = ["mcp", "add", serverName, "--", command, ...args];
-          
+
           // Add environment variables as --env flags
           for (const [key, value] of Object.entries(envVars)) {
             addArgs.push("--env", `${key}=${value}`);
           }
 
           log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync("codex", addArgs, {
+          const addResult = spawnSync(cliPath, addArgs, {
             stdio: "inherit",
             encoding: "utf-8",
             env: {
@@ -99,7 +74,7 @@ export const codex: Agent = {
               OPENAI_API_KEY: apiKey,
             },
           });
-          
+
           if (addResult.status !== 0) {
             throw new Error(
               `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
@@ -117,9 +92,9 @@ export const codex: Agent = {
 
     // Use codex exec command via CLI
     const fullPrompt = `${instructions}\n\n****** USER PROMPT ******\n${prompt}`;
-    
+
     log.info("Running Codex via CLI...");
-    
+
     try {
       // Execute codex via CLI using child_process
       const result = spawnSync("codex", ["exec", fullPrompt], {
@@ -159,4 +134,3 @@ export const codex: Agent = {
     }
   },
 };
-

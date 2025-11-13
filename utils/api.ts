@@ -1,7 +1,9 @@
+import type { AgentName } from "../main.ts";
+import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 
 export interface RepoSettings {
-  defaultAgent: string | null;
+  defaultAgent: AgentName | null;
   webAccessLevel: "full_access" | "limited";
   webAccessAllowTrusted: boolean;
   webAccessDomains: string;
@@ -20,6 +22,30 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   webAccessDomains: "",
   workflows: [],
 };
+
+/**
+ * Fetch repository settings with fallback handling
+ * Uses API if token is available, otherwise returns defaults
+ */
+export async function fetchRepoSettings({
+  token,
+  repoContext,
+  isFallbackToken,
+}: {
+  token: string;
+  repoContext: RepoContext;
+  isFallbackToken: boolean;
+}): Promise<RepoSettings> {
+  if (isFallbackToken) {
+    log.info("Using default repository settings (app not installed)");
+    return DEFAULT_REPO_SETTINGS;
+  }
+
+  log.info("Fetching repository settings...");
+  const settings = await getRepoSettings(token, repoContext);
+  log.info("Repository settings fetched");
+  return settings;
+}
 
 /**
  * Fetch repository settings from the Pullfrog API with fallback to defaults

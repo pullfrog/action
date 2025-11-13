@@ -28177,26 +28177,801 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// agents/claude.ts
+// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
+import path from "node:path";
+import * as process2 from "node:process";
+import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
+
+// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/getCurrentLine.js
+var getFramesFromError = (error2) => {
+  let stack, frames;
+  try {
+    stack = error2.stack;
+  } catch (error1) {
+    try {
+      const previous = err.__previous__ || err.__previous;
+      stack = previous && previous.stack;
+    } catch (error22) {
+      stack = null;
+    }
+  }
+  if (stack)
+    frames = Array.isArray(stack) ? Array(stack) : stack.toString().split("\n");
+  else
+    frames = [];
+  return frames;
+};
+var lineRegex = /\s+at\s(?:(?<method>.+?)\s\()?(?<file>.+?):(?<line>\d+):(?<char>\d+)\)?\s*$/;
+var getLocationsFromFrames = (frames) => {
+  const locations = [];
+  for (const frame of frames) {
+    const line = (frame || "").toString();
+    if (line.length === 0)
+      continue;
+    const match2 = line.match(lineRegex);
+    if (match2 && match2.groups) {
+      locations.push({
+        method: match2.groups.method || "",
+        file: match2.groups.file || "",
+        line: Number(match2.groups.line),
+        char: Number(match2.groups.char)
+      });
+    }
+  }
+  return locations;
+};
+var failureLocation = {
+  line: -1,
+  char: -1,
+  method: "",
+  file: ""
+};
+var getLocationWithOffset = (locations, offset) => {
+  let found = !offset.file && !offset.method;
+  let i = 0;
+  while (i < locations.length) {
+    const location = locations[i];
+    if (offset.file && (typeof offset.file === "string" ? location.file.includes(offset.file) : offset.file.test(location.file)) || offset.method && (typeof offset.method === "string" ? location.method.includes(offset.method) : offset.method.test(location.method))) {
+      if (offset.immediate) {
+        i += offset.frames || 0;
+        return locations[i];
+      } else {
+        found = true;
+        ++i;
+        continue;
+      }
+    } else if (found) {
+      i += offset.frames || 0;
+      return locations[i];
+    } else {
+      ++i;
+      continue;
+    }
+  }
+  return failureLocation;
+};
+var getLocationsFromError = (error2) => {
+  const frames = getFramesFromError(error2);
+  return getLocationsFromFrames(frames);
+};
+var getLocationFromError = (error2, offset = {
+  immediate: true
+}) => {
+  const locations = getLocationsFromError(error2);
+  return getLocationWithOffset(locations, offset);
+};
+var getCurrentLine = (offset = {
+  method: "getCurrentLine",
+  frames: 0,
+  immediate: false
+}) => getLocationFromError(new Error(), offset);
+
+// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
+var nonexistentCurrentLine = {
+  line: -1,
+  char: -1,
+  method: "",
+  file: ""
+};
+var formatFilePath = (original, { relative, separator: separator2 }) => {
+  let formatted = original;
+  if (original.startsWith("file:///"))
+    formatted = fileURLToPath(original);
+  if (relative) {
+    formatted = path.relative(typeof relative === "string" ? relative : process2.cwd(), formatted);
+  }
+  if (separator2) {
+    formatted = formatted.replaceAll(new RegExp(`\\${path.sep}`, "g"), separator2);
+  }
+  return formatted;
+};
+var caller = (options = {}) => {
+  let upStackBy = options.upStackBy ?? 0;
+  if (!options.methodName && !options.upStackBy)
+    upStackBy = 3;
+  let match2;
+  while (!match2) {
+    const location = getCurrentLine({
+      method: options.methodName,
+      frames: upStackBy
+    });
+    if (!location || isDeepStrictEqual(location, nonexistentCurrentLine)) {
+      throw new Error(`No caller of '${options.methodName}' matches given options: ${JSON.stringify(options, null, 4)}.`);
+    }
+    const candidate = {
+      ...location,
+      file: formatFilePath(location.file, options.formatPath ?? {})
+    };
+    if (options.skip?.(candidate))
+      upStackBy++;
+    else
+      match2 = candidate;
+  }
+  if (match2.file.startsWith("file:///"))
+    match2.file = fileURLToPath(match2.file);
+  return match2;
+};
+
+// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
+import { dirname, join, parse } from "node:path";
+import * as process3 from "node:process";
+import { URL as URL2, fileURLToPath as fileURLToPath2 } from "node:url";
+var filePath = (path2) => {
+  let file;
+  if (path2.includes("://")) {
+    const url2 = new URL2(path2);
+    file = url2.protocol === "file:" ? fileURLToPath2(url2) : url2.href;
+  } else {
+    file = path2;
+  }
+  return file;
+};
+var dirOfCaller = () => dirname(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
+var fromHere = (...joinWith) => join(dirOfCaller(), ...joinWith);
+var fsRoot = parse(process3.cwd()).root;
+
+// utils/github.ts
+var core2 = __toESM(require_core(), 1);
+import { createSign } from "node:crypto";
+
+// utils/cli.ts
+var core = __toESM(require_core(), 1);
+import { spawnSync } from "child_process";
+import { existsSync } from "fs";
+var isGitHubActions = !!process.env.GITHUB_ACTIONS;
+var isDebugEnabled = process.env.LOG_LEVEL === "debug";
+function startGroup2(name) {
+  if (isGitHubActions) {
+    core.startGroup(name);
+  } else {
+    console.group(name);
+  }
+}
+function endGroup2() {
+  if (isGitHubActions) {
+    core.endGroup();
+  } else {
+    console.groupEnd();
+  }
+}
+function boxString(text, options) {
+  const { title, maxWidth = 80, indent: indent2 = "", padding = 1 } = options || {};
+  const lines = text.trim().split("\n");
+  const wrappedLines = [];
+  for (const line of lines) {
+    if (line.length <= maxWidth - padding * 2) {
+      wrappedLines.push(line);
+    } else {
+      const words = line.split(" ");
+      let currentLine = "";
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (testLine.length <= maxWidth - padding * 2) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+            currentLine = word;
+          } else {
+            wrappedLines.push(word.substring(0, maxWidth - padding * 2));
+            currentLine = word.substring(maxWidth - padding * 2);
+          }
+        }
+      }
+      if (currentLine) {
+        wrappedLines.push(currentLine);
+      }
+    }
+  }
+  const maxLineLength = Math.max(...wrappedLines.map((line) => line.length));
+  const boxWidth = maxLineLength + padding * 2;
+  let result = "";
+  if (title) {
+    const titleLine = ` ${title} `;
+    const titlePadding = Math.max(0, boxWidth - titleLine.length);
+    result += `${indent2}\u250C${titleLine}${"\u2500".repeat(titlePadding)}\u2510
+`;
+  }
+  if (!title) {
+    result += `${indent2}\u250C${"\u2500".repeat(boxWidth)}\u2510
+`;
+  }
+  for (const line of wrappedLines) {
+    const paddedLine = line.padEnd(maxLineLength);
+    result += `${indent2}\u2502${" ".repeat(padding)}${paddedLine}${" ".repeat(padding)}\u2502
+`;
+  }
+  result += `${indent2}\u2514${"\u2500".repeat(boxWidth)}\u2518`;
+  return result;
+}
+function box(text, options) {
+  const boxContent = boxString(text, options);
+  core.info(boxContent);
+  if (isGitHubActions) {
+    core.summary.addRaw(`\`\`\`
+${text}
+\`\`\`
+`);
+  }
+}
+async function summaryTable(rows, options) {
+  const { title } = options || {};
+  const formattedRows = rows.map(
+    (row) => row.map((cell) => {
+      if (typeof cell === "string") {
+        return { data: cell };
+      }
+      return cell;
+    })
+  );
+  if (isGitHubActions) {
+    const summary2 = core.summary;
+    if (title) {
+      summary2.addRaw(`**${title}**
+
+`);
+    }
+    summary2.addTable(formattedRows);
+  }
+  if (title) {
+    core.info(`
+${title}`);
+  }
+  const tableText = formattedRows.map((row) => row.map((cell) => cell.data).join(" | ")).join("\n");
+  core.info(`
+${tableText}
+`);
+}
+function separator(length = 50) {
+  const separatorText = "\u2500".repeat(length);
+  core.info(separatorText);
+  if (isGitHubActions) {
+    core.summary.addRaw(`---
+`);
+  }
+}
+var log = {
+  /**
+   * Print info message
+   */
+  info: (message) => {
+    core.info(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`${message}
+`);
+    }
+  },
+  /**
+   * Print warning message
+   */
+  warning: (message) => {
+    core.warning(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`\u26A0\uFE0F ${message}
+`);
+    }
+  },
+  /**
+   * Print error message
+   */
+  error: (message) => {
+    core.error(message);
+    if (isGitHubActions) {
+      core.summary.addRaw(`\u274C ${message}
+`);
+    }
+  },
+  /**
+   * Print success message
+   */
+  success: (message) => {
+    const successMessage = `\u2705 ${message}`;
+    core.info(successMessage);
+    if (isGitHubActions) {
+      core.summary.addRaw(`${successMessage}
+`);
+    }
+  },
+  /**
+   * Print debug message (only if LOG_LEVEL=debug)
+   */
+  debug: (message) => {
+    if (isDebugEnabled) {
+      if (isGitHubActions) {
+        core.debug(message);
+      } else {
+        core.info(`[DEBUG] ${message}`);
+      }
+    }
+  },
+  /**
+   * Print a formatted box with text
+   */
+  box,
+  /**
+   * Add a table to GitHub Actions job summary (rich formatting)
+   * Only use this once at the end of execution
+   */
+  summaryTable,
+  /**
+   * Print a separator line
+   */
+  separator,
+  /**
+   * Write all accumulated summary content to the job summary
+   * Call this at the end of execution to finalize the summary
+   */
+  writeSummary: async () => {
+    if (isGitHubActions) {
+      await core.summary.write();
+    }
+  },
+  /**
+   * Start a collapsed group (GitHub Actions) or regular group (local)
+   */
+  startGroup: startGroup2,
+  /**
+   * End a collapsed group
+   */
+  endGroup: endGroup2
+};
+function findCliPath(name) {
+  const result = spawnSync("which", [name], { encoding: "utf-8" });
+  if (result.status === 0 && result.stdout) {
+    const cliPath = result.stdout.trim();
+    if (cliPath && existsSync(cliPath)) {
+      return cliPath;
+    }
+  }
+  return null;
+}
+
+// utils/github.ts
+function checkExistingToken() {
+  const inputToken = core2.getInput("github_installation_token");
+  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
+  return inputToken || envToken || null;
+}
+function getGitHubTokenInput() {
+  return core2.getInput("github_token") || null;
+}
+function isGitHubActionsEnvironment() {
+  return Boolean(process.env.GITHUB_ACTIONS);
+}
+async function acquireTokenViaOIDC() {
+  log.info("Generating OIDC token...");
+  const oidcToken = await core2.getIDToken("pullfrog-api");
+  log.info("OIDC token generated successfully");
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  log.info("Exchanging OIDC token for installation token...");
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oidcToken}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!tokenResponse.ok) {
+      log.warning(
+        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}. Falling back to GITHUB_TOKEN.`
+      );
+      return null;
+    }
+    const tokenData = await tokenResponse.json();
+    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    return tokenData.token;
+  } catch (error2) {
+    clearTimeout(timeoutId);
+    if (error2 instanceof Error && error2.name === "AbortError") {
+      log.warning(`Token exchange timed out after ${timeoutMs}ms. Falling back to GITHUB_TOKEN.`);
+    } else {
+      log.warning(
+        `Token exchange failed: ${error2 instanceof Error ? error2.message : String(error2)}. Falling back to GITHUB_TOKEN.`
+      );
+    }
+    return null;
+  }
+}
+var base64UrlEncode = (str) => {
+  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+};
+var generateJWT = (appId, privateKey) => {
+  const now = Math.floor(Date.now() / 1e3);
+  const payload = {
+    iat: now - 60,
+    exp: now + 5 * 60,
+    iss: appId
+  };
+  const header = {
+    alg: "RS256",
+    typ: "JWT"
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signaturePart = `${encodedHeader}.${encodedPayload}`;
+  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return `${signaturePart}.${signature}`;
+};
+var githubRequest = async (path2, options = {}) => {
+  const { method = "GET", headers = {}, body } = options;
+  const url2 = `https://api.github.com${path2}`;
+  const requestHeaders = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
+    ...headers
+  };
+  const response = await fetch(url2, {
+    method,
+    headers: requestHeaders,
+    ...body && { body }
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${response.statusText}
+${errorText}`
+    );
+  }
+  return response.json();
+};
+var checkRepositoryAccess = async (token, repoOwner, repoName) => {
+  try {
+    const response = await githubRequest("/installation/repositories", {
+      headers: { Authorization: `token ${token}` }
+    });
+    return response.repositories.some(
+      (repo) => repo.owner.login === repoOwner && repo.name === repoName
+    );
+  } catch {
+    return false;
+  }
+};
+var createInstallationToken = async (jwt, installationId) => {
+  const response = await githubRequest(
+    `/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwt}` }
+    }
+  );
+  return response.token;
+};
+var findInstallationId = async (jwt, repoOwner, repoName) => {
+  const installations = await githubRequest("/app/installations", {
+    headers: { Authorization: `Bearer ${jwt}` }
+  });
+  for (const installation of installations) {
+    try {
+      const tempToken = await createInstallationToken(jwt, installation.id);
+      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
+      if (hasAccess) {
+        return installation.id;
+      }
+    } catch {
+    }
+  }
+  throw new Error(
+    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
+  );
+};
+async function acquireTokenViaGitHubApp() {
+  const repoContext = parseRepoContext();
+  const config = {
+    appId: process.env.GITHUB_APP_ID,
+    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    repoOwner: repoContext.owner,
+    repoName: repoContext.name
+  };
+  const jwt = generateJWT(config.appId, config.privateKey);
+  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
+  const token = await createInstallationToken(jwt, installationId);
+  return token;
+}
+async function acquireNewToken() {
+  if (isGitHubActionsEnvironment()) {
+    return await acquireTokenViaOIDC();
+  } else {
+    return await acquireTokenViaGitHubApp();
+  }
+}
+function getDefaultGitHubToken() {
+  const inputToken = getGitHubTokenInput();
+  if (inputToken) {
+    return inputToken;
+  }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token && isGitHubActionsEnvironment()) {
+    const githubEnvVars = Object.keys(process.env).filter((key) => key.startsWith("GITHUB_")).reduce(
+      (acc, key) => {
+        acc[key] = key === "GITHUB_TOKEN" ? process.env[key] ? "***SET***" : "NOT_SET" : process.env[key];
+        return acc;
+      },
+      {}
+    );
+    log.warning(
+      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
+    );
+  }
+  return token || null;
+}
+async function setupGitHubInstallationToken() {
+  const existingToken = checkExistingToken();
+  if (existingToken) {
+    core2.setSecret(existingToken);
+    log.info("Using provided GitHub installation token");
+    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
+  }
+  const acquiredToken = await acquireNewToken();
+  if (!acquiredToken) {
+    const defaultToken = getDefaultGitHubToken();
+    if (!defaultToken) {
+      throw new Error(
+        "Failed to acquire installation token and GITHUB_TOKEN is not available. Either install the Pullfrog GitHub App or ensure GITHUB_TOKEN is set."
+      );
+    }
+    log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
+    core2.setSecret(defaultToken);
+    process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
+    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
+  }
+  core2.setSecret(acquiredToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
+  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
+}
+async function revokeInstallationToken(token) {
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+  try {
+    await fetch(`${apiUrl}/installation/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    log.info("Installation token revoked");
+  } catch (error2) {
+    log.warning(
+      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
+}
+function parseRepoContext() {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+  return { owner, name };
+}
+
+// mcp/config.ts
+var ghPullfrogMcpName = "gh-pullfrog";
+function createMcpConfigs(githubInstallationToken) {
+  const repoContext = parseRepoContext();
+  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
+  return {
+    [ghPullfrogMcpName]: {
+      command: "node",
+      args: [serverPath],
+      env: {
+        GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+        GITHUB_REPOSITORY: githubRepository
+      }
+    }
+  };
+}
+
+// package.json
+var package_default = {
+  name: "@pullfrog/action",
+  version: "0.0.96",
+  type: "module",
+  files: [
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
+    "index.d.cts",
+    "agents",
+    "utils",
+    "main.js",
+    "main.d.ts"
+  ],
+  scripts: {
+    test: 'echo "Error: no test specified" && exit 1',
+    typecheck: "tsc --noEmit",
+    build: "node esbuild.config.js",
+    play: "node play.ts",
+    scratch: "node scratch.ts",
+    upDeps: "pnpm up --latest",
+    lock: "pnpm --ignore-workspace install",
+    prepare: "husky"
+  },
+  dependencies: {
+    "@actions/core": "^1.11.1",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.26",
+    "@ark/fs": "0.53.0",
+    "@ark/util": "0.53.0",
+    "@octokit/rest": "^22.0.0",
+    "@octokit/webhooks-types": "^7.6.1",
+    "@standard-schema/spec": "1.0.0",
+    arktype: "2.1.25",
+    dotenv: "^17.2.3",
+    execa: "^9.6.0",
+    fastmcp: "^3.20.0",
+    table: "^6.9.0"
+  },
+  devDependencies: {
+    "@types/node": "^24.7.2",
+    arg: "^5.0.2",
+    esbuild: "^0.25.9",
+    husky: "^9.0.0",
+    typescript: "^5.9.3"
+  },
+  repository: {
+    type: "git",
+    url: "git+https://github.com/pullfrog/action.git"
+  },
+  keywords: [],
+  author: "",
+  license: "MIT",
+  bugs: {
+    url: "https://github.com/pullfrog/action/issues"
+  },
+  homepage: "https://github.com/pullfrog/action#readme",
+  zshy: {
+    exports: "./index.ts"
+  },
+  main: "./dist/index.cjs",
+  module: "./dist/index.js",
+  types: "./dist/index.d.cts",
+  exports: {
+    ".": {
+      types: "./dist/index.d.cts",
+      import: "./dist/index.js",
+      require: "./dist/index.cjs"
+    }
+  }
+};
+
+// utils/api.ts
+var DEFAULT_REPO_SETTINGS = {
+  defaultAgent: null,
+  webAccessLevel: "full_access",
+  webAccessAllowTrusted: false,
+  webAccessDomains: "",
+  workflows: []
+};
+async function fetchRepoSettings({
+  token,
+  repoContext,
+  isFallbackToken
+}) {
+  if (isFallbackToken) {
+    log.info("Using default repository settings (app not installed)");
+    return DEFAULT_REPO_SETTINGS;
+  }
+  log.info("Fetching repository settings...");
+  const settings = await getRepoSettings(token, repoContext);
+  log.info("Repository settings fetched");
+  return settings;
+}
+async function getRepoSettings(token, repoContext) {
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(
+      `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        signal: controller.signal
+      }
+    );
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      return DEFAULT_REPO_SETTINGS;
+    }
+    const settings = await response.json();
+    if (settings === null) {
+      return DEFAULT_REPO_SETTINGS;
+    }
+    return settings;
+  } catch {
+    clearTimeout(timeoutId);
+    return DEFAULT_REPO_SETTINGS;
+  }
+}
+
+// utils/setup.ts
 import { execSync } from "node:child_process";
-import { createWriteStream as createWriteStream2, existsSync as existsSync2, rmSync as rmSync2 } from "node:fs";
+function setupGitConfig() {
+  if (!process.env.GITHUB_ACTIONS) {
+    return;
+  }
+  log.info("\u{1F527} Setting up git configuration...");
+  try {
+    execSync('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
+    execSync('git config user.name "Pullfrog Action"', { stdio: "pipe" });
+    log.debug("setupGitConfig: \u2713 Git configuration set successfully");
+  } catch (error2) {
+    log.warning(
+      `Failed to set git config: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
+}
+function setupGitAuth(githubToken, repoContext) {
+  if (!process.env.GITHUB_ACTIONS) {
+    return;
+  }
+  log.info("\u{1F510} Setting up git authentication...");
+  try {
+    execSync("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
+    log.info("\u2713 Removed existing authentication headers");
+  } catch {
+    log.info("No existing authentication headers to remove");
+  }
+  const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
+  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  log.info("\u2713 Updated remote URL with authentication token");
+}
+
+// agents/claude.ts
+import { execSync as execSync2 } from "node:child_process";
+import { createWriteStream as createWriteStream2, existsSync as existsSync3, rmSync as rmSync2 } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
+import { join as join4 } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 // ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath as fileURLToPath3 } from "url";
 import { setMaxListeners } from "events";
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import * as fs from "fs";
 import { stat as statPromise, open } from "fs/promises";
-import { join } from "path";
+import { join as join2 } from "path";
 import { homedir } from "os";
-import { dirname, join as join2 } from "path";
-import { cwd } from "process";
+import { dirname as dirname2, join as join22 } from "path";
+import { cwd as cwd3 } from "process";
 import { randomUUID } from "crypto";
 var __create2 = Object.create;
 var __getProtoOf2 = Object.getPrototypeOf;
@@ -34441,7 +35216,7 @@ var ProcessTransport = class {
     try {
       const {
         additionalDirectories = [],
-        agents,
+        agents: agents2,
         cwd: cwd4,
         executable = isRunningWithBun() ? "bun" : "node",
         executableArgs = [],
@@ -34509,8 +35284,8 @@ var ProcessTransport = class {
       if (mcpServers && Object.keys(mcpServers).length > 0) {
         args2.push("--mcp-config", JSON.stringify({ mcpServers }));
       }
-      if (agents && Object.keys(agents).length > 0) {
-        args2.push("--agents", JSON.stringify(agents));
+      if (agents2 && Object.keys(agents2).length > 0) {
+        args2.push("--agents", JSON.stringify(agents2));
       }
       if (settingSources) {
         args2.push("--setting-sources", settingSources.join(","));
@@ -35257,7 +36032,7 @@ function shouldShowDebugMessage(message, filter) {
   return shouldShowDebugCategories(categories, filter);
 }
 function getClaudeConfigHomeDir() {
-  return process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
+  return process.env.CLAUDE_CONFIG_DIR ?? join2(homedir(), ".claude");
 }
 function isEnvTruthy(envVar) {
   if (!envVar)
@@ -35324,7 +36099,7 @@ var maxOutputTokensValidator = {
 };
 function getInitialState() {
   return {
-    originalCwd: cwd(),
+    originalCwd: cwd3(),
     totalCostUSD: 0,
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
@@ -35334,7 +36109,7 @@ function getInitialState() {
     totalLinesAdded: 0,
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
-    cwd: cwd(),
+    cwd: cwd3(),
     modelUsage: {},
     mainLoopModelOverride: void 0,
     maxRateLimitFallbackActive: false,
@@ -35420,20 +36195,20 @@ function logForDebugging(message, { level } = {
     writeToStderr(output);
     return;
   }
-  if (!getFsImplementation().existsSync(dirname(getDebugLogPath()))) {
-    getFsImplementation().mkdirSync(dirname(getDebugLogPath()));
+  if (!getFsImplementation().existsSync(dirname2(getDebugLogPath()))) {
+    getFsImplementation().mkdirSync(dirname2(getDebugLogPath()));
   }
   getFsImplementation().appendFileSync(getDebugLogPath(), output);
   updateLatestDebugLogSymlink();
 }
 function getDebugLogPath() {
-  return process.env.CLAUDE_CODE_DEBUG_LOGS_DIR ?? join2(getClaudeConfigHomeDir(), "debug", `${getSessionId()}.txt`);
+  return process.env.CLAUDE_CODE_DEBUG_LOGS_DIR ?? join22(getClaudeConfigHomeDir(), "debug", `${getSessionId()}.txt`);
 }
 var updateLatestDebugLogSymlink = memoize_default(() => {
   try {
     const debugLogPath = getDebugLogPath();
-    const debugLogsDir = dirname(debugLogPath);
-    const latestSymlinkPath = join2(debugLogsDir, "latest");
+    const debugLogsDir = dirname2(debugLogPath);
+    const latestSymlinkPath = join22(debugLogsDir, "latest");
     if (!getFsImplementation().existsSync(debugLogsDir)) {
       getFsImplementation().mkdirSync(debugLogsDir);
     }
@@ -40341,7 +41116,7 @@ function query({
   }
   let pathToClaudeCodeExecutable = rest.pathToClaudeCodeExecutable;
   if (!pathToClaudeCodeExecutable) {
-    const filename = fileURLToPath(import.meta.url);
+    const filename = fileURLToPath3(import.meta.url);
     const dirname22 = join3(filename, "..");
     pathToClaudeCodeExecutable = join3(dirname22, "cli.js");
   }
@@ -40349,7 +41124,7 @@ function query({
   const {
     abortController = createAbortController(),
     additionalDirectories = [],
-    agents,
+    agents: agents2,
     allowedTools = [],
     canUseTool,
     continue: continueConversation,
@@ -40404,7 +41179,7 @@ function query({
   const transport = new ProcessTransport({
     abortController,
     additionalDirectories,
-    agents,
+    agents: agents2,
     cwd: cwd22,
     executable,
     executableArgs,
@@ -40450,680 +41225,6 @@ function query({
     queryInstance.streamInput(prompt);
   }
   return queryInstance;
-}
-
-// package.json
-var package_default = {
-  name: "@pullfrog/action",
-  version: "0.0.96",
-  type: "module",
-  files: [
-    "index.js",
-    "index.cjs",
-    "index.d.ts",
-    "index.d.cts",
-    "agents",
-    "utils",
-    "main.js",
-    "main.d.ts"
-  ],
-  scripts: {
-    test: 'echo "Error: no test specified" && exit 1',
-    typecheck: "tsc --noEmit",
-    build: "node esbuild.config.js",
-    play: "node play.ts",
-    upDeps: "pnpm up --latest",
-    lock: "pnpm --ignore-workspace install",
-    prepare: "husky"
-  },
-  dependencies: {
-    "@actions/core": "^1.11.1",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.26",
-    "@ark/fs": "0.53.0",
-    "@ark/util": "0.53.0",
-    "@octokit/rest": "^22.0.0",
-    "@octokit/webhooks-types": "^7.6.1",
-    "@standard-schema/spec": "1.0.0",
-    arktype: "2.1.25",
-    convex: "^1.29.0",
-    dotenv: "^17.2.3",
-    execa: "^9.6.0",
-    fastmcp: "^3.20.0",
-    table: "^6.9.0"
-  },
-  devDependencies: {
-    "@types/node": "^24.7.2",
-    arg: "^5.0.2",
-    esbuild: "^0.25.9",
-    husky: "^9.0.0",
-    typescript: "^5.9.3"
-  },
-  repository: {
-    type: "git",
-    url: "git+https://github.com/pullfrog/action.git"
-  },
-  keywords: [],
-  author: "",
-  license: "MIT",
-  bugs: {
-    url: "https://github.com/pullfrog/action/issues"
-  },
-  homepage: "https://github.com/pullfrog/action#readme",
-  zshy: {
-    exports: "./index.ts"
-  },
-  main: "./dist/index.cjs",
-  module: "./dist/index.js",
-  types: "./dist/index.d.cts",
-  exports: {
-    ".": {
-      types: "./dist/index.d.cts",
-      import: "./dist/index.js",
-      require: "./dist/index.cjs"
-    }
-  }
-};
-
-// utils/cli.ts
-var core = __toESM(require_core(), 1);
-var isGitHubActions = !!process.env.GITHUB_ACTIONS;
-var isDebugEnabled = process.env.LOG_LEVEL === "debug";
-function startGroup2(name) {
-  if (isGitHubActions) {
-    core.startGroup(name);
-  } else {
-    console.group(name);
-  }
-}
-function endGroup2() {
-  if (isGitHubActions) {
-    core.endGroup();
-  } else {
-    console.groupEnd();
-  }
-}
-function boxString(text, options) {
-  const { title, maxWidth = 80, indent: indent2 = "", padding = 1 } = options || {};
-  const lines = text.trim().split("\n");
-  const wrappedLines = [];
-  for (const line of lines) {
-    if (line.length <= maxWidth - padding * 2) {
-      wrappedLines.push(line);
-    } else {
-      const words = line.split(" ");
-      let currentLine = "";
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        if (testLine.length <= maxWidth - padding * 2) {
-          currentLine = testLine;
-        } else {
-          if (currentLine) {
-            wrappedLines.push(currentLine);
-            currentLine = word;
-          } else {
-            wrappedLines.push(word.substring(0, maxWidth - padding * 2));
-            currentLine = word.substring(maxWidth - padding * 2);
-          }
-        }
-      }
-      if (currentLine) {
-        wrappedLines.push(currentLine);
-      }
-    }
-  }
-  const maxLineLength = Math.max(...wrappedLines.map((line) => line.length));
-  const boxWidth = maxLineLength + padding * 2;
-  let result = "";
-  if (title) {
-    const titleLine = ` ${title} `;
-    const titlePadding = Math.max(0, boxWidth - titleLine.length);
-    result += `${indent2}\u250C${titleLine}${"\u2500".repeat(titlePadding)}\u2510
-`;
-  }
-  if (!title) {
-    result += `${indent2}\u250C${"\u2500".repeat(boxWidth)}\u2510
-`;
-  }
-  for (const line of wrappedLines) {
-    const paddedLine = line.padEnd(maxLineLength);
-    result += `${indent2}\u2502${" ".repeat(padding)}${paddedLine}${" ".repeat(padding)}\u2502
-`;
-  }
-  result += `${indent2}\u2514${"\u2500".repeat(boxWidth)}\u2518`;
-  return result;
-}
-function box(text, options) {
-  const boxContent = boxString(text, options);
-  core.info(boxContent);
-  if (isGitHubActions) {
-    core.summary.addRaw(`\`\`\`
-${text}
-\`\`\`
-`);
-  }
-}
-async function summaryTable(rows, options) {
-  const { title } = options || {};
-  const formattedRows = rows.map(
-    (row) => row.map((cell) => {
-      if (typeof cell === "string") {
-        return { data: cell };
-      }
-      return cell;
-    })
-  );
-  if (isGitHubActions) {
-    const summary2 = core.summary;
-    if (title) {
-      summary2.addRaw(`**${title}**
-
-`);
-    }
-    summary2.addTable(formattedRows);
-  }
-  if (title) {
-    core.info(`
-${title}`);
-  }
-  const tableText = formattedRows.map((row) => row.map((cell) => cell.data).join(" | ")).join("\n");
-  core.info(`
-${tableText}
-`);
-}
-function separator(length = 50) {
-  const separatorText = "\u2500".repeat(length);
-  core.info(separatorText);
-  if (isGitHubActions) {
-    core.summary.addRaw(`---
-`);
-  }
-}
-var log = {
-  /**
-   * Print info message
-   */
-  info: (message) => {
-    core.info(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`${message}
-`);
-    }
-  },
-  /**
-   * Print warning message
-   */
-  warning: (message) => {
-    core.warning(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`\u26A0\uFE0F ${message}
-`);
-    }
-  },
-  /**
-   * Print error message
-   */
-  error: (message) => {
-    core.error(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`\u274C ${message}
-`);
-    }
-  },
-  /**
-   * Print success message
-   */
-  success: (message) => {
-    const successMessage = `\u2705 ${message}`;
-    core.info(successMessage);
-    if (isGitHubActions) {
-      core.summary.addRaw(`${successMessage}
-`);
-    }
-  },
-  /**
-   * Print debug message (only if LOG_LEVEL=debug)
-   */
-  debug: (message) => {
-    if (isDebugEnabled) {
-      if (isGitHubActions) {
-        core.debug(message);
-      } else {
-        core.info(`[DEBUG] ${message}`);
-      }
-    }
-  },
-  /**
-   * Print a formatted box with text
-   */
-  box,
-  /**
-   * Add a table to GitHub Actions job summary (rich formatting)
-   * Only use this once at the end of execution
-   */
-  summaryTable,
-  /**
-   * Print a separator line
-   */
-  separator,
-  /**
-   * Write all accumulated summary content to the job summary
-   * Call this at the end of execution to finalize the summary
-   */
-  writeSummary: async () => {
-    if (isGitHubActions) {
-      await core.summary.write();
-    }
-  },
-  /**
-   * Start a collapsed group (GitHub Actions) or regular group (local)
-   */
-  startGroup: startGroup2,
-  /**
-   * End a collapsed group
-   */
-  endGroup: endGroup2
-};
-
-// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
-import path from "node:path";
-import * as process2 from "node:process";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { isDeepStrictEqual } from "node:util";
-
-// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/getCurrentLine.js
-var getFramesFromError = (error2) => {
-  let stack, frames;
-  try {
-    stack = error2.stack;
-  } catch (error1) {
-    try {
-      const previous = err.__previous__ || err.__previous;
-      stack = previous && previous.stack;
-    } catch (error22) {
-      stack = null;
-    }
-  }
-  if (stack)
-    frames = Array.isArray(stack) ? Array(stack) : stack.toString().split("\n");
-  else
-    frames = [];
-  return frames;
-};
-var lineRegex = /\s+at\s(?:(?<method>.+?)\s\()?(?<file>.+?):(?<line>\d+):(?<char>\d+)\)?\s*$/;
-var getLocationsFromFrames = (frames) => {
-  const locations = [];
-  for (const frame of frames) {
-    const line = (frame || "").toString();
-    if (line.length === 0)
-      continue;
-    const match2 = line.match(lineRegex);
-    if (match2 && match2.groups) {
-      locations.push({
-        method: match2.groups.method || "",
-        file: match2.groups.file || "",
-        line: Number(match2.groups.line),
-        char: Number(match2.groups.char)
-      });
-    }
-  }
-  return locations;
-};
-var failureLocation = {
-  line: -1,
-  char: -1,
-  method: "",
-  file: ""
-};
-var getLocationWithOffset = (locations, offset) => {
-  let found = !offset.file && !offset.method;
-  let i = 0;
-  while (i < locations.length) {
-    const location = locations[i];
-    if (offset.file && (typeof offset.file === "string" ? location.file.includes(offset.file) : offset.file.test(location.file)) || offset.method && (typeof offset.method === "string" ? location.method.includes(offset.method) : offset.method.test(location.method))) {
-      if (offset.immediate) {
-        i += offset.frames || 0;
-        return locations[i];
-      } else {
-        found = true;
-        ++i;
-        continue;
-      }
-    } else if (found) {
-      i += offset.frames || 0;
-      return locations[i];
-    } else {
-      ++i;
-      continue;
-    }
-  }
-  return failureLocation;
-};
-var getLocationsFromError = (error2) => {
-  const frames = getFramesFromError(error2);
-  return getLocationsFromFrames(frames);
-};
-var getLocationFromError = (error2, offset = {
-  immediate: true
-}) => {
-  const locations = getLocationsFromError(error2);
-  return getLocationWithOffset(locations, offset);
-};
-var getCurrentLine = (offset = {
-  method: "getCurrentLine",
-  frames: 0,
-  immediate: false
-}) => getLocationFromError(new Error(), offset);
-
-// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
-var nonexistentCurrentLine = {
-  line: -1,
-  char: -1,
-  method: "",
-  file: ""
-};
-var formatFilePath = (original, { relative, separator: separator2 }) => {
-  let formatted = original;
-  if (original.startsWith("file:///"))
-    formatted = fileURLToPath2(original);
-  if (relative) {
-    formatted = path.relative(typeof relative === "string" ? relative : process2.cwd(), formatted);
-  }
-  if (separator2) {
-    formatted = formatted.replaceAll(new RegExp(`\\${path.sep}`, "g"), separator2);
-  }
-  return formatted;
-};
-var caller = (options = {}) => {
-  let upStackBy = options.upStackBy ?? 0;
-  if (!options.methodName && !options.upStackBy)
-    upStackBy = 3;
-  let match2;
-  while (!match2) {
-    const location = getCurrentLine({
-      method: options.methodName,
-      frames: upStackBy
-    });
-    if (!location || isDeepStrictEqual(location, nonexistentCurrentLine)) {
-      throw new Error(`No caller of '${options.methodName}' matches given options: ${JSON.stringify(options, null, 4)}.`);
-    }
-    const candidate = {
-      ...location,
-      file: formatFilePath(location.file, options.formatPath ?? {})
-    };
-    if (options.skip?.(candidate))
-      upStackBy++;
-    else
-      match2 = candidate;
-  }
-  if (match2.file.startsWith("file:///"))
-    match2.file = fileURLToPath2(match2.file);
-  return match2;
-};
-
-// ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
-import { dirname as dirname2, join as join4, parse } from "node:path";
-import * as process3 from "node:process";
-import { URL as URL2, fileURLToPath as fileURLToPath3 } from "node:url";
-var filePath = (path2) => {
-  let file;
-  if (path2.includes("://")) {
-    const url2 = new URL2(path2);
-    file = url2.protocol === "file:" ? fileURLToPath3(url2) : url2.href;
-  } else {
-    file = path2;
-  }
-  return file;
-};
-var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
-var fromHere = (...joinWith) => join4(dirOfCaller(), ...joinWith);
-var fsRoot = parse(process3.cwd()).root;
-
-// utils/github.ts
-var core2 = __toESM(require_core(), 1);
-import { createSign } from "node:crypto";
-function checkExistingToken() {
-  const inputToken = core2.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  return inputToken || envToken || null;
-}
-function getGitHubTokenInput() {
-  return core2.getInput("github_token") || null;
-}
-function isGitHubActionsEnvironment() {
-  return Boolean(process.env.GITHUB_ACTIONS);
-}
-async function acquireTokenViaOIDC() {
-  log.info("Generating OIDC token...");
-  const oidcToken = await core2.getIDToken("pullfrog-api");
-  log.info("OIDC token generated successfully");
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-  log.info("Exchanging OIDC token for installation token...");
-  const timeoutMs = 5e3;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${oidcToken}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!tokenResponse.ok) {
-      log.warning(
-        `Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}. Falling back to GITHUB_TOKEN.`
-      );
-      return null;
-    }
-    const tokenData = await tokenResponse.json();
-    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-    return tokenData.token;
-  } catch (error2) {
-    clearTimeout(timeoutId);
-    if (error2 instanceof Error && error2.name === "AbortError") {
-      log.warning(`Token exchange timed out after ${timeoutMs}ms. Falling back to GITHUB_TOKEN.`);
-    } else {
-      log.warning(
-        `Token exchange failed: ${error2 instanceof Error ? error2.message : String(error2)}. Falling back to GITHUB_TOKEN.`
-      );
-    }
-    return null;
-  }
-}
-var base64UrlEncode = (str) => {
-  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-};
-var generateJWT = (appId, privateKey) => {
-  const now = Math.floor(Date.now() / 1e3);
-  const payload = {
-    iat: now - 60,
-    exp: now + 5 * 60,
-    iss: appId
-  };
-  const header = {
-    alg: "RS256",
-    typ: "JWT"
-  };
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signaturePart = `${encodedHeader}.${encodedPayload}`;
-  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  return `${signaturePart}.${signature}`;
-};
-var githubRequest = async (path2, options = {}) => {
-  const { method = "GET", headers = {}, body } = options;
-  const url2 = `https://api.github.com${path2}`;
-  const requestHeaders = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
-    ...headers
-  };
-  const response = await fetch(url2, {
-    method,
-    headers: requestHeaders,
-    ...body && { body }
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `GitHub API request failed: ${response.status} ${response.statusText}
-${errorText}`
-    );
-  }
-  return response.json();
-};
-var checkRepositoryAccess = async (token, repoOwner, repoName) => {
-  try {
-    const response = await githubRequest("/installation/repositories", {
-      headers: { Authorization: `token ${token}` }
-    });
-    return response.repositories.some(
-      (repo) => repo.owner.login === repoOwner && repo.name === repoName
-    );
-  } catch {
-    return false;
-  }
-};
-var createInstallationToken = async (jwt, installationId) => {
-  const response = await githubRequest(
-    `/app/installations/${installationId}/access_tokens`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${jwt}` }
-    }
-  );
-  return response.token;
-};
-var findInstallationId = async (jwt, repoOwner, repoName) => {
-  const installations = await githubRequest("/app/installations", {
-    headers: { Authorization: `Bearer ${jwt}` }
-  });
-  for (const installation of installations) {
-    try {
-      const tempToken = await createInstallationToken(jwt, installation.id);
-      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
-      if (hasAccess) {
-        return installation.id;
-      }
-    } catch {
-    }
-  }
-  throw new Error(
-    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
-  );
-};
-async function acquireTokenViaGitHubApp() {
-  const repoContext = parseRepoContext();
-  const config = {
-    appId: process.env.GITHUB_APP_ID,
-    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    repoOwner: repoContext.owner,
-    repoName: repoContext.name
-  };
-  const jwt = generateJWT(config.appId, config.privateKey);
-  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
-  const token = await createInstallationToken(jwt, installationId);
-  return token;
-}
-async function acquireNewToken() {
-  if (isGitHubActionsEnvironment()) {
-    return await acquireTokenViaOIDC();
-  } else {
-    return await acquireTokenViaGitHubApp();
-  }
-}
-function getDefaultGitHubToken() {
-  const inputToken = getGitHubTokenInput();
-  if (inputToken) {
-    return inputToken;
-  }
-  const token = process.env.GITHUB_TOKEN;
-  if (!token && isGitHubActionsEnvironment()) {
-    const githubEnvVars = Object.keys(process.env).filter((key) => key.startsWith("GITHUB_")).reduce(
-      (acc, key) => {
-        acc[key] = key === "GITHUB_TOKEN" ? process.env[key] ? "***SET***" : "NOT_SET" : process.env[key];
-        return acc;
-      },
-      {}
-    );
-    log.warning(
-      `GITHUB_TOKEN not found. Available GITHUB_* env vars: ${JSON.stringify(githubEnvVars)}`
-    );
-  }
-  return token || null;
-}
-async function setupGitHubInstallationToken() {
-  const existingToken = checkExistingToken();
-  if (existingToken) {
-    core2.setSecret(existingToken);
-    log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false, isFallbackToken: false };
-  }
-  const acquiredToken = await acquireNewToken();
-  if (!acquiredToken) {
-    const defaultToken = getDefaultGitHubToken();
-    if (!defaultToken) {
-      throw new Error(
-        "Failed to acquire installation token and GITHUB_TOKEN is not available. Either install the Pullfrog GitHub App or ensure GITHUB_TOKEN is set."
-      );
-    }
-    log.info("Using GITHUB_TOKEN (app not installed or token exchange failed)");
-    core2.setSecret(defaultToken);
-    process.env.GITHUB_INSTALLATION_TOKEN = defaultToken;
-    return { githubInstallationToken: defaultToken, wasAcquired: false, isFallbackToken: true };
-  }
-  core2.setSecret(acquiredToken);
-  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true, isFallbackToken: false };
-}
-async function revokeInstallationToken(token) {
-  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
-  try {
-    await fetch(`${apiUrl}/installation/token`, {
-      method: "DELETE",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28"
-      }
-    });
-    log.info("Installation token revoked");
-  } catch (error2) {
-    log.warning(
-      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
-    );
-  }
-}
-function parseRepoContext() {
-  const githubRepo = process.env.GITHUB_REPOSITORY;
-  if (!githubRepo) {
-    throw new Error("GITHUB_REPOSITORY environment variable is required");
-  }
-  const [owner, name] = githubRepo.split("/");
-  if (!owner || !name) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
-  }
-  return { owner, name };
-}
-
-// mcp/config.ts
-var ghPullfrogMcpName = "gh-pullfrog";
-function createMcpConfigs(githubInstallationToken) {
-  const repoContext = parseRepoContext();
-  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
-  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
-  return {
-    [ghPullfrogMcpName]: {
-      command: "node",
-      args: [serverPath],
-      env: {
-        GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-        GITHUB_REPOSITORY: githubRepository
-      }
-    }
-  };
 }
 
 // workflows.ts
@@ -41251,8 +41352,8 @@ var claude = {
       sdkVersion = versionRange;
     }
     log.info(`\u{1F4E6} Installing Claude Code CLI from @anthropic-ai/claude-agent-sdk@${sdkVersion}...`);
-    const tempDir = await mkdtemp(join5(tmpdir(), "claude-cli-"));
-    const tarballPath = join5(tempDir, "package.tgz");
+    const tempDir = await mkdtemp(join4(tmpdir(), "claude-cli-"));
+    const tarballPath = join4(tempDir, "package.tgz");
     try {
       const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
       const tarballUrl = `${npmRegistry}/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${sdkVersion}.tgz`;
@@ -41266,10 +41367,10 @@ var claude = {
       await pipeline(response.body, fileStream);
       log.info(`Downloaded tarball to ${tarballPath}`);
       log.info(`Extracting tarball...`);
-      execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
-      const extractedDir = join5(tempDir, "package");
-      const cliPath = join5(extractedDir, "cli.js");
-      if (!existsSync2(cliPath)) {
+      execSync2(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
+      const extractedDir = join4(tempDir, "package");
+      const cliPath = join4(extractedDir, "cli.js");
+      if (!existsSync3(cliPath)) {
         throw new Error(`cli.js not found in extracted package at ${cliPath}`);
       }
       cachedCliPath = cliPath;
@@ -41403,44 +41504,27 @@ var messageHandlers = {
 };
 
 // agents/codex.ts
-import { spawnSync } from "node:child_process";
-import { existsSync as existsSync3 } from "node:fs";
-var cachedCliPath2;
+import { spawnSync as spawnSync2 } from "node:child_process";
 var codex = {
   install: async () => {
-    if (cachedCliPath2) {
-      log.info(`Using cached Codex CLI at ${cachedCliPath2}`);
-      return cachedCliPath2;
-    }
-    try {
-      const result = spawnSync("which", ["codex"], { encoding: "utf-8" });
-      if (result.status === 0 && result.stdout) {
-        const globalCodexPath = result.stdout.trim();
-        if (globalCodexPath && existsSync3(globalCodexPath)) {
-          cachedCliPath2 = globalCodexPath;
-          log.info(`Using global Codex CLI at ${globalCodexPath}`);
-          return cachedCliPath2;
-        }
-      }
-    } catch {
+    const globalCodexPath = findCliPath("codex");
+    if (globalCodexPath) {
+      log.info(`Using global Codex CLI at ${globalCodexPath}`);
+      return globalCodexPath;
     }
     log.info(`\u{1F4E6} Installing Codex CLI globally with npm...`);
     try {
-      const installResult = spawnSync("npm", ["install", "-g", "codex"], {
+      const installResult = spawnSync2("npm", ["install", "-g", "codex"], {
         stdio: "inherit",
         encoding: "utf-8"
       });
       if (installResult.status !== 0) {
         throw new Error(`npm install failed with status ${installResult.status}`);
       }
-      const verifyResult = spawnSync("which", ["codex"], { encoding: "utf-8" });
-      if (verifyResult.status === 0 && verifyResult.stdout) {
-        const installedPath = verifyResult.stdout.trim();
-        if (installedPath && existsSync3(installedPath)) {
-          cachedCliPath2 = installedPath;
-          log.info(`\u2713 Codex CLI installed at ${installedPath}`);
-          return cachedCliPath2;
-        }
+      const installedPath = findCliPath("codex");
+      if (installedPath) {
+        log.info(`\u2713 Codex CLI installed at ${installedPath}`);
+        return installedPath;
       }
       throw new Error("Codex CLI installation completed but executable not found");
     } catch (error2) {
@@ -41449,11 +41533,8 @@ var codex = {
       throw new Error(`Codex CLI installation failed: ${errorMessage}`);
     }
   },
-  run: async ({ prompt, mcpServers, apiKey }) => {
+  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.OPENAI_API_KEY = apiKey;
-    if (!cachedCliPath2) {
-      throw new Error("Codex CLI not installed. Call install() before run().");
-    }
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       log.info("Configuring MCP servers for Codex...");
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
@@ -41470,7 +41551,7 @@ var codex = {
             addArgs.push("--env", `${key}=${value2}`);
           }
           log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync("codex", addArgs, {
+          const addResult = spawnSync2(cliPath, addArgs, {
             stdio: "inherit",
             encoding: "utf-8",
             env: {
@@ -41497,7 +41578,7 @@ var codex = {
 ${prompt}`;
     log.info("Running Codex via CLI...");
     try {
-      const result = spawnSync("codex", ["exec", fullPrompt], {
+      const result = spawnSync2("codex", ["exec", fullPrompt], {
         encoding: "utf-8",
         env: {
           ...process.env,
@@ -41533,139 +41614,64 @@ ${prompt}`;
   }
 };
 
-// utils/api.ts
-var DEFAULT_REPO_SETTINGS = {
-  defaultAgent: null,
-  webAccessLevel: "full_access",
-  webAccessAllowTrusted: false,
-  webAccessDomains: "",
-  workflows: []
+// agents/index.ts
+var agents = {
+  claude,
+  codex
 };
-async function getRepoSettings(token, repoContext) {
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-  const timeoutMs = 5e3;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(
-      `${apiUrl}/api/repo/${repoContext.owner}/${repoContext.name}/settings`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        signal: controller.signal
-      }
-    );
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      return DEFAULT_REPO_SETTINGS;
-    }
-    const settings = await response.json();
-    if (settings === null) {
-      return DEFAULT_REPO_SETTINGS;
-    }
-    return settings;
-  } catch {
-    clearTimeout(timeoutId);
-    return DEFAULT_REPO_SETTINGS;
-  }
-}
-
-// utils/setup.ts
-import { execSync as execSync2 } from "node:child_process";
-function setupGitConfig() {
-  if (!process.env.GITHUB_ACTIONS) {
-    return;
-  }
-  log.info("\u{1F527} Setting up git configuration...");
-  try {
-    execSync2('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
-    execSync2('git config user.name "Pullfrog Action"', { stdio: "pipe" });
-    log.debug("setupGitConfig: \u2713 Git configuration set successfully");
-  } catch (error2) {
-    log.warning(
-      `Failed to set git config: ${error2 instanceof Error ? error2.message : String(error2)}`
-    );
-  }
-}
-function setupGitAuth(githubToken, repoContext) {
-  if (!process.env.GITHUB_ACTIONS) {
-    return;
-  }
-  log.info("\u{1F510} Setting up git authentication...");
-  try {
-    execSync2("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
-    log.info("\u2713 Removed existing authentication headers");
-  } catch {
-    log.info("No existing authentication headers to remove");
-  }
-  const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
-  execSync2(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
-  log.info("\u2713 Updated remote URL with authentication token");
-}
 
 // main.ts
+var AgentName = type.enumerated("codex", "claude");
 var Inputs = type({
   prompt: "string",
   "anthropic_api_key?": "string | undefined",
   "openai_api_key?": "string | undefined",
-  "agent?": "string | undefined"
+  "agent?": AgentName
 });
 async function main(inputs) {
   let tokenToRevoke = null;
   try {
     log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
+    Inputs.assert(inputs);
     setupGitConfig();
     const { githubInstallationToken, wasAcquired, isFallbackToken } = await setupGitHubInstallationToken();
     if (wasAcquired) {
       tokenToRevoke = githubInstallationToken;
     }
     const repoContext = parseRepoContext();
-    let repoSettings;
-    if (isFallbackToken) {
-      log.info("Using default repository settings (app not installed)");
-      repoSettings = DEFAULT_REPO_SETTINGS;
-    } else {
-      log.info("Fetching repository settings...");
-      repoSettings = await getRepoSettings(githubInstallationToken, repoContext);
-      log.info("Repository settings fetched");
-    }
-    const agent = inputs.agent || repoSettings.defaultAgent || "claude";
-    const agents = {
-      claude,
-      codex
-    };
-    if (!(agent in agents)) {
-      throw new Error(`Unsupported agent: ${agent}. Supported agents: ${Object.keys(agents).join(", ")}`);
-    }
-    const agentImpl = agents[agent];
+    const repoSettings = await fetchRepoSettings({
+      token: githubInstallationToken,
+      repoContext,
+      isFallbackToken
+    });
+    const agentName = inputs.agent || repoSettings.defaultAgent || "claude";
+    const agent = agents[agentName];
     setupGitAuth(githubInstallationToken, repoContext);
     const mcpServers = createMcpConfigs(githubInstallationToken);
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
-    await agentImpl.install();
-    log.info(`Running ${agent} Agent SDK...`);
+    const cliPath = await agent.install();
+    log.info(`Running ${agentName} Agent SDK...`);
     log.box(inputs.prompt, { title: "Prompt" });
     let apiKey;
-    if (agent === "claude") {
+    if (agentName === "claude") {
       if (!inputs.anthropic_api_key) {
         throw new Error("ANTHROPIC_API_KEY is required for Claude agent");
       }
       apiKey = inputs.anthropic_api_key;
-    } else if (agent === "codex") {
+    } else if (agentName === "codex") {
       if (!inputs.openai_api_key) {
         throw new Error("OPENAI_API_KEY is required for Codex agent");
       }
       apiKey = inputs.openai_api_key;
     } else {
-      throw new Error(`API key configuration not implemented for agent: ${agent}`);
+      throw new Error(`API key configuration not implemented for agent: ${agentName}`);
     }
-    const result = await agentImpl.run({
+    const result = await agent.run({
       prompt: inputs.prompt,
       mcpServers,
       githubInstallationToken,
-      apiKey
+      apiKey,
+      cliPath
     });
     if (!result.success) {
       return {

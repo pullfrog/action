@@ -3,6 +3,8 @@
  */
 
 import * as core from "@actions/core";
+import { spawnSync } from "child_process";
+import { existsSync } from "fs";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = process.env.LOG_LEVEL === "debug";
@@ -262,3 +264,19 @@ export const log = {
    */
   endGroup,
 };
+
+/**
+ * Finds a CLI executable path by checking if it's installed globally
+ * @param name The name of the CLI executable to find
+ * @returns The path to the CLI executable, or null if not found
+ */
+export function findCliPath(name: string): string | null {
+  const result = spawnSync("which", [name], { encoding: "utf-8" });
+  if (result.status === 0 && result.stdout) {
+    const cliPath = result.stdout.trim();
+    if (cliPath && existsSync(cliPath)) {
+      return cliPath;
+    }
+  }
+  return null;
+}
