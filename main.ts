@@ -28,7 +28,7 @@ const keyInputDefs = flatMorph(
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": AgentName,
+  "agent?": AgentName.or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;

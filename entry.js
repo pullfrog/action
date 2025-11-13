@@ -40479,7 +40479,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.100",
+  version: "0.0.101",
   type: "module",
   files: [
     "index.js",
@@ -42005,7 +42005,7 @@ var keyInputDefs = flatMorph(
 var Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": AgentName
+  "agent?": AgentName.or("undefined")
 });
 async function main(inputs) {
   let tokenToRevoke = null;
@@ -42077,7 +42077,9 @@ async function run() {
   try {
     const inputs = {
       prompt: core3.getInput("prompt", { required: true }),
-      anthropic_api_key: core3.getInput("anthropic_api_key") || void 0
+      anthropic_api_key: core3.getInput("anthropic_api_key"),
+      openai_api_key: core3.getInput("openai_api_key"),
+      agent: core3.getInput("agent") ? AgentName.assert(core3.getInput("agent")) : void 0
     };
     const result = await main(inputs);
     if (!result.success) {

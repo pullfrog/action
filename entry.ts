@@ -5,7 +5,7 @@
  */
 
 import * as core from "@actions/core";
-import { type Inputs, main } from "./main.ts";
+import { AgentName, type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
@@ -18,9 +18,11 @@ async function run(): Promise<void> {
   }
 
   try {
-    const inputs: Inputs = {
+    const inputs: Required<Inputs> = {
       prompt: core.getInput("prompt", { required: true }),
-      anthropic_api_key: core.getInput("anthropic_api_key") || undefined,
+      anthropic_api_key: core.getInput("anthropic_api_key"),
+      openai_api_key: core.getInput("openai_api_key"),
+      agent: core.getInput("agent") ? AgentName.assert(core.getInput("agent")) : undefined,
     };
 
     const result = await main(inputs);

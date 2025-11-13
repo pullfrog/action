@@ -20,7 +20,7 @@ export async function run(
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    const inputs: Inputs = {
+    const inputs: Required<Inputs> = {
       prompt,
       openai_api_key: process.env.OPENAI_API_KEY,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
