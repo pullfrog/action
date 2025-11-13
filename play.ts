@@ -85,58 +85,53 @@ Examples:
   if (args["--raw"]) {
     prompt = args["--raw"];
   } else {
-    // Default to testing tool calls if no file specified
-    const filePath = args._[0] || null;
-    if (!filePath) {
-      prompt =
-        "List all available MCP tools from the gh-pullfrog server and show what each tool does.";
+    const filePath = args._[0] || "basic.txt";
+
+    const ext = extname(filePath).toLowerCase();
+    let resolvedPath: string;
+
+    const fixturesPath = fromHere("fixtures", filePath);
+    if (existsSync(fixturesPath)) {
+      resolvedPath = fixturesPath;
+    } else if (existsSync(filePath)) {
+      resolvedPath = resolve(filePath);
     } else {
-      const ext = extname(filePath).toLowerCase();
-      let resolvedPath: string;
+      throw new Error(`File not found: ${filePath}`);
+    }
 
-      const fixturesPath = fromHere("fixtures", filePath);
-      if (existsSync(fixturesPath)) {
-        resolvedPath = fixturesPath;
-      } else if (existsSync(filePath)) {
-        resolvedPath = resolve(filePath);
-      } else {
-        throw new Error(`File not found: ${filePath}`);
+    switch (ext) {
+      case ".txt": {
+        prompt = readFileSync(resolvedPath, "utf8").trim();
+        break;
       }
 
-      switch (ext) {
-        case ".txt": {
-          prompt = readFileSync(resolvedPath, "utf8").trim();
-          break;
-        }
-
-        case ".json": {
-          const content = readFileSync(resolvedPath, "utf8");
-          const parsed = JSON.parse(content);
-          prompt = JSON.stringify(parsed, null, 2);
-          break;
-        }
-
-        case ".ts": {
-          const fileUrl = pathToFileURL(resolvedPath).href;
-          const module = await import(fileUrl);
-
-          if (!module.default) {
-            throw new Error(`TypeScript file ${filePath} must have a default export`);
-          }
-
-          if (typeof module.default === "string") {
-            prompt = module.default;
-          } else if (typeof module.default === "object" && module.default.prompt) {
-            prompt = module.default.prompt;
-          } else {
-            prompt = JSON.stringify(module.default, null, 2);
-          }
-          break;
-        }
-
-        default:
-          throw new Error(`Unsupported file type: ${ext}. Supported types: .txt, .json, .ts`);
+      case ".json": {
+        const content = readFileSync(resolvedPath, "utf8");
+        const parsed = JSON.parse(content);
+        prompt = JSON.stringify(parsed, null, 2);
+        break;
       }
+
+      case ".ts": {
+        const fileUrl = pathToFileURL(resolvedPath).href;
+        const module = await import(fileUrl);
+
+        if (!module.default) {
+          throw new Error(`TypeScript file ${filePath} must have a default export`);
+        }
+
+        if (typeof module.default === "string") {
+          prompt = module.default;
+        } else if (typeof module.default === "object" && module.default.prompt) {
+          prompt = module.default.prompt;
+        } else {
+          prompt = JSON.stringify(module.default, null, 2);
+        }
+        break;
+      }
+
+      default:
+        throw new Error(`Unsupported file type: ${ext}. Supported types: .txt, .json, .ts`);
     }
   }
 

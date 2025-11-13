@@ -28177,7 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -40718,7 +40718,7 @@ var log = {
 };
 
 // agents/shared.ts
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -41183,7 +41183,15 @@ async function installFromNpmTarball({
   await pipeline(response.body, fileStream);
   log.info(`Downloaded tarball to ${tarballPath}`);
   log.info(`Extracting tarball...`);
-  execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
+  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
+    stdio: "pipe",
+    encoding: "utf-8"
+  });
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+    );
+  }
   const extractedDir = join5(tempDir, "package");
   const cliPath = join5(extractedDir, executablePath);
   if (!existsSync2(cliPath)) {
@@ -41193,7 +41201,16 @@ async function installFromNpmTarball({
     const packageJsonPath = join5(extractedDir, "package.json");
     if (existsSync2(packageJsonPath)) {
       log.info(`Installing dependencies for ${packageName}...`);
-      execSync(`npm install --production`, { cwd: extractedDir, stdio: "pipe" });
+      const installResult = spawnSync("npm", ["install", "--production"], {
+        cwd: extractedDir,
+        stdio: "pipe",
+        encoding: "utf-8"
+      });
+      if (installResult.status !== 0) {
+        throw new Error(
+          `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
+        );
+      }
     }
   }
   log.info(`\u2713 ${packageName} installed at ${cliPath}`);
@@ -41377,15 +41394,15 @@ var messageHandlers = {
 };
 
 // agents/codex.ts
-import { spawnSync } from "node:child_process";
+import { spawnSync as spawnSync2 } from "node:child_process";
 var codex = agent({
   name: "codex",
   inputKey: "openai_api_key",
   install: async () => {
     return await installFromNpmTarball({
-      packageName: "codex",
+      packageName: "@openai/codex",
       version: "latest",
-      executablePath: "bin/codex",
+      executablePath: "bin/codex.js",
       installDependencies: true
     });
   },
@@ -41407,8 +41424,8 @@ var codex = agent({
             addArgs.push("--env", `${key}=${value2}`);
           }
           log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync(cliPath, addArgs, {
-            stdio: "inherit",
+          const addResult = spawnSync2("node", [cliPath, ...addArgs], {
+            stdio: "pipe",
             encoding: "utf-8",
             env: {
               ...process.env,
@@ -41430,7 +41447,7 @@ var codex = agent({
     }
     log.info("Running Codex via CLI...");
     try {
-      const result = spawnSync(cliPath, ["exec", addInstructions(prompt)], {
+      const result = spawnSync2("node", [cliPath, "exec", addInstructions(prompt)], {
         encoding: "utf-8",
         env: {
           ...process.env,
@@ -41522,15 +41539,15 @@ async function getRepoSettings(token, repoContext) {
 }
 
 // utils/setup.ts
-import { execSync as execSync2 } from "node:child_process";
+import { execSync } from "node:child_process";
 function setupGitConfig() {
   if (!process.env.GITHUB_ACTIONS) {
     return;
   }
   log.info("\u{1F527} Setting up git configuration...");
   try {
-    execSync2('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
-    execSync2('git config user.name "Pullfrog Action"', { stdio: "pipe" });
+    execSync('git config user.email "action@pullfrog.ai"', { stdio: "pipe" });
+    execSync('git config user.name "Pullfrog Action"', { stdio: "pipe" });
     log.debug("setupGitConfig: \u2713 Git configuration set successfully");
   } catch (error2) {
     log.warning(
@@ -41544,13 +41561,13 @@ function setupGitAuth(githubToken, repoContext) {
   }
   log.info("\u{1F510} Setting up git authentication...");
   try {
-    execSync2("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
+    execSync("git config --unset-all http.https://github.com/.extraheader", { stdio: "inherit" });
     log.info("\u2713 Removed existing authentication headers");
   } catch {
     log.info("No existing authentication headers to remove");
   }
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
-  execSync2(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
   log.info("\u2713 Updated remote URL with authentication token");
 }
 

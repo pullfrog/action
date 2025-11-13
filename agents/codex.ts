@@ -8,9 +8,9 @@ export const codex = agent({
   inputKey: "openai_api_key",
   install: async () => {
     return await installFromNpmTarball({
-      packageName: "codex",
+      packageName: "@openai/codex",
       version: "latest",
-      executablePath: "bin/codex",
+      executablePath: "bin/codex.js",
       installDependencies: true,
     });
   },
@@ -43,8 +43,8 @@ export const codex = agent({
           }
 
           log.info(`Adding MCP server '${serverName}'...`);
-          const addResult = spawnSync(cliPath, addArgs, {
-            stdio: "inherit",
+          const addResult = spawnSync("node", [cliPath, ...addArgs], {
+            stdio: "pipe",
             encoding: "utf-8",
             env: {
               ...process.env,
@@ -70,7 +70,7 @@ export const codex = agent({
     log.info("Running Codex via CLI...");
 
     try {
-      const result = spawnSync(cliPath, ["exec", addInstructions(prompt)], {
+      const result = spawnSync("node", [cliPath, "exec", addInstructions(prompt)], {
         encoding: "utf-8",
         env: {
           ...process.env,

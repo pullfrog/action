@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createWriteStream, existsSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -105,7 +105,15 @@ export async function installFromNpmTarball({
 
   // Extract tarball
   log.info(`Extracting tarball...`);
-  execSync(`tar -xzf "${tarballPath}" -C "${tempDir}"`, { stdio: "pipe" });
+  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
+    stdio: "pipe",
+    encoding: "utf-8",
+  });
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+    );
+  }
 
   // Find executable in the extracted package
   const extractedDir = join(tempDir, "package");
@@ -120,7 +128,16 @@ export async function installFromNpmTarball({
     const packageJsonPath = join(extractedDir, "package.json");
     if (existsSync(packageJsonPath)) {
       log.info(`Installing dependencies for ${packageName}...`);
-      execSync(`npm install --production`, { cwd: extractedDir, stdio: "pipe" });
+      const installResult = spawnSync("npm", ["install", "--production"], {
+        cwd: extractedDir,
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
+      if (installResult.status !== 0) {
+        throw new Error(
+          `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
+        );
+      }
     }
   }
 
