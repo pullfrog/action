@@ -1,6 +1,8 @@
-# Ensure lockfile is up to date
-echo "🔒 Updating lockfile..."
-pnpm lock
+# Ensure lockfile is up to date if package.json changed
+if git diff --cached --name-only | grep -q "^package.json$"; then
+  echo "🔒 Updating lockfile..."
+  pnpm lock
+fi
 
 # Build the action before committing
 echo "🔨 Building action..."
