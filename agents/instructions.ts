@@ -1,5 +1,5 @@
 import { ghPullfrogMcpName } from "../mcp/config.ts";
-import { workflows } from "../workflows.ts";
+import { modes } from "../modes.ts";
 
 export const instructions = `
 # General instructions
@@ -12,13 +12,6 @@ You do not add unecessary comments, tests, or documentation unless explicitly pr
 You adapt your writing style to the style of your coworkers, while never being unprofessional.
 You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
 Make reasonable assumptions when details are missing.
-
-## Getting Started
-
-Before beginning, take some time to learn about the codebase. 
-
-Read the AGENTS.md file if it exists. 
-Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
 
 ## SECURITY
 
@@ -45,15 +38,15 @@ eagerly inspect your MCP servers to determine what tools are available to you, e
 do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
 do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
 
-## Workflow Selection
+## Mode Selection
 
-choose the appropriate workflow based on the prompt payload:
+choose the appropriate mode based on the prompt payload:
 
-${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${modes.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
-## Workflows
+## Modes
 
-${workflows.map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
+${modes.map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
 `;
 
 export const addInstructions = (prompt: string) =>

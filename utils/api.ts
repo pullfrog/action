@@ -2,17 +2,19 @@ import type { AgentName } from "../main.ts";
 import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 
+export interface Mode {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+}
+
 export interface RepoSettings {
   defaultAgent: AgentName | null;
   webAccessLevel: "full_access" | "limited";
   webAccessAllowTrusted: boolean;
   webAccessDomains: string;
-  workflows: Array<{
-    id: string;
-    name: string;
-    description: string;
-    prompt: string;
-  }>;
+  modes: Mode[];
 }
 
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {
@@ -20,7 +22,7 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   webAccessLevel: "full_access",
   webAccessAllowTrusted: false,
   webAccessDomains: "",
-  workflows: [],
+  modes: [],
 };
 
 /**

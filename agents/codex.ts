@@ -47,9 +47,10 @@ export const codex = agent({
       // Stream events and handle them
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
-        const handler = messageHandlers[event.type as keyof typeof messageHandlers];
+        const handler = messageHandlers[event.type];
+        console.log(JSON.stringify(event, null, 2));
         if (handler) {
-          await handler(event);
+          handler(event as never);
         }
 
         // Capture final response from agent messages
@@ -77,94 +78,86 @@ export const codex = agent({
 // Track command execution IDs to identify when command results come back
 const commandExecutionIds = new Set<string>();
 
-type ThreadEventHandler = (event: ThreadEvent) => void | Promise<void>;
+type ThreadEventHandler<type extends ThreadEvent["type"]> = (
+  event: Extract<ThreadEvent, { type: type }>
+) => void;
 
-const messageHandlers: Partial<Record<ThreadEvent["type"], ThreadEventHandler>> = {
-  "thread.started": (event) => {
-    if (event.type === "thread.started") {
-      log.info(`Thread started: ${event.thread_id}`);
-    }
+const messageHandlers: {
+  [type in ThreadEvent["type"]]: ThreadEventHandler<type>;
+} = {
+  "thread.started": () => {
+    // No logging needed
   },
   "turn.started": () => {
-    log.info("Turn started");
+    // No logging needed
   },
   "turn.completed": async (event) => {
-    if (event.type === "turn.completed") {
-      await log.summaryTable([
-        [
-          { data: "Input Tokens", header: true },
-          { data: "Cached Input Tokens", header: true },
-          { data: "Output Tokens", header: true },
-        ],
-        [
-          String(event.usage.input_tokens || 0),
-          String(event.usage.cached_input_tokens || 0),
-          String(event.usage.output_tokens || 0),
-        ],
-      ]);
-    }
+    await log.summaryTable([
+      [
+        { data: "Input Tokens", header: true },
+        { data: "Cached Input Tokens", header: true },
+        { data: "Output Tokens", header: true },
+      ],
+      [
+        String(event.usage.input_tokens || 0),
+        String(event.usage.cached_input_tokens || 0),
+        String(event.usage.output_tokens || 0),
+      ],
+    ]);
   },
   "turn.failed": (event) => {
-    if (event.type === "turn.failed") {
-      log.error(`Turn failed: ${event.error.message}`);
-    }
+    log.error(`Turn failed: ${event.error.message}`);
   },
   "item.started": (event) => {
-    if (event.type === "item.started") {
-      const item = event.item;
-      if (item.type === "command_execution") {
-        log.info(`→ ${item.command}`);
-        commandExecutionIds.add(item.id);
-      } else if (item.type === "agent_message") {
-        // Will be handled on completion
-      } else if (item.type === "mcp_tool_call") {
-        log.info(`→ ${item.tool} (${item.server})`);
-      } else if (item.type === "reasoning") {
-        const preview = item.text.length > 100 ? `${item.text.substring(0, 100)}...` : item.text;
-        log.info(`→ reasoning: ${preview}`);
-      } else {
-        log.info(`→ ${item.type}`);
-      }
+    const item = event.item;
+    if (item.type === "command_execution") {
+      log.info(`→ ${item.command}`);
+      commandExecutionIds.add(item.id);
+    } else if (item.type === "agent_message") {
+      // Will be handled on completion
+    } else if (item.type === "mcp_tool_call") {
+      log.info(`→ ${item.tool} (${item.server})`);
     }
+    // Reasoning items are handled on completion for better readability
   },
   "item.updated": (event) => {
-    if (event.type === "item.updated") {
-      const item = event.item;
-      if (item.type === "command_execution") {
-        if (item.status === "in_progress" && item.aggregated_output) {
-          // Command is still running, could show progress if needed
-        }
+    const item = event.item;
+    if (item.type === "command_execution") {
+      if (item.status === "in_progress" && item.aggregated_output) {
+        // Command is still running, could show progress if needed
       }
     }
   },
   "item.completed": (event) => {
-    if (event.type === "item.completed") {
-      const item = event.item;
-      if (item.type === "agent_message") {
-        log.box(item.text.trim(), { title: "Codex" });
-      } else if (item.type === "command_execution") {
-        const isTracked = commandExecutionIds.has(item.id);
-        if (isTracked) {
-          log.startGroup(`bash output`);
-          if (item.status === "failed" || (item.exit_code !== undefined && item.exit_code !== 0)) {
-            log.warning(item.aggregated_output || "Command failed");
-          } else {
-            log.info(item.aggregated_output || "");
-          }
-          log.endGroup();
-          commandExecutionIds.delete(item.id);
+    const item = event.item;
+    if (item.type === "agent_message") {
+      log.box(item.text.trim(), { title: "Codex" });
+    } else if (item.type === "command_execution") {
+      const isTracked = commandExecutionIds.has(item.id);
+      if (isTracked) {
+        log.startGroup(`bash output`);
+        if (item.status === "failed" || (item.exit_code !== undefined && item.exit_code !== 0)) {
+          log.warning(item.aggregated_output || "Command failed");
+        } else {
+          log.info(item.aggregated_output || "");
         }
-      } else if (item.type === "mcp_tool_call") {
-        if (item.status === "failed" && item.error) {
-          log.warning(`MCP tool call failed: ${item.error.message}`);
-        }
+        log.endGroup();
+        commandExecutionIds.delete(item.id);
       }
+    } else if (item.type === "mcp_tool_call") {
+      if (item.status === "failed" && item.error) {
+        log.warning(`MCP tool call failed: ${item.error.message}`);
+      }
+    } else if (item.type === "reasoning") {
+      // Display reasoning in a human-readable format
+      const reasoningText = item.text.trim();
+      // Remove markdown bold markers if present for cleaner output
+      const cleanText = reasoningText.replace(/\*\*/g, "");
+      log.info(cleanText);
     }
   },
   error: (event) => {
-    if (event.type === "error") {
-      log.error(`Error: ${event.message}`);
-    }
+    log.error(`Error: ${event.message}`);
   },
 };
 

@@ -1,30 +1,32 @@
 // MCP name constant - matches action/mcp/config.ts
 const ghPullfrogMcpName = "gh-pullfrog";
 
-export const workflows = [
+export const modes = [
   {
     name: "Plan",
     description:
       "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Analyze the request and break it down into clear, actionable tasks
-3. Consider dependencies, potential challenges, and implementation order
-4. Create a structured plan with clear milestones
-5. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to present the plan in a clear, organized format
-6. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`,
+1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+2. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+3. Analyze the request and break it down into clear, actionable tasks
+4. Consider dependencies, potential challenges, and implementation order
+5. Create a structured plan with clear milestones
+6. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to present the plan in a clear, organized format
+7. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`,
   },
   {
-    name: "Implement",
+    name: "Build",
     description:
       "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Understand the requirements and any existing plan
-3. Make the necessary code changes
-4. Test your changes to ensure they work correctly
-5. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to share progress and results
-6. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`,
+1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+2. Create initial response comment using mcp__${ghPullfrogMcpName}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+3. Understand the requirements and any existing plan
+4. Make the necessary code changes
+5. Test your changes to ensure they work correctly
+6. Update your comment using mcp__${ghPullfrogMcpName}__edit_issue_comment with the commentId to share progress and results
+7. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`,
   },
   {
     name: "Review",

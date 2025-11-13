@@ -28177,7 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@3.25.76/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -41109,30 +41109,32 @@ function createMcpConfigs(githubInstallationToken) {
   };
 }
 
-// workflows.ts
+// modes.ts
 var ghPullfrogMcpName2 = "gh-pullfrog";
-var workflows = [
+var modes = [
   {
     name: "Plan",
     description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Analyze the request and break it down into clear, actionable tasks
-3. Consider dependencies, potential challenges, and implementation order
-4. Create a structured plan with clear milestones
-5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to present the plan in a clear, organized format
-6. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
+1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+2. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+3. Analyze the request and break it down into clear, actionable tasks
+4. Consider dependencies, potential challenges, and implementation order
+5. Create a structured plan with clear milestones
+6. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to present the plan in a clear, organized format
+7. Continue updating the same comment as needed (never create additional comments - always use edit_issue_comment)`
   },
   {
-    name: "Implement",
+    name: "Build",
     description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
-1. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
-2. Understand the requirements and any existing plan
-3. Make the necessary code changes
-4. Test your changes to ensure they work correctly
-5. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to share progress and results
-6. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
+1. Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+2. Create initial response comment using mcp__${ghPullfrogMcpName2}__create_issue_comment saying "I'll {summary of request}" and save the commentId
+3. Understand the requirements and any existing plan
+4. Make the necessary code changes
+5. Test your changes to ensure they work correctly
+6. Update your comment using mcp__${ghPullfrogMcpName2}__edit_issue_comment with the commentId to share progress and results
+7. Continue updating the same comment as you make progress (never create additional comments - always use edit_issue_comment)`
   },
   {
     name: "Review",
@@ -41171,13 +41173,6 @@ You adapt your writing style to the style of your coworkers, while never being u
 You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
 Make reasonable assumptions when details are missing.
 
-## Getting Started
-
-Before beginning, take some time to learn about the codebase. 
-
-Read the AGENTS.md file if it exists. 
-Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
-
 ## SECURITY
 
 CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
@@ -41203,15 +41198,15 @@ eagerly inspect your MCP servers to determine what tools are available to you, e
 do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
 do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
 
-## Workflow Selection
+## Mode Selection
 
-choose the appropriate workflow based on the prompt payload:
+choose the appropriate mode based on the prompt payload:
 
-${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${modes.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
-## Workflows
+## Modes
 
-${workflows.map((w) => `### ${w.name}
+${modes.map((w) => `### ${w.name}
 
 ${w.prompt}`).join("\n\n")}
 `;
@@ -41425,7 +41420,7 @@ var messageHandlers = {
 // agents/codex.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
 
-// ../node_modules/.pnpm/@openai+codex-sdk@0.57.0/node_modules/@openai/codex-sdk/dist/index.js
+// ../node_modules/.pnpm/@openai+codex-sdk@0.58.0/node_modules/@openai/codex-sdk/dist/index.js
 import { promises as fs2 } from "fs";
 import os from "os";
 import path2 from "path";
@@ -41780,8 +41775,9 @@ var codex = agent({
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers2[event.type];
+        console.log(JSON.stringify(event, null, 2));
         if (handler) {
-          await handler(event);
+          handler(event);
         }
         if (event.type === "item.completed" && event.item.type === "agent_message") {
           finalOutput = event.item.text;
@@ -41804,89 +41800,72 @@ var codex = agent({
 });
 var commandExecutionIds = /* @__PURE__ */ new Set();
 var messageHandlers2 = {
-  "thread.started": (event) => {
-    if (event.type === "thread.started") {
-      log.info(`Thread started: ${event.thread_id}`);
-    }
+  "thread.started": () => {
   },
   "turn.started": () => {
-    log.info("Turn started");
   },
   "turn.completed": async (event) => {
-    if (event.type === "turn.completed") {
-      await log.summaryTable([
-        [
-          { data: "Input Tokens", header: true },
-          { data: "Cached Input Tokens", header: true },
-          { data: "Output Tokens", header: true }
-        ],
-        [
-          String(event.usage.input_tokens || 0),
-          String(event.usage.cached_input_tokens || 0),
-          String(event.usage.output_tokens || 0)
-        ]
-      ]);
-    }
+    await log.summaryTable([
+      [
+        { data: "Input Tokens", header: true },
+        { data: "Cached Input Tokens", header: true },
+        { data: "Output Tokens", header: true }
+      ],
+      [
+        String(event.usage.input_tokens || 0),
+        String(event.usage.cached_input_tokens || 0),
+        String(event.usage.output_tokens || 0)
+      ]
+    ]);
   },
   "turn.failed": (event) => {
-    if (event.type === "turn.failed") {
-      log.error(`Turn failed: ${event.error.message}`);
-    }
+    log.error(`Turn failed: ${event.error.message}`);
   },
   "item.started": (event) => {
-    if (event.type === "item.started") {
-      const item = event.item;
-      if (item.type === "command_execution") {
-        log.info(`\u2192 ${item.command}`);
-        commandExecutionIds.add(item.id);
-      } else if (item.type === "agent_message") {
-      } else if (item.type === "mcp_tool_call") {
-        log.info(`\u2192 ${item.tool} (${item.server})`);
-      } else if (item.type === "reasoning") {
-        const preview = item.text.length > 100 ? `${item.text.substring(0, 100)}...` : item.text;
-        log.info(`\u2192 reasoning: ${preview}`);
-      } else {
-        log.info(`\u2192 ${item.type}`);
-      }
+    const item = event.item;
+    if (item.type === "command_execution") {
+      log.info(`\u2192 ${item.command}`);
+      commandExecutionIds.add(item.id);
+    } else if (item.type === "agent_message") {
+    } else if (item.type === "mcp_tool_call") {
+      log.info(`\u2192 ${item.tool} (${item.server})`);
     }
   },
   "item.updated": (event) => {
-    if (event.type === "item.updated") {
-      const item = event.item;
-      if (item.type === "command_execution") {
-        if (item.status === "in_progress" && item.aggregated_output) {
-        }
+    const item = event.item;
+    if (item.type === "command_execution") {
+      if (item.status === "in_progress" && item.aggregated_output) {
       }
     }
   },
   "item.completed": (event) => {
-    if (event.type === "item.completed") {
-      const item = event.item;
-      if (item.type === "agent_message") {
-        log.box(item.text.trim(), { title: "Codex" });
-      } else if (item.type === "command_execution") {
-        const isTracked = commandExecutionIds.has(item.id);
-        if (isTracked) {
-          log.startGroup(`bash output`);
-          if (item.status === "failed" || item.exit_code !== void 0 && item.exit_code !== 0) {
-            log.warning(item.aggregated_output || "Command failed");
-          } else {
-            log.info(item.aggregated_output || "");
-          }
-          log.endGroup();
-          commandExecutionIds.delete(item.id);
+    const item = event.item;
+    if (item.type === "agent_message") {
+      log.box(item.text.trim(), { title: "Codex" });
+    } else if (item.type === "command_execution") {
+      const isTracked = commandExecutionIds.has(item.id);
+      if (isTracked) {
+        log.startGroup(`bash output`);
+        if (item.status === "failed" || item.exit_code !== void 0 && item.exit_code !== 0) {
+          log.warning(item.aggregated_output || "Command failed");
+        } else {
+          log.info(item.aggregated_output || "");
         }
-      } else if (item.type === "mcp_tool_call") {
-        if (item.status === "failed" && item.error) {
-          log.warning(`MCP tool call failed: ${item.error.message}`);
-        }
+        log.endGroup();
+        commandExecutionIds.delete(item.id);
       }
+    } else if (item.type === "mcp_tool_call") {
+      if (item.status === "failed" && item.error) {
+        log.warning(`MCP tool call failed: ${item.error.message}`);
+      }
+    } else if (item.type === "reasoning") {
+      const reasoningText = item.text.trim();
+      const cleanText = reasoningText.replace(/\*\*/g, "");
+      log.info(cleanText);
     }
   },
   error: (event) => {
-    if (event.type === "error") {
-      log.error(`Error: ${event.message}`);
-    }
+    log.error(`Error: ${event.message}`);
   }
 };
 function configureMcpServers({
@@ -41938,7 +41917,7 @@ var DEFAULT_REPO_SETTINGS = {
   webAccessLevel: "full_access",
   webAccessAllowTrusted: false,
   webAccessDomains: "",
-  workflows: []
+  modes: []
 };
 async function fetchRepoSettings({
   token,
