@@ -75,3 +75,6 @@ ${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ${workflows.map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
 `;
+
+export const addInstructions = (prompt: string) =>
+  `****** GENERAL INSTRUCTIONS ******\n${instructions}\n\n****** USER PROMPT ******\n${prompt}`;

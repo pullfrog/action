@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 import { findCliPath, log } from "../utils/cli.ts";
-import { agent, instructions } from "./shared.ts";
+import { addInstructions, agent } from "./shared.ts";
 
 export const codex = agent({
   name: "codex",
@@ -92,14 +92,10 @@ export const codex = agent({
       }
     }
 
-    // Use codex exec command via CLI
-    const fullPrompt = `${instructions}\n\n****** USER PROMPT ******\n${prompt}`;
-
     log.info("Running Codex via CLI...");
 
     try {
-      // Execute codex via CLI using child_process
-      const result = spawnSync("codex", ["exec", fullPrompt], {
+      const result = spawnSync(cliPath, ["exec", addInstructions(prompt)], {
         encoding: "utf-8",
         env: {
           ...process.env,

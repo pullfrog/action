@@ -3,12 +3,11 @@ import { createWriteStream, existsSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
 import { pipeline } from "node:stream/promises";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
-import { agent, instructions } from "./shared.ts";
+import { addInstructions, agent } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
@@ -94,7 +93,7 @@ export const claude = agent({
     process.env.ANTHROPIC_API_KEY = apiKey;
 
     const queryInstance = query({
-      prompt: `${instructions}\n\n****** USER PROMPT ******\n${prompt}`,
+      prompt: addInstructions(prompt),
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,

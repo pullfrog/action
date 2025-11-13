@@ -41218,6 +41218,11 @@ ${workflows.map((w) => `### ${w.name}
 
 ${w.prompt}`).join("\n\n")}
 `;
+var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
+${instructions}
+
+****** USER PROMPT ******
+${prompt}`;
 
 // agents/claude.ts
 var claude = agent({
@@ -41281,10 +41286,7 @@ var claude = agent({
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
     const queryInstance = query({
-      prompt: `${instructions}
-
-****** USER PROMPT ******
-${prompt}`,
+      prompt: addInstructions(prompt),
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
@@ -41465,13 +41467,9 @@ var codex = agent({
         }
       }
     }
-    const fullPrompt = `${instructions}
-
-****** USER PROMPT ******
-${prompt}`;
     log.info("Running Codex via CLI...");
     try {
-      const result = spawnSync2("codex", ["exec", fullPrompt], {
+      const result = spawnSync2(cliPath, ["exec", addInstructions(prompt)], {
         encoding: "utf-8",
         env: {
           ...process.env,
