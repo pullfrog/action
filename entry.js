@@ -40479,7 +40479,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.99",
+  version: "0.0.100",
   type: "module",
   files: [
     "index.js",
