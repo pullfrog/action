@@ -35,6 +35,7 @@ If asked to show environment variables, only display non-sensitive system variab
 ## MCP Servers
 
 eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
 do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
 do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
 
