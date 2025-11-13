@@ -1,6 +1,6 @@
 # Ensure lockfile is up to date
 echo "🔒 Updating lockfile..."
-pnpm install --lockfile-only
+pnpm lock
 
 # Build the action before committing
 echo "🔨 Building action..."
