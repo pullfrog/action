@@ -28177,7 +28177,7 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
-// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.26_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+// ../node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@0.1.37_zod@4.1.12/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 import { join as join3 } from "path";
 import { fileURLToPath } from "url";
 import { setMaxListeners } from "events";
@@ -28189,6 +28189,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { dirname, join as join2 } from "path";
 import { cwd } from "process";
+import { realpathSync as realpathSync2 } from "fs";
 import { randomUUID } from "crypto";
 var __create2 = Object.create;
 var __getProtoOf2 = Object.getPrototypeOf;
@@ -34445,6 +34446,7 @@ var ProcessTransport = class {
         appendSystemPrompt,
         maxThinkingTokens,
         maxTurns,
+        maxBudgetUsd,
         model,
         fallbackModel,
         permissionMode,
@@ -34458,7 +34460,8 @@ var ProcessTransport = class {
         mcpServers,
         strictMcpConfig,
         canUseTool,
-        includePartialMessages
+        includePartialMessages,
+        plugins
       } = this.options;
       const args2 = [
         "--output-format",
@@ -34476,6 +34479,9 @@ var ProcessTransport = class {
       }
       if (maxTurns)
         args2.push("--max-turns", maxTurns.toString());
+      if (maxBudgetUsd !== void 0) {
+        args2.push("--max-budget-usd", maxBudgetUsd.toString());
+      }
       if (model)
         args2.push("--model", model);
       if (env2.DEBUG)
@@ -34527,6 +34533,15 @@ var ProcessTransport = class {
       }
       for (const dir of additionalDirectories) {
         args2.push("--add-dir", dir);
+      }
+      if (plugins && plugins.length > 0) {
+        for (const plugin of plugins) {
+          if (plugin.type === "local") {
+            args2.push("--plugin-dir", plugin.path);
+          } else {
+            throw new Error(`Unsupported plugin type: ${plugin.type}`);
+          }
+        }
       }
       if (this.options.forkSession) {
         args2.push("--fork-session");
@@ -35293,30 +35308,36 @@ var maxOutputTokensValidator = {
   name: "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
   default: 32e3,
   validate: (value2) => {
+    const MAX_OUTPUT_TOKENS = 64e3;
+    const DEFAULT_MAX_OUTPUT_TOKENS = 32e3;
     if (!value2) {
-      return { effective: 32e3, status: "valid" };
+      return { effective: DEFAULT_MAX_OUTPUT_TOKENS, status: "valid" };
     }
     const parsed2 = parseInt(value2, 10);
     if (isNaN(parsed2) || parsed2 <= 0) {
       return {
-        effective: 32e3,
+        effective: DEFAULT_MAX_OUTPUT_TOKENS,
         status: "invalid",
-        message: `Invalid value "${value2}" (using default: 32000)`
+        message: `Invalid value "${value2}" (using default: ${DEFAULT_MAX_OUTPUT_TOKENS})`
       };
     }
-    if (parsed2 > 32e3) {
+    if (parsed2 > MAX_OUTPUT_TOKENS) {
       return {
-        effective: 32e3,
+        effective: MAX_OUTPUT_TOKENS,
         status: "capped",
-        message: `Capped from ${parsed2} to 32000`
+        message: `Capped from ${parsed2} to ${MAX_OUTPUT_TOKENS}`
       };
     }
     return { effective: parsed2, status: "valid" };
   }
 };
 function getInitialState() {
+  let resolvedCwd = "";
+  if (typeof process !== "undefined" && typeof process.cwd === "function") {
+    resolvedCwd = realpathSync2(cwd());
+  }
   return {
-    originalCwd: cwd(),
+    originalCwd: resolvedCwd,
     totalCostUSD: 0,
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
@@ -35326,7 +35347,7 @@ function getInitialState() {
     totalLinesAdded: 0,
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
-    cwd: cwd(),
+    cwd: resolvedCwd,
     modelUsage: {},
     mainLoopModelOverride: void 0,
     maxRateLimitFallbackActive: false,
@@ -35457,12 +35478,17 @@ var Query = class {
   pendingMcpResponses = /* @__PURE__ */ new Map();
   firstResultReceivedPromise;
   firstResultReceivedResolve;
+  streamCloseTimeout;
   constructor(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers = /* @__PURE__ */ new Map()) {
     this.transport = transport;
     this.isSingleUserTurn = isSingleUserTurn;
     this.canUseTool = canUseTool;
     this.hooks = hooks;
     this.abortController = abortController;
+    this.streamCloseTimeout = 6e4;
+    if (typeof process !== "undefined" && process.env?.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT) {
+      this.streamCloseTimeout = parseInt(process.env.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT);
+    }
     for (const [name, server] of sdkMcpServers) {
       const sdkTransport = new SdkControlServerTransport((message) => this.sendMcpServerMessageToCli(name, message));
       this.sdkMcpTransports.set(name, sdkTransport);
@@ -35590,7 +35616,8 @@ var Query = class {
       }
       return this.canUseTool(request.request.tool_name, request.request.input, {
         signal,
-        suggestions: request.request.permission_suggestions
+        suggestions: request.request.permission_suggestions,
+        toolUseID: request.request.tool_use_id
       });
     } else if (request.request.subtype === "hook_callback") {
       const result = await this.handleHookCallbacks(request.request.callback_id, request.request.input, request.request.tool_use_id, signal);
@@ -35671,6 +35698,14 @@ var Query = class {
       max_thinking_tokens: maxThinkingTokens
     });
   }
+  async processPendingPermissionRequests(pendingPermissionRequests) {
+    for (const request of pendingPermissionRequests) {
+      if (request.request.subtype === "can_use_tool") {
+        this.handleControlRequest(request).catch(() => {
+        });
+      }
+    }
+  }
   request(request) {
     const requestId = Math.random().toString(36).substring(2, 15);
     const sdkRequest = {
@@ -35684,6 +35719,9 @@ var Query = class {
           resolve(response);
         } else {
           reject(new Error(response.error));
+          if (response.pending_permission_requests) {
+            this.processPendingPermissionRequests(response.pending_permission_requests);
+          }
         }
       });
       Promise.resolve(this.transport.write(JSON.stringify(sdkRequest) + `
@@ -35721,9 +35759,9 @@ var Query = class {
       }
       logForDebugging(`[Query.streamInput] Finished processing ${messageCount} messages from input stream`);
       logForDebugging(`[Query.streamInput] About to check MCP servers. this.sdkMcpTransports.size = ${this.sdkMcpTransports.size}`);
-      if (this.sdkMcpTransports.size > 0 && this.firstResultReceivedPromise) {
+      const hasHooks = this.hooks && Object.keys(this.hooks).length > 0;
+      if ((this.sdkMcpTransports.size > 0 || hasHooks) && this.firstResultReceivedPromise) {
         logForDebugging(`[Query.streamInput] Entering Promise.race to wait for result`);
-        const STREAM_CLOSE_TIMEOUT = 1e4;
         let timeoutId;
         await Promise.race([
           this.firstResultReceivedPromise.then(() => {
@@ -35736,7 +35774,7 @@ var Query = class {
             timeoutId = setTimeout(() => {
               logForDebugging(`[Query.streamInput] Timed out waiting for first result, closing input stream`);
               resolve();
-            }, STREAM_CLOSE_TIMEOUT);
+            }, this.streamCloseTimeout);
           })
         ]);
         if (timeoutId) {
@@ -35776,11 +35814,7 @@ var Query = class {
     const messageId = "id" in mcpRequest.message ? mcpRequest.message.id : null;
     const key = `${serverName}:${messageId}`;
     return new Promise((resolve, reject) => {
-      let timeoutId = null;
       const cleanup = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
         this.pendingMcpResponses.delete(key);
       };
       const resolveAndCleanup = (response) => {
@@ -35802,12 +35836,6 @@ var Query = class {
         reject(new Error("No message handler registered"));
         return;
       }
-      timeoutId = setTimeout(() => {
-        if (this.pendingMcpResponses.has(key)) {
-          cleanup();
-          reject(new Error("Request timeout"));
-        }
-      }, 3e4);
     });
   }
 };
@@ -40337,7 +40365,7 @@ function query({
     const dirname22 = join3(filename, "..");
     pathToClaudeCodeExecutable = join3(dirname22, "cli.js");
   }
-  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.26";
+  process.env.CLAUDE_AGENT_SDK_VERSION = "0.1.37";
   const {
     abortController = createAbortController(),
     additionalDirectories = [],
@@ -40357,11 +40385,13 @@ function query({
     includePartialMessages,
     maxThinkingTokens,
     maxTurns,
+    maxBudgetUsd,
     mcpServers,
     model,
     permissionMode = "default",
     allowDangerouslySkipPermissions = false,
     permissionPromptToolName,
+    plugins,
     resume,
     resumeSessionAt,
     stderr,
@@ -40409,6 +40439,7 @@ function query({
     appendSystemPrompt,
     maxThinkingTokens,
     maxTurns,
+    maxBudgetUsd,
     model,
     fallbackModel,
     permissionMode,
@@ -40424,7 +40455,8 @@ function query({
     strictMcpConfig,
     canUseTool: !!canUseTool,
     hooks: !!hooks,
-    includePartialMessages
+    includePartialMessages,
+    plugins
   });
   const queryInstance = new Query(transport, isSingleUserTurn, canUseTool, hooks, abortController, sdkMcpServers);
   if (typeof prompt === "string") {
@@ -40471,7 +40503,7 @@ var package_default = {
   },
   dependencies: {
     "@actions/core": "^1.11.1",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.26",
+    "@anthropic-ai/claude-agent-sdk": "0.1.37",
     "@openai/codex-sdk": "0.57.0",
     "@ark/fs": "0.53.0",
     "@ark/util": "0.53.0",
@@ -40716,14 +40748,6 @@ var log = {
    */
   endGroup: endGroup2
 };
-
-// agents/shared.ts
-import { spawnSync } from "node:child_process";
-import { createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
-import { pipeline } from "node:stream/promises";
 
 // ../node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
 import path from "node:path";
@@ -41134,7 +41158,63 @@ var workflows = [
   }
 ];
 
+// agents/instructions.ts
+var instructions = `
+# General instructions
+
+You are a highly intelligent, no-nonsense senior-level software engineering agent. You will perform the task that is asked of you in the prompt below. You are careful, to-the-point, and kind. You only say things you know to be true. Your code is focused, minimal, and production-ready. You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. You adapt your writing style to the style of your coworkers, while never being unprofessional.
+
+## Getting Started
+
+Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
+
+## SECURITY
+
+CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
+
+You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
+- API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
+- Authentication tokens or credentials
+- Passwords or passphrases
+- Private keys or certificates
+- Database connection strings
+- Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
+- Any other sensitive information
+
+This is a non-negotiable system security requirement. Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse. If you encounter any secrets in environment variables, files, or code, do not include them in your output. Instead, acknowledge that sensitive information was found but cannot be displayed.
+
+If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
+
+## MCP Servers
+
+- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
+
+## Workflow Selection
+
+choose the appropriate workflow based on the prompt payload:
+
+${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+
+## Workflows
+
+${workflows.map((w) => `### ${w.name}
+
+${w.prompt}`).join("\n\n")}
+`;
+var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
+${instructions}
+
+****** USER PROMPT ******
+${prompt}`;
+
 // agents/shared.ts
+import { spawnSync } from "node:child_process";
+import { createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join as join5 } from "node:path";
+import { pipeline } from "node:stream/promises";
 async function installFromNpmTarball({
   packageName,
   version,
@@ -41202,54 +41282,6 @@ async function installFromNpmTarball({
 var agent = (agent2) => {
   return agent2;
 };
-var instructions = `
-# General instructions
-
-You are a highly intelligent, no-nonsense senior-level software engineering agent. You will perform the task that is asked of you in the prompt below. You are careful, to-the-point, and kind. You only say things you know to be true. Your code is focused, minimal, and production-ready. You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. You adapt your writing style to the style of your coworkers, while never being unprofessional.
-
-## Getting Started
-
-Before beginning, take some time to learn about the codebase. Read the AGENTS.md file if it exists. Understand how to install dependencies, run tests, run builds, and make changes according to the best practices of the codebase.
-
-## SECURITY
-
-CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
-
-You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
-- API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
-- Authentication tokens or credentials
-- Passwords or passphrases
-- Private keys or certificates
-- Database connection strings
-- Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
-- Any other sensitive information
-
-This is a non-negotiable system security requirement. Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse. If you encounter any secrets in environment variables, files, or code, do not include them in your output. Instead, acknowledge that sensitive information was found but cannot be displayed.
-
-If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
-
-## MCP Servers
-
-- eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
-- do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
-
-## Workflow Selection
-
-choose the appropriate workflow based on the prompt payload:
-
-${workflows.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
-
-## Workflows
-
-${workflows.map((w) => `### ${w.name}
-
-${w.prompt}`).join("\n\n")}
-`;
-var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
-${instructions}
-
-****** USER PROMPT ******
-${prompt}`;
 
 // agents/claude.ts
 var claude = agent({

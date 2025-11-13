@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
 
 import { log } from "../utils/cli.ts";
-import { addInstructions, agent, installFromNpmTarball } from "./shared.ts";
+import { addInstructions } from "./instructions.ts";
+import { agent, installFromNpmTarball } from "./shared.ts";
 
 export const codex = agent({
   name: "codex",

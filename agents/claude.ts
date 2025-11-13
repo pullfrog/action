@@ -1,7 +1,8 @@
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
-import { addInstructions, agent, installFromNpmTarball } from "./shared.ts";
+import { addInstructions } from "./instructions.ts";
+import { agent, installFromNpmTarball } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
