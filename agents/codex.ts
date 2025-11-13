@@ -15,7 +15,18 @@ export const codex = agent({
     });
   },
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
-    process.env.OPENAI_API_KEY = apiKey;
+    // Equivalent to: printenv OPENAI_API_KEY | codex login --with-api-key
+    // see: https://github.com/openai/codex/blob/main/docs/authentication.md#usage-based-billing-alternative-use-an-openai-api-key
+    const loginResult = spawnSync("node", [cliPath, "login", "--with-api-key"], {
+      input: apiKey,
+      encoding: "utf-8",
+    });
+
+    if (loginResult.status !== 0) {
+      throw new Error(
+        `codex login failed: ${loginResult.stderr || loginResult.stdout || "Unknown error"}`
+      );
+    }
 
     // Configure MCP servers for Codex (global config is fine - not part of repo)
     if (mcpServers && Object.keys(mcpServers).length > 0) {

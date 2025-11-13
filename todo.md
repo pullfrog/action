@@ -3,7 +3,6 @@
 [] try to find heavy claude code user
 [] investigate including terminal output from bash commands as collapsed groups
 [] test initialization trade offs for pullfrog.yml
-[] input just accepts one key for API key
 [] investigate mcp naming convention
 
 ## MAYBE
@@ -12,6 +11,7 @@
 
 ## DONE
  
+[x] input just accepts one key for API key
 [x] look into trigger.yml without installation
 [x] cancel installation token at the end of github action
 [x] avoid exposing env adding ## SECURITY prompt

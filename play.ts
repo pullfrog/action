@@ -20,11 +20,6 @@ export async function run(
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    log.info("🚀 Running action with prompt...");
-    log.separator();
-    log.box(prompt, { title: "Prompt" });
-    log.separator();
-
     const inputs: Inputs = {
       prompt,
       openai_api_key: process.env.OPENAI_API_KEY,
