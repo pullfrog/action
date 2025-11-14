@@ -1,4 +1,4 @@
-import { ghPullfrogMcpName } from "./mcp/config.ts";
+import { ghPullfrogMcpName } from "./mcp/index.ts";
 
 export const modes = [
   {
