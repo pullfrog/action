@@ -2,8 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fromHere } from "@ark/fs";
+import { flatMorph } from "@ark/util";
 import arg from "arg";
 import { config } from "dotenv";
+import { agents } from "./agents/index.ts";
 import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
@@ -22,9 +24,11 @@ export async function run(
 
     const inputs: Required<Inputs> = {
       prompt,
-      openai_api_key: process.env.OPENAI_API_KEY,
-      anthropic_api_key: process.env.ANTHROPIC_API_KEY,
       agent: "codex",
+      ...flatMorph(agents, (_, agent) => [
+        agent.inputKey,
+        process.env[agent.inputKey.toUpperCase()],
+      ]),
     };
 
     const result = await main(inputs);
