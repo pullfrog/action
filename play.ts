@@ -24,7 +24,7 @@ export async function run(
       prompt,
       openai_api_key: process.env.OPENAI_API_KEY,
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
-      agent: "codex",
+      agent: "cursor",
     };
 
     const result = await main(inputs);
