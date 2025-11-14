@@ -5,6 +5,8 @@
  */
 
 import * as core from "@actions/core";
+import { flatMorph } from "@ark/util";
+import { agents } from "./agents/index.ts";
 import { AgentName, type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
@@ -20,9 +22,8 @@ async function run(): Promise<void> {
   try {
     const inputs: Required<Inputs> = {
       prompt: core.getInput("prompt", { required: true }),
-      anthropic_api_key: core.getInput("anthropic_api_key"),
-      openai_api_key: core.getInput("openai_api_key"),
       agent: core.getInput("agent") ? AgentName.assert(core.getInput("agent")) : undefined,
+      ...flatMorph(agents, (_, agent) => [agent.inputKey, core.getInput(agent.inputKey)]),
     };
 
     const result = await main(inputs);
