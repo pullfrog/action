@@ -133,7 +133,7 @@ export const agent = <const agent extends Agent>(agent: agent): agent => {
 
 export type Agent = {
   name: string;
-  inputKey: string;
+  inputKeys: string[];
   install: () => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
 };

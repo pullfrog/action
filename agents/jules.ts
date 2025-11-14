@@ -6,7 +6,7 @@ import { agent, installFromNpmTarball } from "./shared.ts";
 
 export const jules = agent({
   name: "jules",
-  inputKey: "google_api_key",
+  inputKeys: ["google_api_key", "gemini_api_key"],
   install: async () => {
     return await installFromNpmTarball({
       packageName: "@google/jules",

@@ -6,7 +6,7 @@ import { agent, installFromNpmTarball } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
-  inputKey: "anthropic_api_key",
+  inputKeys: ["anthropic_api_key"],
   install: async () => {
     const versionRange = packageJson.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
     return await installFromNpmTarball({
