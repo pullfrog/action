@@ -24,25 +24,12 @@ export const jules = agent({
     if (!apiKey) {
       throw new Error("google_api_key is required for jules agent");
     }
+    process.env.GOOGLE_API_KEY = apiKey;
 
     const repoContext = parseRepoContext();
     const repoName = `${repoContext.owner}/${repoContext.name}`;
 
     log.info(`Creating Jules session for ${repoName}...`);
-
-    // Set API key as environment variable for CLI authentication
-    // Note: The CLI may require browser-based auth via 'jules login' in interactive mode
-    // In CI, we rely on the API key being set as an environment variable
-    const env: Record<string, string> = {
-      GOOGLE_API_KEY: apiKey,
-      JULES_API_KEY: apiKey,
-    };
-    // Copy over existing env vars, filtering out undefined values
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        env[key] = value;
-      }
-    }
 
     // Create a new remote session
     const sessionPrompt = addInstructions(prompt);
@@ -53,7 +40,6 @@ export const jules = agent({
       const createResult = await spawn({
         cmd: "node",
         args: [cliPath, "remote", "new", "--repo", repoName, "--session", sessionPrompt],
-        env,
         onStdout: (chunk) => {
           log.info(chunk.trim());
           // Try to extract session ID from output
@@ -114,7 +100,6 @@ export const jules = agent({
         const listResult = await spawn({
           cmd: "node",
           args: [cliPath, "remote", "list", "--session"],
-          env,
           onStdout: (chunk) => {
             // Log session updates
             const trimmed = chunk.trim();
@@ -155,7 +140,6 @@ export const jules = agent({
         const pullResult = await spawn({
           cmd: "node",
           args: [cliPath, "remote", "pull", "--session", sessionId],
-          env,
           onStdout: (chunk) => {
             log.info(chunk.trim());
           },

@@ -24,7 +24,7 @@ export async function run(
 
     const inputs: Required<Inputs> = {
       prompt,
-      agent: "codex",
+      agent: "jules",
       ...flatMorph(agents, (_, agent) => [
         agent.inputKey,
         process.env[agent.inputKey.toUpperCase()],
