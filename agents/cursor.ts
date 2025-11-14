@@ -93,20 +93,10 @@ export const cursor = agent({
         });
 
         // Handle process exit
-        child.on("close", (code, signal) => {
+        child.on("close", (code) => {
           clearTimeout(timeout);
 
-          if (signal) {
-            log.warning(`Cursor CLI terminated by signal: ${signal}`);
-          }
-
-          if (code === 0) {
-            log.success("Cursor CLI completed successfully");
-            resolve({
-              success: true,
-              output: stdout.trim(),
-            });
-          } else {
+          if (code !== 0) {
             const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
             log.error(`Cursor CLI failed: ${errorMessage}`);
             resolve({
@@ -148,9 +138,6 @@ function configureMcpServers({
 }): void {
   log.info("Configuring MCP servers for Cursor...");
 
-  // Cursor CLI reads MCP servers from .cursor/mcp.json or ~/.cursor/mcp.json
-  // Since we set HOME=tempDir during installation, we need to create the config file there
-  // Find the temp directory from the cliPath (it's in tempDir/.local/bin/cursor-agent)
   const tempDir = cliPath.split("/.local/bin/")[0];
   const cursorConfigDir = join(tempDir, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");
