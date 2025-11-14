@@ -17,7 +17,7 @@ inputs:
     description: "Google API key for Jules authentication"
     required: false
   gemini_api_key:
-    description: "Google API key for Jules authentication"
+    description: "Gemini API key for Jules authentication"
     required: false
   cursor_api_key:
     description: "Cursor API key for Cursor authentication"
