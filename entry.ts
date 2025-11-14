@@ -23,7 +23,9 @@ async function run(): Promise<void> {
     const inputs: Required<Inputs> = {
       prompt: core.getInput("prompt", { required: true }),
       agent: core.getInput("agent") ? AgentName.assert(core.getInput("agent")) : undefined,
-      ...flatMorph(agents, (_, agent) => [agent.inputKey, core.getInput(agent.inputKey)]),
+      ...flatMorph(agents, (_, agent) =>
+        agent.inputKeys.map((inputKey) => [inputKey, core.getInput(inputKey)])
+      ),
     };
 
     const result = await main(inputs);

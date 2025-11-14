@@ -13,6 +13,15 @@ inputs:
   openai_api_key:
     description: "OpenAI API key for Codex authentication"
     required: false
+  google_api_key:
+    description: "Google API key for Jules authentication"
+    required: false
+  gemini_api_key:
+    description: "Gemini API key for Jules authentication"
+    required: false
+  cursor_api_key:
+    description: "Cursor API key for Cursor authentication"
+    required: false
 
 runs:
   using: "node20"

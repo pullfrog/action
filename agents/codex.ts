@@ -7,7 +7,7 @@ import { agent, installFromNpmTarball } from "./shared.ts";
 
 export const codex = agent({
   name: "codex",
-  inputKey: "openai_api_key",
+  inputKeys: ["openai_api_key"],
   install: async () => {
     return await installFromNpmTarball({
       packageName: "@openai/codex",

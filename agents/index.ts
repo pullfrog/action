@@ -10,4 +10,4 @@ export const agents = {
   jules,
 } as const;
 
-export type AgentInputKey = (typeof agents)[keyof typeof agents]["inputKey"];
+export type AgentInputKey = (typeof agents)[keyof typeof agents]["inputKeys"][number];

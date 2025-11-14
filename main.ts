@@ -7,6 +7,7 @@ import { fetchRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
+  type RepoContext,
   revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
@@ -16,13 +17,12 @@ export const AgentName = type.enumerated(...Object.values(agents).map((agent) =>
 export type AgentName = typeof AgentName.infer;
 
 export const AgentInputKey = type.enumerated(
-  ...Object.values(agents).map((agent) => agent.inputKey)
+  ...Object.values(agents).flatMap((agent) => agent.inputKeys)
 );
 export type AgentInputKey = typeof AgentInputKey.infer;
 
-const keyInputDefs = flatMorph(
-  agents,
-  (_, agent) => [agent.inputKey, "string | undefined?"] as const
+const keyInputDefs = flatMorph(agents, (_, agent) =>
+  agent.inputKeys.map((inputKey) => [inputKey, "string | undefined?"] as const)
 );
 
 export const Inputs = type({
@@ -39,7 +39,54 @@ export interface MainResult {
   error?: string | undefined;
 }
 
-export type PromptJSON = {};
+/**
+ * Throw an error for missing API key with helpful message linking to repo settings
+ */
+function throwMissingApiKeyError({
+  agentName,
+  inputKeys,
+  repoContext,
+  inputs,
+}: {
+  agentName: string;
+  inputKeys: string[];
+  repoContext: RepoContext;
+  inputs: Inputs;
+}): never {
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
+
+  const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
+  const secretNameList =
+    inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
+
+  const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
+  const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
+
+  // Find which agents have inputKeys that match the provided inputs
+  const availableAgents = Object.values(agents).filter((agent) =>
+    agent.inputKeys.some((inputKey) => inputs[inputKey])
+  );
+
+  let message = `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.
+
+To fix this, add the required secret to your GitHub repository:
+
+1. Go to: ${githubSecretsUrl}
+2. Click "New repository secret"
+3. Set the name to ${secretNameList}
+4. Set the value to your API key
+5. Click "Add secret"`;
+
+  // If other credentials are present, suggest alternative agents
+  if (availableAgents.length > 0) {
+    const agentNames = availableAgents.map((agent) => agent.name).join(", ");
+    message += `\n\nAlternatively, configure Pullfrog to use an agent with existing credentials in your environment (${agentNames}) at ${settingsUrl}`;
+  }
+
+  log.error(message);
+  throw new Error(message);
+}
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   let tokenToRevoke: string | null = null;
@@ -81,11 +128,18 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // if yes, check if it's a webhook payload or toJSON(github.event)
     // for webhook payloads, check the specified `agent` field
 
-    // Get API key based on agent type
+    const matchingInputKey = agent.inputKeys.find((inputKey) => inputs[inputKey]);
 
-    const apiKey = inputs[agent.inputKey];
+    if (!matchingInputKey) {
+      throwMissingApiKeyError({
+        agentName,
+        inputKeys: agent.inputKeys,
+        repoContext,
+        inputs,
+      });
+    }
 
-    if (!apiKey) throw new Error(`${agent.inputKey} is required for ${agentName} agent`);
+    const apiKey = inputs[matchingInputKey]!;
 
     const result = await agent.run({
       prompt: inputs.prompt,
