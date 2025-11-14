@@ -127,6 +127,80 @@ export async function installFromNpmTarball({
   return cliPath;
 }
 
+/**
+ * Install a CLI tool from a curl-based install script
+ * Downloads the install script, runs it with HOME set to temp directory, and returns the path to the CLI executable
+ * The temp directory will be cleaned up by the OS automatically
+ */
+export async function installFromCurl({
+  installUrl,
+  executableName,
+}: {
+  installUrl: string;
+  executableName: string;
+}): Promise<string> {
+  log.info(`📦 Installing ${executableName}...`);
+
+  // Derive temp directory prefix from executable name (sanitize similar to package name)
+  // Replace any special characters with - and ensure trailing -
+  const tempDirPrefix = executableName.replace(/[^a-zA-Z0-9]/g, "-") + "-";
+
+  // Create temp directory
+  const tempDir = await mkdtemp(join(tmpdir(), tempDirPrefix));
+  const installScriptPath = join(tempDir, "install.sh");
+
+  // Download the install script
+  log.info(`Downloading install script from ${installUrl}...`);
+  const installScriptResponse = await fetch(installUrl);
+  if (!installScriptResponse.ok) {
+    throw new Error(`Failed to download install script: ${installScriptResponse.status}`);
+  }
+
+  if (!installScriptResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream(installScriptPath);
+  await pipeline(installScriptResponse.body, fileStream);
+  log.info(`Downloaded install script to ${installScriptPath}`);
+
+  // Make install script executable
+  chmodSync(installScriptPath, 0o755);
+
+  log.info("Installing to temp directory...");
+
+  // Run the install script with HOME set to temp directory
+  // The Cursor install script installs to $HOME/.local/bin/{executableName}
+  // By setting HOME=tempDir, we ensure it installs to tempDir/.local/bin/{executableName}
+  const installResult = spawnSync("bash", [installScriptPath], {
+    cwd: tempDir,
+    env: {
+      ...process.env,
+      HOME: tempDir, // Cursor install script uses HOME for installation path
+    },
+    stdio: "pipe",
+    encoding: "utf-8",
+  });
+
+  if (installResult.status !== 0) {
+    const errorOutput = installResult.stderr || installResult.stdout || "No output";
+    throw new Error(
+      `Failed to install ${executableName}. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
+    );
+  }
+
+  // The Cursor install script creates a symlink at $HOME/.local/bin/{executableName}
+  // Since we set HOME=tempDir, the deterministic path is:
+  const cliPath = join(tempDir, ".local", "bin", executableName);
+
+  if (!existsSync(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+
+  // Ensure binary is executable
+  chmodSync(cliPath, 0o755);
+  log.info(`✓ ${executableName} installed at ${cliPath}`);
+
+  return cliPath;
+}
+
 export const agent = <const agent extends Agent>(agent: agent): agent => {
   return agent;
 };

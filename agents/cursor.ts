@@ -1,135 +1,82 @@
-import { spawnSync, spawn } from "node:child_process";
-import { chmodSync, createWriteStream, existsSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pipeline } from "node:stream/promises";
+import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent } from "./shared.ts";
-
-/**
- * Install Cursor CLI to a temporary directory
- * Downloads the install script and runs it with PREFIX set to temp directory
- * Falls back to checking system PATH if installation fails
- */
-async function installCursorCli(): Promise<string> {
-  log.info("📦 Installing Cursor CLI...");
-
-  // Create temp directory
-  const tempDir = await mkdtemp(join(tmpdir(), "cursor-cli-"));
-  const installScriptPath = join(tempDir, "install.sh");
-  const binDir = join(tempDir, "bin");
-
-  // Download the install script
-  log.info("Downloading Cursor CLI install script...");
-  const installScriptResponse = await fetch("https://cursor.com/install");
-  if (!installScriptResponse.ok) {
-    throw new Error(`Failed to download install script: ${installScriptResponse.status}`);
-  }
-
-  if (!installScriptResponse.body) throw new Error("Response body is null");
-  const fileStream = createWriteStream(installScriptPath);
-  await pipeline(installScriptResponse.body, fileStream);
-
-  // Make install script executable
-  chmodSync(installScriptPath, 0o755);
-
-  log.info("Installing Cursor CLI to temp directory...");
-
-  // Try to run the install script with PREFIX set to temp directory
-  // Many install scripts respect PREFIX or INSTALL_PREFIX environment variables
-  const installResult = spawnSync("bash", [installScriptPath], {
-    cwd: tempDir,
-    env: {
-      ...process.env,
-      PREFIX: tempDir,
-      INSTALL_PREFIX: tempDir,
-      DESTDIR: tempDir,
-      HOME: tempDir, // Some scripts use HOME for user-specific installs
-    },
-    stdio: "pipe",
-    encoding: "utf-8",
-  });
-
-  // Check common installation locations
-  const possiblePaths = [
-    join(binDir, "cursor-agent"),
-    join(tempDir, "cursor-agent"),
-    join(tempDir, ".local", "bin", "cursor-agent"),
-    join(tempDir, ".cursor", "bin", "cursor-agent"),
-  ];
-
-  let cliPath: string | null = null;
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      cliPath = path;
-      break;
-    }
-  }
-
-  // If not found, check if cursor-agent is already in PATH (fallback)
-  if (!cliPath) {
-    const whichResult = spawnSync("which", ["cursor-agent"], {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
-    if (whichResult.status === 0 && whichResult.stdout) {
-      cliPath = whichResult.stdout.trim();
-      log.info(`Using system cursor-agent at ${cliPath}`);
-    }
-  }
-
-  if (!cliPath || !existsSync(cliPath)) {
-    // Provide helpful error message
-    const errorOutput = installResult.stderr || installResult.stdout || "No output";
-    throw new Error(
-      `Failed to install Cursor CLI. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
-    );
-  }
-
-  // Ensure binary is executable
-  chmodSync(cliPath, 0o755);
-  log.info(`✓ Cursor CLI installed at ${cliPath}`);
-  return cliPath;
-}
+import { agent, installFromCurl } from "./shared.ts";
 
 export const cursor = agent({
   name: "cursor",
   inputKey: "cursor_api_key",
-  install: installCursorCli,
+  install: async () => {
+    return await installFromCurl({
+      installUrl: "https://cursor.com/install",
+      executableName: "cursor-agent",
+    });
+  },
   run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.CURSOR_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
-    // TODO: Configure MCP servers for Cursor if supported
-    // Cursor CLI may support MCP configuration similar to Codex
+    // Configure MCP servers for Cursor (global config is fine - not part of repo)
     if (mcpServers && Object.keys(mcpServers).length > 0) {
-      log.info("MCP server configuration for Cursor CLI is not yet implemented");
+      configureMcpServers({ mcpServers, cliPath });
     }
 
     try {
       // Run cursor-agent in non-interactive mode with the prompt
-      // Using -p flag for prompt and --output-format text for plain text output
+      // Using -p flag for prompt, --output-format text for plain text output
+      // and --approve-mcps to automatically approve all MCP servers
       const fullPrompt = addInstructions(prompt);
+
+      // Find temp directory from cliPath to set HOME for MCP config lookup
+      const tempDir = cliPath.split("/.local/bin/")[0];
 
       log.info("Running Cursor CLI...");
 
       // Use spawn to handle streaming output
+      // Use --print flag explicitly for non-interactive mode
       return new Promise((resolve) => {
-        const child = spawn(cliPath, ["-p", fullPrompt, "--output-format", "text"], {
-          env: {
-            ...process.env,
-            CURSOR_API_KEY: apiKey,
-            GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-          },
-          stdio: ["pipe", "pipe", "pipe"],
-        });
+        const child = spawn(
+          cliPath,
+          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps"],
+          {
+            cwd: process.cwd(), // Run in current working directory
+            env: {
+              ...process.env,
+              CURSOR_API_KEY: apiKey,
+              GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+              HOME: tempDir, // Set HOME so Cursor CLI can find .cursor/mcp.json
+            },
+            stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
+          }
+        );
 
         let stdout = "";
         let stderr = "";
+        let hasOutput = false;
+
+        // Set a timeout to detect if the process hangs
+        const timeout = setTimeout(() => {
+          if (!hasOutput && child.exitCode === null) {
+            log.warning("Cursor CLI appears to be hanging, killing process...");
+            child.kill("SIGTERM");
+            resolve({
+              success: false,
+              error: "Cursor CLI timed out - no output received",
+              output: stdout.trim(),
+            });
+          }
+        }, 300000); // 5 minute timeout
+
+        // Log when process starts
+        child.on("spawn", () => {
+          log.debug("Cursor CLI process spawned");
+        });
 
         child.stdout?.on("data", (data) => {
+          hasOutput = true;
           const text = data.toString();
           stdout += text;
           // Stream output in real-time
@@ -137,13 +84,22 @@ export const cursor = agent({
         });
 
         child.stderr?.on("data", (data) => {
+          hasOutput = true;
           const text = data.toString();
           stderr += text;
-          // Log errors as they come
+          // Log errors as they come - but also write to stdout so we can see it
+          process.stderr.write(text);
           log.warning(text);
         });
 
-        child.on("close", (code) => {
+        // Handle process exit
+        child.on("close", (code, signal) => {
+          clearTimeout(timeout);
+
+          if (signal) {
+            log.warning(`Cursor CLI terminated by signal: ${signal}`);
+          }
+
           if (code === 0) {
             log.success("Cursor CLI completed successfully");
             resolve({
@@ -182,3 +138,54 @@ export const cursor = agent({
     }
   },
 });
+
+function configureMcpServers({
+  mcpServers,
+  cliPath,
+}: {
+  mcpServers: Record<string, McpServerConfig>;
+  cliPath: string;
+}): void {
+  log.info("Configuring MCP servers for Cursor...");
+
+  // Cursor CLI reads MCP servers from .cursor/mcp.json or ~/.cursor/mcp.json
+  // Since we set HOME=tempDir during installation, we need to create the config file there
+  // Find the temp directory from the cliPath (it's in tempDir/.local/bin/cursor-agent)
+  const tempDir = cliPath.split("/.local/bin/")[0];
+  const cursorConfigDir = join(tempDir, ".cursor");
+  const mcpConfigPath = join(cursorConfigDir, "mcp.json");
+
+  // Build MCP configuration object
+  const mcpConfig: { mcpServers: Record<string, McpServerConfig> } = {
+    mcpServers: {},
+  };
+
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    // Only configure stdio servers (Cursor CLI supports stdio MCP servers)
+    // Check if it's a stdio server config (has 'command' property)
+    if (!("command" in serverConfig)) {
+      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+      continue;
+    }
+
+    // Add the server configuration
+    mcpConfig.mcpServers[serverName] = serverConfig;
+    log.info(`Adding MCP server '${serverName}'...`);
+  }
+
+  if (Object.keys(mcpConfig.mcpServers).length === 0) {
+    log.info("No MCP servers to configure");
+    return;
+  }
+
+  // Create .cursor directory if it doesn't exist
+  mkdirSync(cursorConfigDir, { recursive: true });
+
+  // Write MCP configuration file
+  writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
+  log.info(`✓ MCP configuration written to ${mcpConfigPath}`);
+
+  // Cursor CLI may require approval for MCP servers
+  // Use --approve-mcps flag when running to automatically approve all MCP servers
+  log.info("MCP servers configured. Cursor CLI will use --approve-mcps to auto-approve servers.");
+}

@@ -1,1 +1,1 @@
-create a comment on https://github.com/pullfrogai/scratch/issues/21 with an implementation of an mcp tool for fetching issue comments from github
+list out the available mcp servers and what they do
