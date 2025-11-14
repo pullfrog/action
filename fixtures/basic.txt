@@ -1,1 +1,1 @@
-choose a random animal emoji. add a comment to https://github.com/pullfrogai/scratch/issues/21 containing 50 of that emoji.
+create a comment on https://github.com/pullfrogai/scratch/issues/21 with an implementation of an mcp tool for fetching issue comments from github

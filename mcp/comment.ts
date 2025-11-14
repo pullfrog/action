@@ -53,3 +53,69 @@ export const EditCommentTool = tool({
     };
   }),
 });
+
+let workingCommentId: number | null = null;
+
+export const WorkingComment = type({
+  issueNumber: type.number.describe("the issue number to comment on"),
+  intent: type("/^I'll .+$/").describe(
+    "the body of the initial comment expressing your intent to handle the request. must have the form 'I'll {summary of request}'"
+  ),
+});
+
+export const CreateWorkingCommentTool = tool({
+  name: "create_working_comment",
+  description:
+    "Create an initial comment on a GitHub issue that will be updated as work progresses",
+  parameters: WorkingComment,
+  execute: contextualize(async ({ issueNumber, intent }, ctx) => {
+    if (workingCommentId) {
+      throw new Error("create_working_comment may not be called multiple times");
+    }
+
+    const result = await ctx.octokit.rest.issues.createComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      issue_number: issueNumber,
+      body: intent,
+    });
+
+    workingCommentId = result.data.id;
+
+    return {
+      success: true,
+      commentId: result.data.id,
+      url: result.data.html_url,
+      body: result.data.body,
+    };
+  }),
+});
+
+export const WorkingCommentUpdate = type({
+  body: type.string.describe("the new comment body content"),
+});
+
+export const UpdateWorkingCommentTool = tool({
+  name: "update_working_comment",
+  description: "Update a working comment on a GitHub issue",
+  parameters: WorkingCommentUpdate,
+  execute: contextualize(async ({ body }, ctx) => {
+    if (!workingCommentId) {
+      throw new Error("create_working_comment must be called before update_working_comment");
+    }
+
+    const result = await ctx.octokit.rest.issues.updateComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      comment_id: workingCommentId,
+      body,
+    });
+
+    return {
+      success: true,
+      commentId: result.data.id,
+      url: result.data.html_url,
+      body: result.data.body,
+    };
+  }),
+});

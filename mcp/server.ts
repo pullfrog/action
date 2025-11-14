@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // Minimal GitHub Issue Comment MCP Server
 import { FastMCP } from "fastmcp";
-import { CreateCommentTool, EditCommentTool } from "./comment.ts";
+import {
+  CreateCommentTool,
+  CreateWorkingCommentTool,
+  EditCommentTool,
+  UpdateWorkingCommentTool,
+} from "./comment.ts";
 import { IssueTool } from "./issue.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
@@ -16,6 +21,8 @@ const server = new FastMCP({
 addTools(server, [
   CreateCommentTool,
   EditCommentTool,
+  CreateWorkingCommentTool,
+  UpdateWorkingCommentTool,
   IssueTool,
   PullRequestTool,
   ReviewTool,
