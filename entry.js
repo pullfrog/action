@@ -998,14 +998,14 @@ var require_util = __commonJS({
         }
         const port = url2.port != null ? url2.port : url2.protocol === "https:" ? 443 : 80;
         let origin = url2.origin != null ? url2.origin : `${url2.protocol}//${url2.hostname}:${port}`;
-        let path3 = url2.path != null ? url2.path : `${url2.pathname || ""}${url2.search || ""}`;
+        let path4 = url2.path != null ? url2.path : `${url2.pathname || ""}${url2.search || ""}`;
         if (origin.endsWith("/")) {
           origin = origin.substring(0, origin.length - 1);
         }
-        if (path3 && !path3.startsWith("/")) {
-          path3 = `/${path3}`;
+        if (path4 && !path4.startsWith("/")) {
+          path4 = `/${path4}`;
         }
-        url2 = new URL(origin + path3);
+        url2 = new URL(origin + path4);
       }
       return url2;
     }
@@ -2619,20 +2619,20 @@ var require_parseParams = __commonJS({
 var require_basename = __commonJS({
   "node_modules/.pnpm/@fastify+busboy@2.1.1/node_modules/@fastify/busboy/lib/utils/basename.js"(exports, module) {
     "use strict";
-    module.exports = function basename(path3) {
-      if (typeof path3 !== "string") {
+    module.exports = function basename(path4) {
+      if (typeof path4 !== "string") {
         return "";
       }
-      for (var i = path3.length - 1; i >= 0; --i) {
-        switch (path3.charCodeAt(i)) {
+      for (var i = path4.length - 1; i >= 0; --i) {
+        switch (path4.charCodeAt(i)) {
           case 47:
           // '/'
           case 92:
-            path3 = path3.slice(i + 1);
-            return path3 === ".." || path3 === "." ? "" : path3;
+            path4 = path4.slice(i + 1);
+            return path4 === ".." || path4 === "." ? "" : path4;
         }
       }
-      return path3 === ".." || path3 === "." ? "" : path3;
+      return path4 === ".." || path4 === "." ? "" : path4;
     };
   }
 });
@@ -5662,7 +5662,7 @@ var require_request = __commonJS({
     }
     var Request2 = class _Request {
       constructor(origin, {
-        path: path3,
+        path: path4,
         method,
         body,
         headers,
@@ -5676,11 +5676,11 @@ var require_request = __commonJS({
         throwOnError,
         expectContinue
       }, handler) {
-        if (typeof path3 !== "string") {
+        if (typeof path4 !== "string") {
           throw new InvalidArgumentError("path must be a string");
-        } else if (path3[0] !== "/" && !(path3.startsWith("http://") || path3.startsWith("https://")) && method !== "CONNECT") {
+        } else if (path4[0] !== "/" && !(path4.startsWith("http://") || path4.startsWith("https://")) && method !== "CONNECT") {
           throw new InvalidArgumentError("path must be an absolute URL or start with a slash");
-        } else if (invalidPathRegex.exec(path3) !== null) {
+        } else if (invalidPathRegex.exec(path4) !== null) {
           throw new InvalidArgumentError("invalid request path");
         }
         if (typeof method !== "string") {
@@ -5743,7 +5743,7 @@ var require_request = __commonJS({
         this.completed = false;
         this.aborted = false;
         this.upgrade = upgrade || null;
-        this.path = query2 ? util2.buildURL(path3, query2) : path3;
+        this.path = query2 ? util2.buildURL(path4, query2) : path4;
         this.origin = origin;
         this.idempotent = idempotent == null ? method === "HEAD" || method === "GET" : idempotent;
         this.blocking = blocking == null ? false : blocking;
@@ -6751,9 +6751,9 @@ var require_RedirectHandler = __commonJS({
           return this.handler.onHeaders(statusCode, headers, resume, statusText);
         }
         const { origin, pathname, search } = util2.parseURL(new URL(this.location, this.opts.origin && new URL(this.opts.path, this.opts.origin)));
-        const path3 = search ? `${pathname}${search}` : pathname;
+        const path4 = search ? `${pathname}${search}` : pathname;
         this.opts.headers = cleanRequestHeaders(this.opts.headers, statusCode === 303, this.opts.origin !== origin);
-        this.opts.path = path3;
+        this.opts.path = path4;
         this.opts.origin = origin;
         this.opts.maxRedirections = 0;
         this.opts.query = null;
@@ -7993,7 +7993,7 @@ var require_client = __commonJS({
         writeH2(client, client[kHTTP2Session], request);
         return;
       }
-      const { body, method, path: path3, host, upgrade, headers, blocking, reset } = request;
+      const { body, method, path: path4, host, upgrade, headers, blocking, reset } = request;
       const expectsPayload = method === "PUT" || method === "POST" || method === "PATCH";
       if (body && typeof body.read === "function") {
         body.read(0);
@@ -8043,7 +8043,7 @@ var require_client = __commonJS({
       if (blocking) {
         socket[kBlocking] = true;
       }
-      let header = `${method} ${path3} HTTP/1.1\r
+      let header = `${method} ${path4} HTTP/1.1\r
 `;
       if (typeof host === "string") {
         header += `host: ${host}\r
@@ -8106,7 +8106,7 @@ upgrade: ${upgrade}\r
       return true;
     }
     function writeH2(client, session, request) {
-      const { body, method, path: path3, host, upgrade, expectContinue, signal, headers: reqHeaders } = request;
+      const { body, method, path: path4, host, upgrade, expectContinue, signal, headers: reqHeaders } = request;
       let headers;
       if (typeof reqHeaders === "string") headers = Request2[kHTTP2CopyHeaders](reqHeaders.trim());
       else headers = reqHeaders;
@@ -8149,7 +8149,7 @@ upgrade: ${upgrade}\r
         });
         return true;
       }
-      headers[HTTP2_HEADER_PATH] = path3;
+      headers[HTTP2_HEADER_PATH] = path4;
       headers[HTTP2_HEADER_SCHEME] = "https";
       const expectsPayload = method === "PUT" || method === "POST" || method === "PATCH";
       if (body && typeof body.read === "function") {
@@ -10389,20 +10389,20 @@ var require_mock_utils = __commonJS({
       }
       return true;
     }
-    function safeUrl(path3) {
-      if (typeof path3 !== "string") {
-        return path3;
+    function safeUrl(path4) {
+      if (typeof path4 !== "string") {
+        return path4;
       }
-      const pathSegments = path3.split("?");
+      const pathSegments = path4.split("?");
       if (pathSegments.length !== 2) {
-        return path3;
+        return path4;
       }
       const qp = new URLSearchParams(pathSegments.pop());
       qp.sort();
       return [...pathSegments, qp.toString()].join("?");
     }
-    function matchKey(mockDispatch2, { path: path3, method, body, headers }) {
-      const pathMatch = matchValue(mockDispatch2.path, path3);
+    function matchKey(mockDispatch2, { path: path4, method, body, headers }) {
+      const pathMatch = matchValue(mockDispatch2.path, path4);
       const methodMatch = matchValue(mockDispatch2.method, method);
       const bodyMatch = typeof mockDispatch2.body !== "undefined" ? matchValue(mockDispatch2.body, body) : true;
       const headersMatch = matchHeaders(mockDispatch2, headers);
@@ -10420,7 +10420,7 @@ var require_mock_utils = __commonJS({
     function getMockDispatch(mockDispatches, key) {
       const basePath = key.query ? buildURL(key.path, key.query) : key.path;
       const resolvedPath = typeof basePath === "string" ? safeUrl(basePath) : basePath;
-      let matchedMockDispatches = mockDispatches.filter(({ consumed }) => !consumed).filter(({ path: path3 }) => matchValue(safeUrl(path3), resolvedPath));
+      let matchedMockDispatches = mockDispatches.filter(({ consumed }) => !consumed).filter(({ path: path4 }) => matchValue(safeUrl(path4), resolvedPath));
       if (matchedMockDispatches.length === 0) {
         throw new MockNotMatchedError(`Mock dispatch not matched for path '${resolvedPath}'`);
       }
@@ -10457,9 +10457,9 @@ var require_mock_utils = __commonJS({
       }
     }
     function buildKey(opts) {
-      const { path: path3, method, body, headers, query: query2 } = opts;
+      const { path: path4, method, body, headers, query: query2 } = opts;
       return {
-        path: path3,
+        path: path4,
         method,
         body,
         headers,
@@ -10908,10 +10908,10 @@ var require_pending_interceptors_formatter = __commonJS({
       }
       format(pendingInterceptors) {
         const withPrettyHeaders = pendingInterceptors.map(
-          ({ method, path: path3, data: { statusCode }, persist, times, timesInvoked, origin }) => ({
+          ({ method, path: path4, data: { statusCode }, persist, times, timesInvoked, origin }) => ({
             Method: method,
             Origin: origin,
-            Path: path3,
+            Path: path4,
             "Status code": statusCode,
             Persistent: persist ? "\u2705" : "\u274C",
             Invocations: timesInvoked,
@@ -15531,8 +15531,8 @@ var require_util6 = __commonJS({
         }
       }
     }
-    function validateCookiePath(path3) {
-      for (const char of path3) {
+    function validateCookiePath(path4) {
+      for (const char of path4) {
         const code = char.charCodeAt(0);
         if (code < 33 || char === ";") {
           throw new Error("Invalid cookie path");
@@ -17212,11 +17212,11 @@ var require_undici = __commonJS({
           if (typeof opts.path !== "string") {
             throw new InvalidArgumentError("invalid opts.path");
           }
-          let path3 = opts.path;
+          let path4 = opts.path;
           if (!opts.path.startsWith("/")) {
-            path3 = `/${path3}`;
+            path4 = `/${path4}`;
           }
-          url2 = new URL(util2.parseOrigin(url2).origin + path3);
+          url2 = new URL(util2.parseOrigin(url2).origin + path4);
         } else {
           if (!opts) {
             opts = typeof url2 === "object" ? url2 : {};
@@ -18439,7 +18439,7 @@ var require_path_utils = __commonJS({
     };
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toPlatformPath = exports.toWin32Path = exports.toPosixPath = void 0;
-    var path3 = __importStar(__require("path"));
+    var path4 = __importStar(__require("path"));
     function toPosixPath(pth) {
       return pth.replace(/[\\]/g, "/");
     }
@@ -18449,7 +18449,7 @@ var require_path_utils = __commonJS({
     }
     exports.toWin32Path = toWin32Path;
     function toPlatformPath(pth) {
-      return pth.replace(/[/\\]/g, path3.sep);
+      return pth.replace(/[/\\]/g, path4.sep);
     }
     exports.toPlatformPath = toPlatformPath;
   }
@@ -18513,7 +18513,7 @@ var require_io_util = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCmdPath = exports.tryGetExecutablePath = exports.isRooted = exports.isDirectory = exports.exists = exports.READONLY = exports.UV_FS_O_EXLOCK = exports.IS_WINDOWS = exports.unlink = exports.symlink = exports.stat = exports.rmdir = exports.rm = exports.rename = exports.readlink = exports.readdir = exports.open = exports.mkdir = exports.lstat = exports.copyFile = exports.chmod = void 0;
     var fs3 = __importStar(__require("fs"));
-    var path3 = __importStar(__require("path"));
+    var path4 = __importStar(__require("path"));
     _a = fs3.promises, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.open = _a.open, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rm = _a.rm, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
     exports.IS_WINDOWS = process.platform === "win32";
     exports.UV_FS_O_EXLOCK = 268435456;
@@ -18562,7 +18562,7 @@ var require_io_util = __commonJS({
         }
         if (stats && stats.isFile()) {
           if (exports.IS_WINDOWS) {
-            const upperExt = path3.extname(filePath2).toUpperCase();
+            const upperExt = path4.extname(filePath2).toUpperCase();
             if (extensions.some((validExt) => validExt.toUpperCase() === upperExt)) {
               return filePath2;
             }
@@ -18586,11 +18586,11 @@ var require_io_util = __commonJS({
           if (stats && stats.isFile()) {
             if (exports.IS_WINDOWS) {
               try {
-                const directory = path3.dirname(filePath2);
-                const upperName = path3.basename(filePath2).toUpperCase();
+                const directory = path4.dirname(filePath2);
+                const upperName = path4.basename(filePath2).toUpperCase();
                 for (const actualName of yield exports.readdir(directory)) {
                   if (upperName === actualName.toUpperCase()) {
-                    filePath2 = path3.join(directory, actualName);
+                    filePath2 = path4.join(directory, actualName);
                     break;
                   }
                 }
@@ -18685,7 +18685,7 @@ var require_io = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.findInPath = exports.which = exports.mkdirP = exports.rmRF = exports.mv = exports.cp = void 0;
     var assert_1 = __require("assert");
-    var path3 = __importStar(__require("path"));
+    var path4 = __importStar(__require("path"));
     var ioUtil = __importStar(require_io_util());
     function cp(source, dest, options = {}) {
       return __awaiter(this, void 0, void 0, function* () {
@@ -18694,7 +18694,7 @@ var require_io = __commonJS({
         if (destStat && destStat.isFile() && !force) {
           return;
         }
-        const newDest = destStat && destStat.isDirectory() && copySourceDirectory ? path3.join(dest, path3.basename(source)) : dest;
+        const newDest = destStat && destStat.isDirectory() && copySourceDirectory ? path4.join(dest, path4.basename(source)) : dest;
         if (!(yield ioUtil.exists(source))) {
           throw new Error(`no such file or directory: ${source}`);
         }
@@ -18706,7 +18706,7 @@ var require_io = __commonJS({
             yield cpDirRecursive(source, newDest, 0, force);
           }
         } else {
-          if (path3.relative(source, newDest) === "") {
+          if (path4.relative(source, newDest) === "") {
             throw new Error(`'${newDest}' and '${source}' are the same file`);
           }
           yield copyFile(source, newDest, force);
@@ -18719,7 +18719,7 @@ var require_io = __commonJS({
         if (yield ioUtil.exists(dest)) {
           let destExists = true;
           if (yield ioUtil.isDirectory(dest)) {
-            dest = path3.join(dest, path3.basename(source));
+            dest = path4.join(dest, path4.basename(source));
             destExists = yield ioUtil.exists(dest);
           }
           if (destExists) {
@@ -18730,7 +18730,7 @@ var require_io = __commonJS({
             }
           }
         }
-        yield mkdirP(path3.dirname(dest));
+        yield mkdirP(path4.dirname(dest));
         yield ioUtil.rename(source, dest);
       });
     }
@@ -18793,7 +18793,7 @@ var require_io = __commonJS({
         }
         const extensions = [];
         if (ioUtil.IS_WINDOWS && process.env["PATHEXT"]) {
-          for (const extension of process.env["PATHEXT"].split(path3.delimiter)) {
+          for (const extension of process.env["PATHEXT"].split(path4.delimiter)) {
             if (extension) {
               extensions.push(extension);
             }
@@ -18806,12 +18806,12 @@ var require_io = __commonJS({
           }
           return [];
         }
-        if (tool.includes(path3.sep)) {
+        if (tool.includes(path4.sep)) {
           return [];
         }
         const directories = [];
         if (process.env.PATH) {
-          for (const p of process.env.PATH.split(path3.delimiter)) {
+          for (const p of process.env.PATH.split(path4.delimiter)) {
             if (p) {
               directories.push(p);
             }
@@ -18819,7 +18819,7 @@ var require_io = __commonJS({
         }
         const matches = [];
         for (const directory of directories) {
-          const filePath2 = yield ioUtil.tryGetExecutablePath(path3.join(directory, tool), extensions);
+          const filePath2 = yield ioUtil.tryGetExecutablePath(path4.join(directory, tool), extensions);
           if (filePath2) {
             matches.push(filePath2);
           }
@@ -18935,7 +18935,7 @@ var require_toolrunner = __commonJS({
     var os2 = __importStar(__require("os"));
     var events = __importStar(__require("events"));
     var child = __importStar(__require("child_process"));
-    var path3 = __importStar(__require("path"));
+    var path4 = __importStar(__require("path"));
     var io = __importStar(require_io());
     var ioUtil = __importStar(require_io_util());
     var timers_1 = __require("timers");
@@ -19150,7 +19150,7 @@ var require_toolrunner = __commonJS({
       exec() {
         return __awaiter(this, void 0, void 0, function* () {
           if (!ioUtil.isRooted(this.toolPath) && (this.toolPath.includes("/") || IS_WINDOWS && this.toolPath.includes("\\"))) {
-            this.toolPath = path3.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
+            this.toolPath = path4.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
           }
           this.toolPath = yield io.which(this.toolPath, true);
           return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
@@ -19650,7 +19650,7 @@ var require_core = __commonJS({
     var file_command_1 = require_file_command();
     var utils_1 = require_utils();
     var os2 = __importStar(__require("os"));
-    var path3 = __importStar(__require("path"));
+    var path4 = __importStar(__require("path"));
     var oidc_utils_1 = require_oidc_utils();
     var ExitCode;
     (function(ExitCode2) {
@@ -19678,7 +19678,7 @@ var require_core = __commonJS({
       } else {
         (0, command_1.issueCommand)("add-path", {}, inputPath);
       }
-      process.env["PATH"] = `${inputPath}${path3.delimiter}${process.env["PATH"]}`;
+      process.env["PATH"] = `${inputPath}${path4.delimiter}${process.env["PATH"]}`;
     }
     exports.addPath = addPath;
     function getInput3(name, options) {
@@ -20442,29 +20442,29 @@ var timeWithUnnecessarySeconds = /:\d\d:00$/;
 var pad = (value2, length) => String(value2).padStart(length, "0");
 
 // node_modules/.pnpm/@ark+util@0.53.0/node_modules/@ark/util/out/path.js
-var appendStringifiedKey = (path3, prop, ...[opts]) => {
+var appendStringifiedKey = (path4, prop, ...[opts]) => {
   const stringifySymbol = opts?.stringifySymbol ?? printable;
-  let propAccessChain = path3;
+  let propAccessChain = path4;
   switch (typeof prop) {
     case "string":
-      propAccessChain = isDotAccessible(prop) ? path3 === "" ? prop : `${path3}.${prop}` : `${path3}[${JSON.stringify(prop)}]`;
+      propAccessChain = isDotAccessible(prop) ? path4 === "" ? prop : `${path4}.${prop}` : `${path4}[${JSON.stringify(prop)}]`;
       break;
     case "number":
-      propAccessChain = `${path3}[${prop}]`;
+      propAccessChain = `${path4}[${prop}]`;
       break;
     case "symbol":
-      propAccessChain = `${path3}[${stringifySymbol(prop)}]`;
+      propAccessChain = `${path4}[${stringifySymbol(prop)}]`;
       break;
     default:
       if (opts?.stringifyNonKey)
-        propAccessChain = `${path3}[${opts.stringifyNonKey(prop)}]`;
+        propAccessChain = `${path4}[${opts.stringifyNonKey(prop)}]`;
       else {
         throwParseError(`${printable(prop)} must be a PropertyKey or stringifyNonKey must be passed to options`);
       }
   }
   return propAccessChain;
 };
-var stringifyPath = (path3, ...opts) => path3.reduce((s, k) => appendStringifiedKey(s, k, ...opts), "");
+var stringifyPath = (path4, ...opts) => path4.reduce((s, k) => appendStringifiedKey(s, k, ...opts), "");
 var ReadonlyPath = class extends ReadonlyArray {
   // alternate strategy for caching since the base object is frozen
   cache = {};
@@ -20491,8 +20491,8 @@ var ReadonlyPath = class extends ReadonlyArray {
       return this.cache.stringifyAncestors;
     let propString = "";
     const result = [propString];
-    for (const path3 of this) {
-      propString = appendStringifiedKey(propString, path3);
+    for (const path4 of this) {
+      propString = appendStringifiedKey(propString, path4);
       result.push(propString);
     }
     return this.cache.stringifyAncestors = result;
@@ -21113,15 +21113,15 @@ var ArkErrors = class _ArkErrors extends ReadonlyArray {
   /**
    * @internal
    */
-  affectsPath(path3) {
+  affectsPath(path4) {
     if (this.length === 0)
       return false;
     return (
       // this would occur if there is an existing error at a prefix of path
       // e.g. the path is ["foo", "bar"] and there is an error at ["foo"]
-      path3.stringifyAncestors().some((s) => s in this.byPath) || // this would occur if there is an existing error at a suffix of path
+      path4.stringifyAncestors().some((s) => s in this.byPath) || // this would occur if there is an existing error at a suffix of path
       // e.g. the path is ["foo"] and there is an error at ["foo", "bar"]
-      path3.stringify() in this.byAncestorPath
+      path4.stringify() in this.byAncestorPath
     );
   }
   /**
@@ -21308,23 +21308,23 @@ var Traversal = class {
     while (this.queuedMorphs.length) {
       const queuedMorphs = this.queuedMorphs;
       this.queuedMorphs = [];
-      for (const { path: path3, morphs } of queuedMorphs) {
-        if (this.errors.affectsPath(path3))
+      for (const { path: path4, morphs } of queuedMorphs) {
+        if (this.errors.affectsPath(path4))
           continue;
-        this.applyMorphsAtPath(path3, morphs);
+        this.applyMorphsAtPath(path4, morphs);
       }
     }
   }
-  applyMorphsAtPath(path3, morphs) {
-    const key = path3.at(-1);
+  applyMorphsAtPath(path4, morphs) {
+    const key = path4.at(-1);
     let parent;
     if (key !== void 0) {
       parent = this.root;
-      for (let pathIndex = 0; pathIndex < path3.length - 1; pathIndex++)
-        parent = parent[path3[pathIndex]];
+      for (let pathIndex = 0; pathIndex < path4.length - 1; pathIndex++)
+        parent = parent[path4[pathIndex]];
     }
     for (const morph of morphs) {
-      this.path = [...path3];
+      this.path = [...path4];
       const morphIsNode = isNode(morph);
       const result = morph(parent === void 0 ? this.root : parent[key], this);
       if (result instanceof ArkError) {
@@ -21699,15 +21699,15 @@ var NodeSelector = {
   normalize: (selector) => typeof selector === "function" ? { boundary: "references", method: "filter", where: selector } : typeof selector === "string" ? isKeyOf(selector, NodeSelector.applyBoundary) ? { method: "filter", boundary: selector } : { boundary: "references", method: "filter", kind: selector } : { boundary: "references", method: "filter", ...selector }
 };
 var writeSelectAssertionMessage = (from, selector) => `${from} had no references matching ${printable(selector)}.`;
-var typePathToPropString = (path3) => stringifyPath(path3, {
+var typePathToPropString = (path4) => stringifyPath(path4, {
   stringifyNonKey: (node2) => node2.expression
 });
 var referenceMatcher = /"(\$ark\.[^"]+)"/g;
 var compileMeta = (metaJson) => JSON.stringify(metaJson).replaceAll(referenceMatcher, "$1");
-var flatRef = (path3, node2) => ({
-  path: path3,
+var flatRef = (path4, node2) => ({
+  path: path4,
   node: node2,
-  propString: typePathToPropString(path3)
+  propString: typePathToPropString(path4)
 });
 var flatRefsAreEqual = (l, r) => l.propString === r.propString && l.node.equals(r.node);
 var appendUniqueFlatRefs = (existing, refs) => appendUnique(existing, refs, {
@@ -21743,12 +21743,12 @@ var Disjoint = class _Disjoint extends Array {
   }
   describeReasons() {
     if (this.length === 1) {
-      const { path: path3, l, r } = this[0];
-      const pathString = stringifyPath(path3);
+      const { path: path4, l, r } = this[0];
+      const pathString = stringifyPath(path4);
       return writeUnsatisfiableExpressionError(`Intersection${pathString && ` at ${pathString}`} of ${describeReasons(l, r)}`);
     }
     return `The following intersections result in unsatisfiable types:
-\u2022 ${this.map(({ path: path3, l, r }) => `${path3}: ${describeReasons(l, r)}`).join("\n\u2022 ")}`;
+\u2022 ${this.map(({ path: path4, l, r }) => `${path4}: ${describeReasons(l, r)}`).join("\n\u2022 ")}`;
   }
   throw() {
     return throwParseError(this.describeReasons());
@@ -23131,10 +23131,10 @@ var BaseRoot = class extends BaseNode {
       });
     });
   }
-  get(...path3) {
-    if (path3[0] === void 0)
+  get(...path4) {
+    if (path4[0] === void 0)
       return this;
-    return this.$.schema(this.applyStructuralOperation("get", path3));
+    return this.$.schema(this.applyStructuralOperation("get", path4));
   }
   extract(r) {
     const rNode = this.$.parseDefinition(r);
@@ -24066,13 +24066,13 @@ var implementation17 = implementNode({
     description: (node2) => node2.distribute((branch) => branch.description, describeBranches),
     expected: (ctx) => {
       const byPath = groupBy(ctx.errors, "propString");
-      const pathDescriptions = Object.entries(byPath).map(([path3, errors]) => {
+      const pathDescriptions = Object.entries(byPath).map(([path4, errors]) => {
         const branchesAtPath = [];
         for (const errorAtPath of errors)
           appendUnique(branchesAtPath, errorAtPath.expected);
         const expected = describeBranches(branchesAtPath);
         const actual = errors.every((e) => e.actual === errors[0].actual) ? errors[0].actual : printable(errors[0].data);
-        return `${path3 && `${path3} `}must be ${expected}${actual && ` (was ${actual})`}`;
+        return `${path4 && `${path4} `}must be ${expected}${actual && ` (was ${actual})`}`;
       });
       return describeBranches(pathDescriptions);
     },
@@ -24454,10 +24454,10 @@ var viableOrderedCandidates = (candidates, originalBranches) => {
   });
   return viableCandidates;
 };
-var discriminantCaseToNode = (caseDiscriminant, path3, $) => {
+var discriminantCaseToNode = (caseDiscriminant, path4, $) => {
   let node2 = caseDiscriminant === "undefined" ? $.node("unit", { unit: void 0 }) : caseDiscriminant === "null" ? $.node("unit", { unit: null }) : caseDiscriminant === "boolean" ? $.units([true, false]) : caseDiscriminant;
-  for (let i = path3.length - 1; i >= 0; i--) {
-    const key = path3[i];
+  for (let i = path4.length - 1; i >= 0; i--) {
+    const key = path4[i];
     node2 = $.node("intersection", typeof key === "number" ? {
       proto: "Array",
       // create unknown for preceding elements (could be optimized with safe imports)
@@ -24469,7 +24469,7 @@ var discriminantCaseToNode = (caseDiscriminant, path3, $) => {
   }
   return node2;
 };
-var optionallyChainPropString = (path3) => path3.reduce((acc, k) => acc + compileLiteralPropAccess(k, true), "data");
+var optionallyChainPropString = (path4) => path4.reduce((acc, k) => acc + compileLiteralPropAccess(k, true), "data");
 var serializedTypeOfDescriptions = registeredReference(jsTypeOfDescriptions);
 var serializedPrintable = registeredReference(printable);
 var Union = {
@@ -25445,7 +25445,7 @@ var StructureNode = class extends BaseConstraint {
       return throwParseError(writeInvalidKeysMessage(this.expression, invalidKeys));
     }
   }
-  get(indexer, ...path3) {
+  get(indexer, ...path4) {
     let value2;
     let required = false;
     const key = indexerToKey(indexer);
@@ -25481,7 +25481,7 @@ var StructureNode = class extends BaseConstraint {
       }
       return throwParseError(writeInvalidKeysMessage(this.expression, [key]));
     }
-    const result = value2.get(...path3);
+    const result = value2.get(...path4);
     return required ? result : result.or($ark.intrinsic.undefined);
   }
   pick(...keys) {
@@ -29024,8 +29024,8 @@ var require_uri_all = __commonJS2((exports, module) => {
           wsComponents.secure = void 0;
         }
         if (wsComponents.resourceName) {
-          var _wsComponents$resourc = wsComponents.resourceName.split("?"), _wsComponents$resourc2 = slicedToArray(_wsComponents$resourc, 2), path3 = _wsComponents$resourc2[0], query2 = _wsComponents$resourc2[1];
-          wsComponents.path = path3 && path3 !== "/" ? path3 : void 0;
+          var _wsComponents$resourc = wsComponents.resourceName.split("?"), _wsComponents$resourc2 = slicedToArray(_wsComponents$resourc, 2), path4 = _wsComponents$resourc2[0], query2 = _wsComponents$resourc2[1];
+          wsComponents.path = path4 && path4 !== "/" ? path4 : void 0;
           wsComponents.query = query2;
           wsComponents.resourceName = void 0;
         }
@@ -29412,12 +29412,12 @@ var require_util8 = __commonJS2((exports, module) => {
     return "'" + escapeQuotes(str) + "'";
   }
   function getPathExpr(currentPath, expr, jsonPointers, isNumber) {
-    var path3 = jsonPointers ? "'/' + " + expr + (isNumber ? "" : ".replace(/~/g, '~0').replace(/\\//g, '~1')") : isNumber ? "'[' + " + expr + " + ']'" : "'[\\'' + " + expr + " + '\\']'";
-    return joinPaths(currentPath, path3);
+    var path4 = jsonPointers ? "'/' + " + expr + (isNumber ? "" : ".replace(/~/g, '~0').replace(/\\//g, '~1')") : isNumber ? "'[' + " + expr + " + ']'" : "'[\\'' + " + expr + " + '\\']'";
+    return joinPaths(currentPath, path4);
   }
   function getPath(currentPath, prop, jsonPointers) {
-    var path3 = jsonPointers ? toQuotedString("/" + escapeJsonPointer(prop)) : toQuotedString(getProperty(prop));
-    return joinPaths(currentPath, path3);
+    var path4 = jsonPointers ? toQuotedString("/" + escapeJsonPointer(prop)) : toQuotedString(getProperty(prop));
+    return joinPaths(currentPath, path4);
   }
   var JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
   var RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
@@ -34356,29 +34356,29 @@ var NodeFsOperations = {
       }
     }
   },
-  appendFileSync(path3, data) {
-    fs.appendFileSync(path3, data);
+  appendFileSync(path4, data) {
+    fs.appendFileSync(path4, data);
   },
   copyFileSync(src, dest) {
     fs.copyFileSync(src, dest);
   },
-  unlinkSync(path3) {
-    fs.unlinkSync(path3);
+  unlinkSync(path4) {
+    fs.unlinkSync(path4);
   },
   renameSync(oldPath, newPath) {
     fs.renameSync(oldPath, newPath);
   },
-  linkSync(target, path3) {
-    fs.linkSync(target, path3);
+  linkSync(target, path4) {
+    fs.linkSync(target, path4);
   },
-  symlinkSync(target, path3) {
-    fs.symlinkSync(target, path3);
+  symlinkSync(target, path4) {
+    fs.symlinkSync(target, path4);
   },
-  readlinkSync(path3) {
-    return fs.readlinkSync(path3);
+  readlinkSync(path4) {
+    return fs.readlinkSync(path4);
   },
-  realpathSync(path3) {
-    return fs.realpathSync(path3);
+  realpathSync(path4) {
+    return fs.realpathSync(path4);
   },
   mkdirSync(dirPath) {
     if (!fs.existsSync(dirPath)) {
@@ -34398,11 +34398,11 @@ var NodeFsOperations = {
   rmdirSync(dirPath) {
     fs.rmdirSync(dirPath);
   },
-  rmSync(path3, options) {
-    fs.rmSync(path3, options);
+  rmSync(path4, options) {
+    fs.rmSync(path4, options);
   },
-  createWriteStream(path3) {
-    return fs.createWriteStream(path3);
+  createWriteStream(path4) {
+    return fs.createWriteStream(path4);
   }
 };
 var activeFs = NodeFsOperations;
@@ -36305,8 +36305,8 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 var makeIssue = (params) => {
-  const { data, path: path3, errorMaps, issueData } = params;
-  const fullPath = [...path3, ...issueData.path || []];
+  const { data, path: path4, errorMaps, issueData } = params;
+  const fullPath = [...path4, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -36414,11 +36414,11 @@ var errorUtil;
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 var ParseInputLazyPath = class {
-  constructor(parent, value2, path3, key) {
+  constructor(parent, value2, path4, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value2;
-    this._path = path3;
+    this._path = path4;
     this._key = key;
   }
   get path() {
@@ -40479,7 +40479,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.101",
+  version: "0.0.102",
   type: "module",
   files: [
     "index.js",
@@ -40750,365 +40750,8 @@ var log = {
   endGroup: endGroup2
 };
 
-// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
-import path from "node:path";
-import * as process2 from "node:process";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { isDeepStrictEqual } from "node:util";
-
-// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/getCurrentLine.js
-var getFramesFromError = (error2) => {
-  let stack, frames;
-  try {
-    stack = error2.stack;
-  } catch (error1) {
-    try {
-      const previous = err.__previous__ || err.__previous;
-      stack = previous && previous.stack;
-    } catch (error22) {
-      stack = null;
-    }
-  }
-  if (stack)
-    frames = Array.isArray(stack) ? Array(stack) : stack.toString().split("\n");
-  else
-    frames = [];
-  return frames;
-};
-var lineRegex = /\s+at\s(?:(?<method>.+?)\s\()?(?<file>.+?):(?<line>\d+):(?<char>\d+)\)?\s*$/;
-var getLocationsFromFrames = (frames) => {
-  const locations = [];
-  for (const frame of frames) {
-    const line = (frame || "").toString();
-    if (line.length === 0)
-      continue;
-    const match2 = line.match(lineRegex);
-    if (match2 && match2.groups) {
-      locations.push({
-        method: match2.groups.method || "",
-        file: match2.groups.file || "",
-        line: Number(match2.groups.line),
-        char: Number(match2.groups.char)
-      });
-    }
-  }
-  return locations;
-};
-var failureLocation = {
-  line: -1,
-  char: -1,
-  method: "",
-  file: ""
-};
-var getLocationWithOffset = (locations, offset) => {
-  let found = !offset.file && !offset.method;
-  let i = 0;
-  while (i < locations.length) {
-    const location = locations[i];
-    if (offset.file && (typeof offset.file === "string" ? location.file.includes(offset.file) : offset.file.test(location.file)) || offset.method && (typeof offset.method === "string" ? location.method.includes(offset.method) : offset.method.test(location.method))) {
-      if (offset.immediate) {
-        i += offset.frames || 0;
-        return locations[i];
-      } else {
-        found = true;
-        ++i;
-        continue;
-      }
-    } else if (found) {
-      i += offset.frames || 0;
-      return locations[i];
-    } else {
-      ++i;
-      continue;
-    }
-  }
-  return failureLocation;
-};
-var getLocationsFromError = (error2) => {
-  const frames = getFramesFromError(error2);
-  return getLocationsFromFrames(frames);
-};
-var getLocationFromError = (error2, offset = {
-  immediate: true
-}) => {
-  const locations = getLocationsFromError(error2);
-  return getLocationWithOffset(locations, offset);
-};
-var getCurrentLine = (offset = {
-  method: "getCurrentLine",
-  frames: 0,
-  immediate: false
-}) => getLocationFromError(new Error(), offset);
-
-// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
-var nonexistentCurrentLine = {
-  line: -1,
-  char: -1,
-  method: "",
-  file: ""
-};
-var formatFilePath = (original, { relative, separator: separator2 }) => {
-  let formatted = original;
-  if (original.startsWith("file:///"))
-    formatted = fileURLToPath2(original);
-  if (relative) {
-    formatted = path.relative(typeof relative === "string" ? relative : process2.cwd(), formatted);
-  }
-  if (separator2) {
-    formatted = formatted.replaceAll(new RegExp(`\\${path.sep}`, "g"), separator2);
-  }
-  return formatted;
-};
-var caller = (options = {}) => {
-  let upStackBy = options.upStackBy ?? 0;
-  if (!options.methodName && !options.upStackBy)
-    upStackBy = 3;
-  let match2;
-  while (!match2) {
-    const location = getCurrentLine({
-      method: options.methodName,
-      frames: upStackBy
-    });
-    if (!location || isDeepStrictEqual(location, nonexistentCurrentLine)) {
-      throw new Error(`No caller of '${options.methodName}' matches given options: ${JSON.stringify(options, null, 4)}.`);
-    }
-    const candidate = {
-      ...location,
-      file: formatFilePath(location.file, options.formatPath ?? {})
-    };
-    if (options.skip?.(candidate))
-      upStackBy++;
-    else
-      match2 = candidate;
-  }
-  if (match2.file.startsWith("file:///"))
-    match2.file = fileURLToPath2(match2.file);
-  return match2;
-};
-
-// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
-import { dirname as dirname2, join as join4, parse } from "node:path";
-import * as process3 from "node:process";
-import { URL as URL2, fileURLToPath as fileURLToPath3 } from "node:url";
-var filePath = (path3) => {
-  let file;
-  if (path3.includes("://")) {
-    const url2 = new URL2(path3);
-    file = url2.protocol === "file:" ? fileURLToPath3(url2) : url2.href;
-  } else {
-    file = path3;
-  }
-  return file;
-};
-var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
-var fromHere = (...joinWith) => join4(dirOfCaller(), ...joinWith);
-var fsRoot = parse(process3.cwd()).root;
-
-// utils/github.ts
-var core2 = __toESM(require_core(), 1);
-import { createSign } from "node:crypto";
-function checkExistingToken() {
-  const inputToken = core2.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  return inputToken || envToken || null;
-}
-function isGitHubActionsEnvironment() {
-  return Boolean(process.env.GITHUB_ACTIONS);
-}
-async function acquireTokenViaOIDC() {
-  log.info("Generating OIDC token...");
-  const oidcToken = await core2.getIDToken("pullfrog-api");
-  log.info("OIDC token generated successfully");
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-  log.info("Exchanging OIDC token for installation token...");
-  const timeoutMs = 5e3;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${oidcToken}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!tokenResponse.ok) {
-      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
-    }
-    const tokenData = await tokenResponse.json();
-    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-    return tokenData.token;
-  } catch (error2) {
-    clearTimeout(timeoutId);
-    if (error2 instanceof Error && error2.name === "AbortError") {
-      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
-    }
-    throw error2;
-  }
-}
-var base64UrlEncode = (str) => {
-  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-};
-var generateJWT = (appId, privateKey) => {
-  const now = Math.floor(Date.now() / 1e3);
-  const payload = {
-    iat: now - 60,
-    exp: now + 5 * 60,
-    iss: appId
-  };
-  const header = {
-    alg: "RS256",
-    typ: "JWT"
-  };
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signaturePart = `${encodedHeader}.${encodedPayload}`;
-  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  return `${signaturePart}.${signature}`;
-};
-var githubRequest = async (path3, options = {}) => {
-  const { method = "GET", headers = {}, body } = options;
-  const url2 = `https://api.github.com${path3}`;
-  const requestHeaders = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
-    ...headers
-  };
-  const response = await fetch(url2, {
-    method,
-    headers: requestHeaders,
-    ...body && { body }
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `GitHub API request failed: ${response.status} ${response.statusText}
-${errorText}`
-    );
-  }
-  return response.json();
-};
-var checkRepositoryAccess = async (token, repoOwner, repoName) => {
-  try {
-    const response = await githubRequest("/installation/repositories", {
-      headers: { Authorization: `token ${token}` }
-    });
-    return response.repositories.some(
-      (repo) => repo.owner.login === repoOwner && repo.name === repoName
-    );
-  } catch {
-    return false;
-  }
-};
-var createInstallationToken = async (jwt, installationId) => {
-  const response = await githubRequest(
-    `/app/installations/${installationId}/access_tokens`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${jwt}` }
-    }
-  );
-  return response.token;
-};
-var findInstallationId = async (jwt, repoOwner, repoName) => {
-  const installations = await githubRequest("/app/installations", {
-    headers: { Authorization: `Bearer ${jwt}` }
-  });
-  for (const installation of installations) {
-    try {
-      const tempToken = await createInstallationToken(jwt, installation.id);
-      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
-      if (hasAccess) {
-        return installation.id;
-      }
-    } catch {
-    }
-  }
-  throw new Error(
-    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
-  );
-};
-async function acquireTokenViaGitHubApp() {
-  const repoContext = parseRepoContext();
-  const config = {
-    appId: process.env.GITHUB_APP_ID,
-    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    repoOwner: repoContext.owner,
-    repoName: repoContext.name
-  };
-  const jwt = generateJWT(config.appId, config.privateKey);
-  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
-  const token = await createInstallationToken(jwt, installationId);
-  return token;
-}
-async function acquireNewToken() {
-  if (isGitHubActionsEnvironment()) {
-    return await acquireTokenViaOIDC();
-  } else {
-    return await acquireTokenViaGitHubApp();
-  }
-}
-async function setupGitHubInstallationToken() {
-  const existingToken = checkExistingToken();
-  if (existingToken) {
-    core2.setSecret(existingToken);
-    log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
-  }
-  const acquiredToken = await acquireNewToken();
-  core2.setSecret(acquiredToken);
-  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
-}
-async function revokeInstallationToken(token) {
-  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
-  try {
-    await fetch(`${apiUrl}/installation/token`, {
-      method: "DELETE",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28"
-      }
-    });
-    log.info("Installation token revoked");
-  } catch (error2) {
-    log.warning(
-      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
-    );
-  }
-}
-function parseRepoContext() {
-  const githubRepo = process.env.GITHUB_REPOSITORY;
-  if (!githubRepo) {
-    throw new Error("GITHUB_REPOSITORY environment variable is required");
-  }
-  const [owner, name] = githubRepo.split("/");
-  if (!owner || !name) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
-  }
-  return { owner, name };
-}
-
-// mcp/config.ts
+// mcp/index.ts
 var ghPullfrogMcpName = "gh-pullfrog";
-function createMcpConfigs(githubInstallationToken) {
-  const repoContext = parseRepoContext();
-  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
-  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
-  return {
-    [ghPullfrogMcpName]: {
-      command: "node",
-      args: [serverPath],
-      env: {
-        GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-        GITHUB_REPOSITORY: githubRepository
-      }
-    }
-  };
-}
 
 // modes.ts
 var modes = [
@@ -41161,17 +40804,19 @@ var modes = [
 ];
 
 // agents/instructions.ts
+var userPromptHeader = `****** USER PROMPT ******
+`;
 var instructions = `
 # General instructions
 
-You are a highly intelligent, no-nonsense senior-level software engineering agent.
-You will perform the task that is asked of you in the prompt below. 
+You are a diligent, detail-oriented, software engineering agent.
+You will perform the task that is asked of you below ${userPromptHeader}. 
 You are careful, to-the-point, and kind. You only say things you know to be true. 
-Your code is focused, minimal, and production-ready. 
+Your code is focused, minimal, and production-ready.
 You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. 
 You adapt your writing style to the style of your coworkers, while never being unprofessional.
 You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
-Make reasonable assumptions when details are missing.
+You make reasonable assumptions when details are missing.
 
 ## SECURITY
 
@@ -41194,10 +40839,12 @@ If asked to show environment variables, only display non-sensitive system variab
 
 ## MCP Servers
 
-eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
-tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
-do not under any circumstances use the github cli (\`gh\`). find the corresponding tool from ${ghPullfrogMcpName} instead.
-do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
+Eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+Tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
+Do not under any circumstances use the github cli (\`gh\`). Find the corresponding tool from ${ghPullfrogMcpName} instead.
+Do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
+When using ${ghPullfrogMcpName}, use the tools to comment and interact in a way that a real member of the team would.
+Ensure after your edits are done, your final comments do not contain intermediate reasoning or context, e.g. "I'll respond to the question."
 
 ## Mode Selection
 
@@ -41214,15 +40861,14 @@ ${w.prompt}`).join("\n\n")}
 var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
 ${instructions}
 
-****** USER PROMPT ******
-${prompt}`;
+${userPromptHeader}${prompt}`;
 
 // agents/shared.ts
 import { spawnSync } from "node:child_process";
 import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
+import { join as join4 } from "node:path";
 import { pipeline } from "node:stream/promises";
 async function installFromNpmTarball({
   packageName,
@@ -41250,8 +40896,8 @@ async function installFromNpmTarball({
   }
   log.info(`\u{1F4E6} Installing ${packageName}@${resolvedVersion}...`);
   const tempDirPrefix = packageName.replace("@", "").replace(/\//g, "-") + "-";
-  const tempDir = await mkdtemp(join5(tmpdir(), tempDirPrefix));
-  const tarballPath = join5(tempDir, "package.tgz");
+  const tempDir = await mkdtemp(join4(tmpdir(), tempDirPrefix));
+  const tarballPath = join4(tempDir, "package.tgz");
   const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
   let tarballUrl;
   if (packageName.startsWith("@")) {
@@ -41280,8 +40926,8 @@ async function installFromNpmTarball({
       `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
     );
   }
-  const extractedDir = join5(tempDir, "package");
-  const cliPath = join5(extractedDir, executablePath);
+  const extractedDir = join4(tempDir, "package");
+  const cliPath = join4(extractedDir, executablePath);
   if (!existsSync2(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
   }
@@ -41424,11 +41070,11 @@ import { spawnSync as spawnSync2 } from "node:child_process";
 // node_modules/.pnpm/@openai+codex-sdk@0.58.0/node_modules/@openai/codex-sdk/dist/index.js
 import { promises as fs2 } from "fs";
 import os from "os";
-import path2 from "path";
+import path from "path";
 import { spawn as spawn2 } from "child_process";
-import path22 from "path";
+import path2 from "path";
 import readline from "readline";
-import { fileURLToPath as fileURLToPath4 } from "url";
+import { fileURLToPath as fileURLToPath2 } from "url";
 async function createOutputSchemaFile(schema2) {
   if (schema2 === void 0) {
     return { cleanup: async () => {
@@ -41437,8 +41083,8 @@ async function createOutputSchemaFile(schema2) {
   if (!isJsonObject(schema2)) {
     throw new Error("outputSchema must be a plain JSON object");
   }
-  const schemaDir = await fs2.mkdtemp(path2.join(os.tmpdir(), "codex-output-schema-"));
-  const schemaPath = path2.join(schemaDir, "schema.json");
+  const schemaDir = await fs2.mkdtemp(path.join(os.tmpdir(), "codex-output-schema-"));
+  const schemaPath = path.join(schemaDir, "schema.json");
   const cleanup = async () => {
     try {
       await fs2.rm(schemaDir, { recursive: true, force: true });
@@ -41663,8 +41309,8 @@ var CodexExec = class {
     }
   }
 };
-var scriptFileName = fileURLToPath4(import.meta.url);
-var scriptDirName = path22.dirname(scriptFileName);
+var scriptFileName = fileURLToPath2(import.meta.url);
+var scriptDirName = path2.dirname(scriptFileName);
 function findCodexPath() {
   const { platform, arch } = process;
   let targetTriple = null;
@@ -41712,10 +41358,10 @@ function findCodexPath() {
   if (!targetTriple) {
     throw new Error(`Unsupported platform: ${platform} (${arch})`);
   }
-  const vendorRoot = path22.join(scriptDirName, "..", "vendor");
-  const archRoot = path22.join(vendorRoot, targetTriple);
+  const vendorRoot = path2.join(scriptDirName, "..", "vendor");
+  const archRoot = path2.join(vendorRoot, targetTriple);
   const codexBinaryName = process.platform === "win32" ? "codex.exe" : "codex";
-  const binaryPath = path22.join(archRoot, "codex", codexBinaryName);
+  const binaryPath = path2.join(archRoot, "codex", codexBinaryName);
   return binaryPath;
 }
 var Codex = class {
@@ -41910,6 +41556,365 @@ var agents = {
   claude,
   codex
 };
+
+// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
+import path3 from "node:path";
+import * as process2 from "node:process";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { isDeepStrictEqual } from "node:util";
+
+// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/getCurrentLine.js
+var getFramesFromError = (error2) => {
+  let stack, frames;
+  try {
+    stack = error2.stack;
+  } catch (error1) {
+    try {
+      const previous = err.__previous__ || err.__previous;
+      stack = previous && previous.stack;
+    } catch (error22) {
+      stack = null;
+    }
+  }
+  if (stack)
+    frames = Array.isArray(stack) ? Array(stack) : stack.toString().split("\n");
+  else
+    frames = [];
+  return frames;
+};
+var lineRegex = /\s+at\s(?:(?<method>.+?)\s\()?(?<file>.+?):(?<line>\d+):(?<char>\d+)\)?\s*$/;
+var getLocationsFromFrames = (frames) => {
+  const locations = [];
+  for (const frame of frames) {
+    const line = (frame || "").toString();
+    if (line.length === 0)
+      continue;
+    const match2 = line.match(lineRegex);
+    if (match2 && match2.groups) {
+      locations.push({
+        method: match2.groups.method || "",
+        file: match2.groups.file || "",
+        line: Number(match2.groups.line),
+        char: Number(match2.groups.char)
+      });
+    }
+  }
+  return locations;
+};
+var failureLocation = {
+  line: -1,
+  char: -1,
+  method: "",
+  file: ""
+};
+var getLocationWithOffset = (locations, offset) => {
+  let found = !offset.file && !offset.method;
+  let i = 0;
+  while (i < locations.length) {
+    const location = locations[i];
+    if (offset.file && (typeof offset.file === "string" ? location.file.includes(offset.file) : offset.file.test(location.file)) || offset.method && (typeof offset.method === "string" ? location.method.includes(offset.method) : offset.method.test(location.method))) {
+      if (offset.immediate) {
+        i += offset.frames || 0;
+        return locations[i];
+      } else {
+        found = true;
+        ++i;
+        continue;
+      }
+    } else if (found) {
+      i += offset.frames || 0;
+      return locations[i];
+    } else {
+      ++i;
+      continue;
+    }
+  }
+  return failureLocation;
+};
+var getLocationsFromError = (error2) => {
+  const frames = getFramesFromError(error2);
+  return getLocationsFromFrames(frames);
+};
+var getLocationFromError = (error2, offset = {
+  immediate: true
+}) => {
+  const locations = getLocationsFromError(error2);
+  return getLocationWithOffset(locations, offset);
+};
+var getCurrentLine = (offset = {
+  method: "getCurrentLine",
+  frames: 0,
+  immediate: false
+}) => getLocationFromError(new Error(), offset);
+
+// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
+var nonexistentCurrentLine = {
+  line: -1,
+  char: -1,
+  method: "",
+  file: ""
+};
+var formatFilePath = (original, { relative, separator: separator2 }) => {
+  let formatted = original;
+  if (original.startsWith("file:///"))
+    formatted = fileURLToPath3(original);
+  if (relative) {
+    formatted = path3.relative(typeof relative === "string" ? relative : process2.cwd(), formatted);
+  }
+  if (separator2) {
+    formatted = formatted.replaceAll(new RegExp(`\\${path3.sep}`, "g"), separator2);
+  }
+  return formatted;
+};
+var caller = (options = {}) => {
+  let upStackBy = options.upStackBy ?? 0;
+  if (!options.methodName && !options.upStackBy)
+    upStackBy = 3;
+  let match2;
+  while (!match2) {
+    const location = getCurrentLine({
+      method: options.methodName,
+      frames: upStackBy
+    });
+    if (!location || isDeepStrictEqual(location, nonexistentCurrentLine)) {
+      throw new Error(`No caller of '${options.methodName}' matches given options: ${JSON.stringify(options, null, 4)}.`);
+    }
+    const candidate = {
+      ...location,
+      file: formatFilePath(location.file, options.formatPath ?? {})
+    };
+    if (options.skip?.(candidate))
+      upStackBy++;
+    else
+      match2 = candidate;
+  }
+  if (match2.file.startsWith("file:///"))
+    match2.file = fileURLToPath3(match2.file);
+  return match2;
+};
+
+// node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
+import { dirname as dirname2, join as join5, parse } from "node:path";
+import * as process3 from "node:process";
+import { URL as URL2, fileURLToPath as fileURLToPath4 } from "node:url";
+var filePath = (path4) => {
+  let file;
+  if (path4.includes("://")) {
+    const url2 = new URL2(path4);
+    file = url2.protocol === "file:" ? fileURLToPath4(url2) : url2.href;
+  } else {
+    file = path4;
+  }
+  return file;
+};
+var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
+var fromHere = (...joinWith) => join5(dirOfCaller(), ...joinWith);
+var fsRoot = parse(process3.cwd()).root;
+
+// utils/github.ts
+var core2 = __toESM(require_core(), 1);
+import { createSign } from "node:crypto";
+function checkExistingToken() {
+  const inputToken = core2.getInput("github_installation_token");
+  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
+  return inputToken || envToken || null;
+}
+function isGitHubActionsEnvironment() {
+  return Boolean(process.env.GITHUB_ACTIONS);
+}
+async function acquireTokenViaOIDC() {
+  log.info("Generating OIDC token...");
+  const oidcToken = await core2.getIDToken("pullfrog-api");
+  log.info("OIDC token generated successfully");
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  log.info("Exchanging OIDC token for installation token...");
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oidcToken}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!tokenResponse.ok) {
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+    }
+    const tokenData = await tokenResponse.json();
+    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    return tokenData.token;
+  } catch (error2) {
+    clearTimeout(timeoutId);
+    if (error2 instanceof Error && error2.name === "AbortError") {
+      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
+    }
+    throw error2;
+  }
+}
+var base64UrlEncode = (str) => {
+  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+};
+var generateJWT = (appId, privateKey) => {
+  const now = Math.floor(Date.now() / 1e3);
+  const payload = {
+    iat: now - 60,
+    exp: now + 5 * 60,
+    iss: appId
+  };
+  const header = {
+    alg: "RS256",
+    typ: "JWT"
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signaturePart = `${encodedHeader}.${encodedPayload}`;
+  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return `${signaturePart}.${signature}`;
+};
+var githubRequest = async (path4, options = {}) => {
+  const { method = "GET", headers = {}, body } = options;
+  const url2 = `https://api.github.com${path4}`;
+  const requestHeaders = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
+    ...headers
+  };
+  const response = await fetch(url2, {
+    method,
+    headers: requestHeaders,
+    ...body && { body }
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${response.statusText}
+${errorText}`
+    );
+  }
+  return response.json();
+};
+var checkRepositoryAccess = async (token, repoOwner, repoName) => {
+  try {
+    const response = await githubRequest("/installation/repositories", {
+      headers: { Authorization: `token ${token}` }
+    });
+    return response.repositories.some(
+      (repo) => repo.owner.login === repoOwner && repo.name === repoName
+    );
+  } catch {
+    return false;
+  }
+};
+var createInstallationToken = async (jwt, installationId) => {
+  const response = await githubRequest(
+    `/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwt}` }
+    }
+  );
+  return response.token;
+};
+var findInstallationId = async (jwt, repoOwner, repoName) => {
+  const installations = await githubRequest("/app/installations", {
+    headers: { Authorization: `Bearer ${jwt}` }
+  });
+  for (const installation of installations) {
+    try {
+      const tempToken = await createInstallationToken(jwt, installation.id);
+      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
+      if (hasAccess) {
+        return installation.id;
+      }
+    } catch {
+    }
+  }
+  throw new Error(
+    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
+  );
+};
+async function acquireTokenViaGitHubApp() {
+  const repoContext = parseRepoContext();
+  const config = {
+    appId: process.env.GITHUB_APP_ID,
+    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    repoOwner: repoContext.owner,
+    repoName: repoContext.name
+  };
+  const jwt = generateJWT(config.appId, config.privateKey);
+  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
+  const token = await createInstallationToken(jwt, installationId);
+  return token;
+}
+async function acquireNewToken() {
+  if (isGitHubActionsEnvironment()) {
+    return await acquireTokenViaOIDC();
+  } else {
+    return await acquireTokenViaGitHubApp();
+  }
+}
+async function setupGitHubInstallationToken() {
+  const existingToken = checkExistingToken();
+  if (existingToken) {
+    core2.setSecret(existingToken);
+    log.info("Using provided GitHub installation token");
+    return { githubInstallationToken: existingToken, wasAcquired: false };
+  }
+  const acquiredToken = await acquireNewToken();
+  core2.setSecret(acquiredToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
+  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+}
+async function revokeInstallationToken(token) {
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+  try {
+    await fetch(`${apiUrl}/installation/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    log.info("Installation token revoked");
+  } catch (error2) {
+    log.warning(
+      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
+}
+function parseRepoContext() {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+  return { owner, name };
+}
+
+// mcp/config.ts
+function createMcpConfigs(githubInstallationToken) {
+  const repoContext = parseRepoContext();
+  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
+  return {
+    [ghPullfrogMcpName]: {
+      command: "node",
+      args: [serverPath],
+      env: {
+        GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+        GITHUB_REPOSITORY: githubRepository
+      }
+    }
+  };
+}
 
 // utils/api.ts
 var DEFAULT_REPO_SETTINGS = {
