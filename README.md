@@ -11,7 +11,7 @@ GitHub Action for running Claude Code and other agents via Pullfrog.
 pnpm install
 ```
 
-## Testing with play.ts
+## Testing with `play.ts`
 
 ```bash
 pnpm play                        # Uses fixtures/play.txt

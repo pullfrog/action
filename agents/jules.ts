@@ -12,6 +12,7 @@ export const jules = agent({
       packageName: "@google/jules",
       version: "latest",
       executablePath: "run.cjs",
+      installDependencies: true,
     });
   },
   run: async ({

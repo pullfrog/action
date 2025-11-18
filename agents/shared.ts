@@ -37,10 +37,12 @@ export async function installFromNpmTarball({
   packageName,
   version,
   executablePath,
+  installDependencies,
 }: {
   packageName: string;
   version: string;
   executablePath: string;
+  installDependencies?: boolean;
 }): Promise<string> {
   // Resolve version if it's a range or "latest"
   let resolvedVersion = version;
@@ -117,6 +119,22 @@ export async function installFromNpmTarball({
 
   if (!existsSync(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
+  }
+
+  // Install dependencies if requested
+  if (installDependencies) {
+    log.info(`Installing dependencies for ${packageName}...`);
+    const installResult = spawnSync("npm", ["install", "--production"], {
+      cwd: extractedDir,
+      stdio: "pipe",
+      encoding: "utf-8",
+    });
+    if (installResult.status !== 0) {
+      throw new Error(
+        `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`✓ Dependencies installed`);
   }
 
   // Make the file executable
