@@ -8,7 +8,7 @@ import { agent, installFromCurl } from "./shared.ts";
 
 export const cursor = agent({
   name: "cursor",
-  inputKey: "cursor_api_key",
+  inputKeys: ["cursor_api_key"],
   install: async () => {
     return await installFromCurl({
       installUrl: "https://cursor.com/install",
@@ -93,10 +93,20 @@ export const cursor = agent({
         });
 
         // Handle process exit
-        child.on("close", (code) => {
+        child.on("close", (code, signal) => {
           clearTimeout(timeout);
 
-          if (code !== 0) {
+          if (signal) {
+            log.warning(`Cursor CLI terminated by signal: ${signal}`);
+          }
+
+          if (code === 0) {
+            log.success("Cursor CLI completed successfully");
+            resolve({
+              success: true,
+              output: stdout.trim(),
+            });
+          } else {
             const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
             log.error(`Cursor CLI failed: ${errorMessage}`);
             resolve({
