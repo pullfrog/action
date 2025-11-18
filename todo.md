@@ -1,6 +1,8 @@
 ## CURRENT
 
-[] handle progressive comment updating from pullfrog mcp
+[] jules/gemini support
+[] gemini installation speed
+[] standardize mcp server
 
 ## MAYBE
 
@@ -21,3 +23,4 @@
 [x] don't allow rejecting prs
 [x] fix pnpm caching
 [x] fix prompt to avoid narration like "I just read all tools from MCP server"
+[x] handle progressive comment updating from pullfrog mcp

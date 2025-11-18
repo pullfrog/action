@@ -1,11 +1,11 @@
 import { claude } from "./claude.ts";
 import { codex } from "./codex.ts";
-import { jules } from "./jules.ts";
+import { gemini } from "./gemini.ts";
 
 export const agents = {
   claude,
   codex,
-  jules,
+  gemini,
 } as const;
 
 export type AgentInputKey = (typeof agents)[keyof typeof agents]["inputKeys"][number];

@@ -149,9 +149,19 @@ export const agent = <const agent extends Agent>(agent: agent): agent => {
   return agent;
 };
 
+/**
+ * Parameters for adding an MCP server to an agent
+ */
+export interface AddMcpServerParams {
+  serverName: string;
+  serverConfig: Extract<McpServerConfig, { command: string }>;
+  cliPath: string;
+}
+
 export type Agent = {
   name: string;
   inputKeys: string[];
   install: () => Promise<string>;
+  addMcpServer: (params: AddMcpServerParams) => void;
   run: (config: AgentConfig) => Promise<AgentResult>;
 };

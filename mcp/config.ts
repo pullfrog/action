@@ -4,6 +4,7 @@
 
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { fromHere } from "@ark/fs";
+import { log } from "../utils/cli.ts";
 import { parseRepoContext } from "../utils/github.ts";
 import { ghPullfrogMcpName } from "./index.ts";
 
@@ -30,3 +31,22 @@ export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
     },
   };
 }
+
+/**
+ * Iterate through MCP servers and call the provided handler for each stdio server
+ * Shared logic to avoid duplication across agents
+ */
+export function forEachStdioMcpServer(
+  mcpServers: Record<string, McpServerConfig>,
+  handler: (serverName: string, serverConfig: Extract<McpServerConfig, { command: string }>) => void
+): void {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    // Only configure stdio servers (CLIs support stdio MCP servers)
+    if (!("command" in serverConfig)) {
+      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+      continue;
+    }
+    handler(serverName, serverConfig as Extract<McpServerConfig, { command: string }>);
+  }
+}
+
