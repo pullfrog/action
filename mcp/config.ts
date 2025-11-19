@@ -18,7 +18,7 @@ export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
 
   // In production (GitHub Actions), mcp-server.js is in same directory as entry.js (where this is bundled)
   // In development, server.ts is in the same directory as this file (config.ts)
-  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server") : fromHere("server.ts");
 
   return {
     [ghPullfrogMcpName]: {

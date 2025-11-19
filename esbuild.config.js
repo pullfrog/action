@@ -29,14 +29,14 @@ const sharedConfig = {
 await build({
   ...sharedConfig,
   entryPoints: ["./entry.ts"],
-  outfile: "./entry.js",
+  outfile: "./entry",
 });
 
 // Build the MCP server bundle
 await build({
   ...sharedConfig,
   entryPoints: ["./mcp/server.ts"],
-  outfile: "./mcp-server.js",
+  outfile: "./mcp-server",
 });
 
 console.log("✅ Build completed successfully!");
