@@ -15,9 +15,6 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  addMcpServer: () => {
-    // Claude accepts mcpServers directly in the query options, no configuration needed
-  },
   run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
 

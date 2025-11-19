@@ -33346,6 +33346,49 @@ async function installFromNpmTarball({
   log.info(`\u2713 ${packageName} installed at ${cliPath}`);
   return cliPath;
 }
+async function installFromCurl({
+  installUrl,
+  executableName
+}) {
+  log.info(`\u{1F4E6} Installing ${executableName}...`);
+  const tempDirPrefix = executableName.replace(/[^a-zA-Z0-9]/g, "-") + "-";
+  const tempDir = await mkdtemp(join4(tmpdir(), tempDirPrefix));
+  const installScriptPath = join4(tempDir, "install.sh");
+  log.info(`Downloading install script from ${installUrl}...`);
+  const installScriptResponse = await fetch(installUrl);
+  if (!installScriptResponse.ok) {
+    throw new Error(`Failed to download install script: ${installScriptResponse.status}`);
+  }
+  if (!installScriptResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream2(installScriptPath);
+  await pipeline(installScriptResponse.body, fileStream);
+  log.info(`Downloaded install script to ${installScriptPath}`);
+  chmodSync(installScriptPath, 493);
+  log.info("Installing to temp directory...");
+  const installResult = spawnSync("bash", [installScriptPath], {
+    cwd: tempDir,
+    env: {
+      ...process.env,
+      HOME: tempDir
+      // Cursor install script uses HOME for installation path
+    },
+    stdio: "pipe",
+    encoding: "utf-8"
+  });
+  if (installResult.status !== 0) {
+    const errorOutput = installResult.stderr || installResult.stdout || "No output";
+    throw new Error(
+      `Failed to install ${executableName}. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
+    );
+  }
+  const cliPath = join4(tempDir, ".local", "bin", executableName);
+  if (!existsSync2(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+  chmodSync(cliPath, 493);
+  log.info(`\u2713 ${executableName} installed at ${cliPath}`);
+  return cliPath;
+}
 var agent = (agent2) => {
   return agent2;
 };
@@ -33962,6 +34005,139 @@ function configureMcpServers({
   }
 }
 
+// agents/cursor.ts
+import { spawn as spawn3 } from "node:child_process";
+import { mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join5 } from "node:path";
+var cursor = agent({
+  name: "cursor",
+  inputKey: "cursor_api_key",
+  install: async () => {
+    return await installFromCurl({
+      installUrl: "https://cursor.com/install",
+      executableName: "cursor-agent"
+    });
+  },
+  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+    process.env.CURSOR_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
+      configureMcpServers2({ mcpServers, cliPath });
+    }
+    try {
+      const fullPrompt = addInstructions(prompt);
+      const tempDir = cliPath.split("/.local/bin/")[0];
+      log.info("Running Cursor CLI...");
+      return new Promise((resolve) => {
+        const child = spawn3(
+          cliPath,
+          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps"],
+          {
+            cwd: process.cwd(),
+            // Run in current working directory
+            env: {
+              ...process.env,
+              CURSOR_API_KEY: apiKey,
+              GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+              HOME: tempDir
+              // Set HOME so Cursor CLI can find .cursor/mcp.json
+            },
+            stdio: ["ignore", "pipe", "pipe"]
+            // Ignore stdin, pipe stdout/stderr
+          }
+        );
+        let stdout = "";
+        let stderr = "";
+        let hasOutput = false;
+        const timeout = setTimeout(() => {
+          if (!hasOutput && child.exitCode === null) {
+            log.warning("Cursor CLI appears to be hanging, killing process...");
+            child.kill("SIGTERM");
+            resolve({
+              success: false,
+              error: "Cursor CLI timed out - no output received",
+              output: stdout.trim()
+            });
+          }
+        }, 3e5);
+        child.on("spawn", () => {
+          log.debug("Cursor CLI process spawned");
+        });
+        child.stdout?.on("data", (data) => {
+          hasOutput = true;
+          const text = data.toString();
+          stdout += text;
+          process.stdout.write(text);
+        });
+        child.stderr?.on("data", (data) => {
+          hasOutput = true;
+          const text = data.toString();
+          stderr += text;
+          process.stderr.write(text);
+          log.warning(text);
+        });
+        child.on("close", (code) => {
+          clearTimeout(timeout);
+          if (code !== 0) {
+            const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
+            log.error(`Cursor CLI failed: ${errorMessage}`);
+            resolve({
+              success: false,
+              error: errorMessage,
+              output: stdout.trim()
+            });
+          }
+        });
+        child.on("error", (error2) => {
+          const errorMessage = error2.message || String(error2);
+          log.error(`Cursor CLI execution failed: ${errorMessage}`);
+          resolve({
+            success: false,
+            error: errorMessage,
+            output: stdout.trim()
+          });
+        });
+      });
+    } catch (error2) {
+      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+      log.error(`Cursor execution failed: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        output: ""
+      };
+    }
+  }
+});
+function configureMcpServers2({
+  mcpServers,
+  cliPath
+}) {
+  log.info("Configuring MCP servers for Cursor...");
+  const tempDir = cliPath.split("/.local/bin/")[0];
+  const cursorConfigDir = join5(tempDir, ".cursor");
+  const mcpConfigPath = join5(cursorConfigDir, "mcp.json");
+  const mcpConfig = {
+    mcpServers: {}
+  };
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    if (!("command" in serverConfig)) {
+      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
+      continue;
+    }
+    mcpConfig.mcpServers[serverName] = serverConfig;
+    log.info(`Adding MCP server '${serverName}'...`);
+  }
+  if (Object.keys(mcpConfig.mcpServers).length === 0) {
+    log.info("No MCP servers to configure");
+    return;
+  }
+  mkdirSync2(cursorConfigDir, { recursive: true });
+  writeFileSync2(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
+  log.info(`\u2713 MCP configuration written to ${mcpConfigPath}`);
+  log.info("MCP servers configured. Cursor CLI will use --approve-mcps to auto-approve servers.");
+}
+
 // utils/github.ts
 var core2 = __toESM(require_core(), 1);
 import { createSign } from "node:crypto";
@@ -34152,7 +34328,7 @@ function parseRepoContext() {
 
 // utils/subprocess.ts
 import { spawn as nodeSpawn } from "node:child_process";
-async function spawn3(options) {
+async function spawn4(options) {
   const { cmd, args: args2, env: env2, input, timeout, cwd: cwd4, onStdout, onStderr } = options;
   const startTime = Date.now();
   let stdoutBuffer = "";
@@ -34254,7 +34430,7 @@ var jules = agent({
     log.info(`Starting session with prompt: ${prompt.substring(0, 100)}...`);
     let sessionId;
     try {
-      const createResult = await spawn3({
+      const createResult = await spawn4({
         cmd: "node",
         args: [cliPath, "remote", "new", "--repo", repoName, "--session", sessionPrompt],
         onStdout: (chunk) => {
@@ -34304,7 +34480,7 @@ var jules = agent({
       await new Promise((resolve) => setTimeout(resolve, 1e4));
       pollAttempts++;
       try {
-        const listResult = await spawn3({
+        const listResult = await spawn4({
           cmd: "node",
           args: [cliPath, "remote", "list", "--session"],
           onStdout: (chunk) => {
@@ -34332,7 +34508,7 @@ var jules = agent({
     if (sessionId) {
       try {
         log.info(`Pulling results for session ${sessionId}...`);
-        const pullResult = await spawn3({
+        const pullResult = await spawn4({
           cmd: "node",
           args: [cliPath, "remote", "pull", "--session", sessionId],
           onStdout: (chunk) => {
@@ -34368,6 +34544,7 @@ var jules = agent({
 var agents = {
   claude,
   codex,
+  cursor,
   jules
 };
 
@@ -42098,7 +42275,7 @@ var caller = (options = {}) => {
 };
 
 // node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
-import { dirname as dirname2, join as join5, parse } from "node:path";
+import { dirname as dirname2, join as join6, parse } from "node:path";
 import * as process3 from "node:process";
 import { URL as URL2, fileURLToPath as fileURLToPath4 } from "node:url";
 var filePath = (path4) => {
@@ -42112,7 +42289,7 @@ var filePath = (path4) => {
   return file;
 };
 var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
-var fromHere = (...joinWith) => join5(dirOfCaller(), ...joinWith);
+var fromHere = (...joinWith) => join6(dirOfCaller(), ...joinWith);
 var fsRoot = parse(process3.cwd()).root;
 
 // mcp/config.ts

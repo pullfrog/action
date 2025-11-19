@@ -1,7 +1,7 @@
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
-import { createMcpConfigs, forEachStdioMcpServer } from "./mcp/config.ts";
+import { createMcpConfigs } from "./mcp/config.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { fetchRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
@@ -140,18 +140,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     }
 
     const apiKey = inputs[matchingInputKey]!;
-
-    // Configure MCP servers if provided (global config is fine - not part of repo)
-    if (mcpServers && Object.keys(mcpServers).length > 0) {
-      log.info(`Configuring MCP servers for ${agentName}...`);
-      forEachStdioMcpServer(mcpServers, (serverName, serverConfig) => {
-        agent.addMcpServer({
-          serverName,
-          serverConfig,
-          cliPath,
-        });
-      });
-    }
 
     const result = await agent.run({
       prompt: inputs.prompt,

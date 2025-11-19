@@ -1,1 +1,1 @@
-create a comment on https://github.com/pullfrogai/scratch/issues/21 with an implementation of an mcp tool for fetching issue comments from github
+create a comment on https://github.com/pullfrogai/scratch/pull/29 that says GEM ribbit
