@@ -10,7 +10,7 @@ import { ghPullfrogMcpName } from "./index.ts";
 
 export type McpName = typeof ghPullfrogMcpName;
 
-export type McpConfigs = Record<McpName, McpServerConfig>;
+export type McpConfigs = Record<McpName, McpStdioServerConfig>;
 
 export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
   const repoContext = parseRepoContext();
