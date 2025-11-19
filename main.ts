@@ -1,10 +1,10 @@
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
+import type { Payload } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
-import type { Payload } from "./payload.ts";
 import { fetchRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {

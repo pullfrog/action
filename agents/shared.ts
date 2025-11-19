@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import type { Payload } from "../payload.ts";
+import type { Payload } from "../external.ts";
 import { log } from "../utils/cli.ts";
 
 /**
