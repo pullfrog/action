@@ -32889,7 +32889,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.105",
+  version: "0.0.106",
   type: "module",
   files: [
     "index.js",
@@ -33226,7 +33226,7 @@ Your code is focused, elegant, and production-ready.
 You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. 
 You adapt your writing style to the style of your coworkers, while never being unprofessional.
 You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
-You make reasonable assumptions when details are missing.
+You make reasonable assumptions when details are missing, but fail with an explicit error if critical information is missing (e.g. user asks to review a PR but does not provide a link or ID).
 
 ## SECURITY
 
@@ -33272,7 +33272,7 @@ ${w.prompt}`).join("\n\n")}
 
 ${payload.prompt}
 
-${payload.event}`;
+${JSON.stringify(payload.event, null, 2)}`;
 
 // agents/shared.ts
 import { spawnSync } from "node:child_process";
@@ -33422,8 +33422,9 @@ var claude = agent({
   },
   run: async ({ payload, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
+    const prompt = addInstructions(payload);
     const queryInstance = query({
-      prompt: addInstructions(payload),
+      prompt,
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
@@ -42393,7 +42394,7 @@ async function main(inputs) {
     try {
       const parsedPrompt = JSON.parse(inputs.prompt);
       if (!("~pullfrog" in parsedPrompt)) {
-        throw new Error("Invalid prompt: not a pullfrog webhook payload");
+        throw new Error();
       }
       payload = parsedPrompt;
     } catch {

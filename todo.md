@@ -14,6 +14,7 @@
 [] try to find heavy claude code user
 [] investigate including terminal output from bash commands as collapsed groups from claude
 [] test initialization trade offs for pullfrog.yml
+[] split up prompts, load dynamically based on mode
 
 ## DONE
  
