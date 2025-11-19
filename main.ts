@@ -131,7 +131,8 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       // attempt JSON parsing
       const parsedPrompt = JSON.parse(inputs.prompt);
       if (!("~pullfrog" in parsedPrompt)) {
-        throw new Error("Invalid prompt: not a pullfrog webhook payload");
+        // is non-pullfrog JSON (probably from a GitHub event), treat it as a plain text prompt
+        throw new Error();
       }
       payload = parsedPrompt as Payload;
     } catch {

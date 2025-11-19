@@ -1,5 +1,6 @@
 /** May be a `github.event` payload that has been stringified. This case needs to be detected and handled appropriately. */
 
+import type { AgentName } from "./main.ts";
 import type { Mode } from "./modes.ts";
 
 // type Payload = GithubEventPayload | WorkflowDispatchPayload;
@@ -11,7 +12,7 @@ export type Payload = {
   /**
    * Agent slug identifier (e.g., "claude", "codex", "gemini")
    */
-  readonly agent: string | null;
+  readonly agent: AgentName | null;
 
   /**
    * The prompt/instructions for the agent to execute

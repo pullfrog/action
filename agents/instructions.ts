@@ -2,8 +2,6 @@ import { ghPullfrogMcpName } from "../mcp/index.ts";
 import { modes } from "../modes.ts";
 import type { Payload } from "../payload.ts";
 
-// const userPromptHeader = `************* USER PROMPT *************\n`;
-
 export const addInstructions = (payload: Payload) =>
   `************* GENERAL INSTRUCTIONS *************
 # General instructions
