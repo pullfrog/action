@@ -15,11 +15,11 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
 
     const queryInstance = query({
-      prompt: addInstructions(prompt),
+      prompt: addInstructions(payload),
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,

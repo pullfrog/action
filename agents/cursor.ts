@@ -14,7 +14,7 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ prompt, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
+  run: async ({ payload, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
     process.env.CURSOR_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
@@ -24,7 +24,7 @@ export const cursor = agent({
       // Run cursor-agent in non-interactive mode with the prompt
       // Using -p flag for prompt, --output-format text for plain text output
       // and --approve-mcps to automatically approve all MCP servers
-      const fullPrompt = addInstructions(prompt);
+      const fullPrompt = addInstructions(payload);
 
       // Find temp directory from cliPath to set HOME for MCP config lookup
       const tempDir = cliPath.split("/.local/bin/")[0];

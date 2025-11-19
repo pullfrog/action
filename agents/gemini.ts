@@ -15,7 +15,7 @@ export const gemini = agent({
       installDependencies: true,
     });
   },
-  run: async ({ prompt, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
+  run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
     configureGeminiMcpServers({ mcpServers, cliPath });
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
@@ -25,8 +25,8 @@ export const gemini = agent({
     process.env.GEMINI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
-    const sessionPrompt = addInstructions(prompt);
-    log.info(`Starting Gemini CLI with prompt: ${prompt.substring(0, 100)}...`);
+    const sessionPrompt = addInstructions(payload);
+    log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
 
     let finalOutput = "";
     try {

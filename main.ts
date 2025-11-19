@@ -2,7 +2,9 @@ import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
+import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
+import type { Payload } from "./payload.ts";
 import { fetchRepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {
@@ -122,11 +124,27 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const cliPath = await agent.install();
 
     log.info(`Running ${agentName}...`);
-    log.box(inputs.prompt, { title: "Prompt" });
 
-    // TODO: check if `inputs.prompts` is JSON
-    // if yes, check if it's a webhook payload or toJSON(github.event)
-    // for webhook payloads, check the specified `agent` field
+    let payload: Payload;
+
+    try {
+      // attempt JSON parsing
+      const parsedPrompt = JSON.parse(inputs.prompt);
+      if (!("~pullfrog" in parsedPrompt)) {
+        throw new Error("Invalid prompt: not a pullfrog webhook payload");
+      }
+      payload = parsedPrompt as Payload;
+    } catch {
+      payload = {
+        "~pullfrog": true,
+        agent: null,
+        prompt: inputs.prompt,
+        event: {},
+        modes,
+      };
+    }
+
+    log.box(payload.prompt, { title: "Prompt" });
 
     const matchingInputKey = agent.inputKeys.find((inputKey) => inputs[inputKey]);
 
@@ -142,7 +160,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const apiKey = inputs[matchingInputKey]!;
 
     const result = await agent.run({
-      prompt: inputs.prompt,
+      payload,
       mcpServers,
       githubInstallationToken,
       apiKey,

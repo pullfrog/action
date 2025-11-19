@@ -1,6 +1,12 @@
 import { ghPullfrogMcpName } from "./mcp/index.ts";
 
-export const modes = [
+export interface Mode {
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+export const modes: Mode[] = [
   {
     name: "Plan",
     description:
@@ -51,4 +57,4 @@ export const modes = [
 3. As your work progresses, update your Working Comment to share progress and results using ${ghPullfrogMcpName}/update_working_comment. Do not create additional comments unless you are explicitly asked to do so.
 4. When you finish the task, update the Working Comment a final time with a summary of the results and links to any created issues, PRs, etc.`,
   },
-] as const;
+];

@@ -14,7 +14,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.OPENAI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
@@ -39,7 +39,7 @@ export const codex = agent({
 
     try {
       // Use runStreamed to get streaming events similar to claude.ts
-      const streamedTurn = await thread.runStreamed(addInstructions(prompt));
+      const streamedTurn = await thread.runStreamed(addInstructions(payload));
 
       // Stream events and handle them
       let finalOutput = "";

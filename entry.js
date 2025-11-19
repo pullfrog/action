@@ -32913,12 +32913,13 @@ var package_default = {
   },
   dependencies: {
     "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
     "@anthropic-ai/claude-agent-sdk": "0.1.37",
-    "@openai/codex-sdk": "0.58.0",
     "@ark/fs": "0.53.0",
     "@ark/util": "0.53.0",
     "@octokit/rest": "^22.0.0",
     "@octokit/webhooks-types": "^7.6.1",
+    "@openai/codex-sdk": "0.58.0",
     "@standard-schema/spec": "1.0.0",
     arktype: "2.1.25",
     dotenv: "^17.2.3",
@@ -33214,13 +33215,11 @@ var modes = [
 ];
 
 // agents/instructions.ts
-var userPromptHeader = `****** USER PROMPT ******
-`;
-var instructions = `
+var addInstructions = (payload) => `************* GENERAL INSTRUCTIONS *************
 # General instructions
 
 You are a diligent, detail-oriented, no-nonsense software engineering agent.
-You will perform the task that is asked of you below ${userPromptHeader}. 
+You will perform the task described in the *USER PROMPT* below. 
 You are careful, to-the-point, and kind. You only say things you know to be true.
 You have an extreme bias toward minimalism in your code and responses.
 Your code is focused, elegant, and production-ready.
@@ -33261,18 +33260,19 @@ Ensure after your edits are done, your final comments do not contain intermediat
 
 choose the appropriate mode based on the prompt payload:
 
-${modes.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ## Modes
 
-${modes.map((w) => `### ${w.name}
+${[...modes, ...payload.modes].map((w) => `### ${w.name}
 
 ${w.prompt}`).join("\n\n")}
-`;
-var addInstructions = (prompt) => `****** GENERAL INSTRUCTIONS ******
-${instructions}
 
-${userPromptHeader}${prompt}`;
+************* USER PROMPT *************
+
+${payload.prompt}
+
+${payload.event}`;
 
 // agents/shared.ts
 import { spawnSync } from "node:child_process";
@@ -33284,7 +33284,8 @@ import { pipeline } from "node:stream/promises";
 async function installFromNpmTarball({
   packageName,
   version,
-  executablePath
+  executablePath,
+  installDependencies
 }) {
   let resolvedVersion = version;
   if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
@@ -33341,6 +33342,20 @@ async function installFromNpmTarball({
   const cliPath = join4(extractedDir, executablePath);
   if (!existsSync2(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
+  }
+  if (installDependencies) {
+    log.info(`Installing dependencies for ${packageName}...`);
+    const installResult = spawnSync("npm", ["install", "--production"], {
+      cwd: extractedDir,
+      stdio: "pipe",
+      encoding: "utf-8"
+    });
+    if (installResult.status !== 0) {
+      throw new Error(
+        `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 Dependencies installed`);
   }
   chmodSync(cliPath, 493);
   log.info(`\u2713 ${packageName} installed at ${cliPath}`);
@@ -33405,10 +33420,10 @@ var claude = agent({
       executablePath: "cli.js"
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath }) => {
     process.env.ANTHROPIC_API_KEY = apiKey;
     const queryInstance = query({
-      prompt: addInstructions(prompt),
+      prompt: addInstructions(payload),
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
@@ -33855,12 +33870,10 @@ var codex = agent({
       executablePath: "bin/codex.js"
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.OPENAI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-    if (mcpServers && Object.keys(mcpServers).length > 0) {
-      configureMcpServers({ mcpServers, apiKey, cliPath });
-    }
+    configureCodexMcpServers({ mcpServers, cliPath });
     const codexOptions = {
       apiKey,
       codexPathOverride: cliPath
@@ -33872,7 +33885,7 @@ var codex = agent({
       networkAccessEnabled: true
     });
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions(prompt));
+      const streamedTurn = await thread.runStreamed(addInstructions(payload));
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers2[event.type];
@@ -33968,17 +33981,8 @@ var messageHandlers2 = {
     log.error(`Error: ${event.message}`);
   }
 };
-function configureMcpServers({
-  mcpServers,
-  apiKey,
-  cliPath
-}) {
-  log.info("Configuring MCP servers for Codex...");
+function configureCodexMcpServers({ mcpServers, cliPath }) {
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    if (!("command" in serverConfig)) {
-      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
-      continue;
-    }
     const command = serverConfig.command;
     const args2 = serverConfig.args || [];
     const envVars = serverConfig.env || {};
@@ -33990,11 +33994,7 @@ function configureMcpServers({
     log.info(`Adding MCP server '${serverName}'...`);
     const addResult = spawnSync2("node", [cliPath, ...addArgs], {
       stdio: "pipe",
-      encoding: "utf-8",
-      env: {
-        ...process.env,
-        OPENAI_API_KEY: apiKey
-      }
+      encoding: "utf-8"
     });
     if (addResult.status !== 0) {
       throw new Error(
@@ -34011,27 +34011,25 @@ import { mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "node:f
 import { join as join5 } from "node:path";
 var cursor = agent({
   name: "cursor",
-  inputKey: "cursor_api_key",
+  inputKeys: ["cursor_api_key"],
   install: async () => {
     return await installFromCurl({
       installUrl: "https://cursor.com/install",
       executableName: "cursor-agent"
     });
   },
-  run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+  run: async ({ payload, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
     process.env.CURSOR_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-    if (mcpServers && Object.keys(mcpServers).length > 0) {
-      configureMcpServers2({ mcpServers, cliPath });
-    }
+    configureCursorMcpServers({ mcpServers, cliPath });
     try {
-      const fullPrompt = addInstructions(prompt);
+      const fullPrompt = addInstructions(payload);
       const tempDir = cliPath.split("/.local/bin/")[0];
       log.info("Running Cursor CLI...");
       return new Promise((resolve) => {
         const child = spawn3(
           cliPath,
-          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps"],
+          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps", "--force"],
           {
             cwd: process.cwd(),
             // Run in current working directory
@@ -34048,37 +34046,31 @@ var cursor = agent({
         );
         let stdout = "";
         let stderr = "";
-        let hasOutput = false;
-        const timeout = setTimeout(() => {
-          if (!hasOutput && child.exitCode === null) {
-            log.warning("Cursor CLI appears to be hanging, killing process...");
-            child.kill("SIGTERM");
-            resolve({
-              success: false,
-              error: "Cursor CLI timed out - no output received",
-              output: stdout.trim()
-            });
-          }
-        }, 3e5);
         child.on("spawn", () => {
           log.debug("Cursor CLI process spawned");
         });
         child.stdout?.on("data", (data) => {
-          hasOutput = true;
           const text = data.toString();
           stdout += text;
           process.stdout.write(text);
         });
         child.stderr?.on("data", (data) => {
-          hasOutput = true;
           const text = data.toString();
           stderr += text;
           process.stderr.write(text);
           log.warning(text);
         });
-        child.on("close", (code) => {
-          clearTimeout(timeout);
-          if (code !== 0) {
+        child.on("close", (code, signal) => {
+          if (signal) {
+            log.warning(`Cursor CLI terminated by signal: ${signal}`);
+          }
+          if (code === 0) {
+            log.success("Cursor CLI completed successfully");
+            resolve({
+              success: true,
+              output: stdout.trim()
+            });
+          } else {
             const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
             log.error(`Cursor CLI failed: ${errorMessage}`);
             resolve({
@@ -34109,222 +34101,16 @@ var cursor = agent({
     }
   }
 });
-function configureMcpServers2({
-  mcpServers,
-  cliPath
-}) {
-  log.info("Configuring MCP servers for Cursor...");
+function configureCursorMcpServers({ mcpServers, cliPath }) {
   const tempDir = cliPath.split("/.local/bin/")[0];
   const cursorConfigDir = join5(tempDir, ".cursor");
   const mcpConfigPath = join5(cursorConfigDir, "mcp.json");
-  const mcpConfig = {
-    mcpServers: {}
-  };
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    if (!("command" in serverConfig)) {
-      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
-      continue;
-    }
-    mcpConfig.mcpServers[serverName] = serverConfig;
-    log.info(`Adding MCP server '${serverName}'...`);
-  }
-  if (Object.keys(mcpConfig.mcpServers).length === 0) {
-    log.info("No MCP servers to configure");
-    return;
-  }
   mkdirSync2(cursorConfigDir, { recursive: true });
-  writeFileSync2(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
-  log.info(`\u2713 MCP configuration written to ${mcpConfigPath}`);
-  log.info("MCP servers configured. Cursor CLI will use --approve-mcps to auto-approve servers.");
+  writeFileSync2(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
 }
 
-// utils/github.ts
-var core2 = __toESM(require_core(), 1);
-import { createSign } from "node:crypto";
-function checkExistingToken() {
-  const inputToken = core2.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  return inputToken || envToken || null;
-}
-function isGitHubActionsEnvironment() {
-  return Boolean(process.env.GITHUB_ACTIONS);
-}
-async function acquireTokenViaOIDC() {
-  log.info("Generating OIDC token...");
-  const oidcToken = await core2.getIDToken("pullfrog-api");
-  log.info("OIDC token generated successfully");
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
-  log.info("Exchanging OIDC token for installation token...");
-  const timeoutMs = 5e3;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${oidcToken}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!tokenResponse.ok) {
-      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
-    }
-    const tokenData = await tokenResponse.json();
-    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
-    return tokenData.token;
-  } catch (error2) {
-    clearTimeout(timeoutId);
-    if (error2 instanceof Error && error2.name === "AbortError") {
-      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
-    }
-    throw error2;
-  }
-}
-var base64UrlEncode = (str) => {
-  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-};
-var generateJWT = (appId, privateKey) => {
-  const now = Math.floor(Date.now() / 1e3);
-  const payload = {
-    iat: now - 60,
-    exp: now + 5 * 60,
-    iss: appId
-  };
-  const header = {
-    alg: "RS256",
-    typ: "JWT"
-  };
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signaturePart = `${encodedHeader}.${encodedPayload}`;
-  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  return `${signaturePart}.${signature}`;
-};
-var githubRequest = async (path4, options = {}) => {
-  const { method = "GET", headers = {}, body } = options;
-  const url2 = `https://api.github.com${path4}`;
-  const requestHeaders = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
-    ...headers
-  };
-  const response = await fetch(url2, {
-    method,
-    headers: requestHeaders,
-    ...body && { body }
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `GitHub API request failed: ${response.status} ${response.statusText}
-${errorText}`
-    );
-  }
-  return response.json();
-};
-var checkRepositoryAccess = async (token, repoOwner, repoName) => {
-  try {
-    const response = await githubRequest("/installation/repositories", {
-      headers: { Authorization: `token ${token}` }
-    });
-    return response.repositories.some(
-      (repo) => repo.owner.login === repoOwner && repo.name === repoName
-    );
-  } catch {
-    return false;
-  }
-};
-var createInstallationToken = async (jwt, installationId) => {
-  const response = await githubRequest(
-    `/app/installations/${installationId}/access_tokens`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${jwt}` }
-    }
-  );
-  return response.token;
-};
-var findInstallationId = async (jwt, repoOwner, repoName) => {
-  const installations = await githubRequest("/app/installations", {
-    headers: { Authorization: `Bearer ${jwt}` }
-  });
-  for (const installation of installations) {
-    try {
-      const tempToken = await createInstallationToken(jwt, installation.id);
-      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
-      if (hasAccess) {
-        return installation.id;
-      }
-    } catch {
-    }
-  }
-  throw new Error(
-    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
-  );
-};
-async function acquireTokenViaGitHubApp() {
-  const repoContext = parseRepoContext();
-  const config = {
-    appId: process.env.GITHUB_APP_ID,
-    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    repoOwner: repoContext.owner,
-    repoName: repoContext.name
-  };
-  const jwt = generateJWT(config.appId, config.privateKey);
-  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
-  const token = await createInstallationToken(jwt, installationId);
-  return token;
-}
-async function acquireNewToken() {
-  if (isGitHubActionsEnvironment()) {
-    return await acquireTokenViaOIDC();
-  } else {
-    return await acquireTokenViaGitHubApp();
-  }
-}
-async function setupGitHubInstallationToken() {
-  const existingToken = checkExistingToken();
-  if (existingToken) {
-    core2.setSecret(existingToken);
-    log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
-  }
-  const acquiredToken = await acquireNewToken();
-  core2.setSecret(acquiredToken);
-  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
-}
-async function revokeInstallationToken(token) {
-  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
-  try {
-    await fetch(`${apiUrl}/installation/token`, {
-      method: "DELETE",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28"
-      }
-    });
-    log.info("Installation token revoked");
-  } catch (error2) {
-    log.warning(
-      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
-    );
-  }
-}
-function parseRepoContext() {
-  const githubRepo = process.env.GITHUB_REPOSITORY;
-  if (!githubRepo) {
-    throw new Error("GITHUB_REPOSITORY environment variable is required");
-  }
-  const [owner, name] = githubRepo.split("/");
-  if (!owner || !name) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
-  }
-  return { owner, name };
-}
+// agents/gemini.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
 
 // utils/subprocess.ts
 import { spawn as nodeSpawn } from "node:child_process";
@@ -34401,151 +34187,106 @@ async function spawn4(options) {
   });
 }
 
-// agents/jules.ts
-var jules = agent({
-  name: "jules",
+// agents/gemini.ts
+var gemini = agent({
+  name: "gemini",
   inputKeys: ["google_api_key", "gemini_api_key"],
   install: async () => {
     return await installFromNpmTarball({
-      packageName: "@google/jules",
+      packageName: "@google/gemini-cli",
       version: "latest",
-      executablePath: "run.cjs"
+      executablePath: "dist/index.js",
+      installDependencies: true
     });
   },
-  run: async ({
-    prompt,
-    apiKey,
-    mcpServers: _mcpServers,
-    githubInstallationToken: _githubInstallationToken,
-    cliPath
-  }) => {
+  run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
+    configureGeminiMcpServers({ mcpServers, cliPath });
     if (!apiKey) {
-      throw new Error("google_api_key is required for jules agent");
+      throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
-    process.env.GOOGLE_API_KEY = apiKey;
-    const repoContext = parseRepoContext();
-    const repoName = `${repoContext.owner}/${repoContext.name}`;
-    log.info(`Creating Jules session for ${repoName}...`);
-    const sessionPrompt = addInstructions(prompt);
-    log.info(`Starting session with prompt: ${prompt.substring(0, 100)}...`);
-    let sessionId;
+    process.env.GEMINI_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    const sessionPrompt = addInstructions(payload);
+    log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
+    let finalOutput = "";
     try {
-      const createResult = await spawn4({
+      const result = await spawn4({
         cmd: "node",
-        args: [cliPath, "remote", "new", "--repo", repoName, "--session", sessionPrompt],
+        args: [cliPath, "--yolo", "--output-format", "text", sessionPrompt],
+        env: {
+          GEMINI_API_KEY: apiKey,
+          GITHUB_INSTALLATION_TOKEN: githubInstallationToken
+        },
         onStdout: (chunk) => {
-          log.info(chunk.trim());
-          const match2 = chunk.match(/session[:\s]+(\d+)/i) || chunk.match(/id[:\s]+(\d+)/i);
-          if (match2 && !sessionId) {
-            sessionId = match2[1];
-            log.info(`\u2713 Session ID: ${sessionId}`);
+          const trimmed = chunk.trim();
+          if (trimmed) {
+            log.info(trimmed);
+            finalOutput += trimmed + "\n";
           }
         },
         onStderr: (chunk) => {
-          log.warning(chunk.trim());
+          const trimmed = chunk.trim();
+          if (trimmed) {
+            log.warning(trimmed);
+            finalOutput += trimmed + "\n";
+          }
         }
       });
-      if (createResult.exitCode !== 0) {
-        throw new Error(
-          `Failed to create Jules session: ${createResult.stderr || createResult.stdout || "Unknown error"}`
-        );
+      if (result.exitCode !== 0) {
+        const errorMessage = result.stderr || result.stdout || "Unknown error";
+        log.error(`Gemini CLI exited with code ${result.exitCode}: ${errorMessage}`);
+        return {
+          success: false,
+          error: errorMessage,
+          output: finalOutput || result.stdout || ""
+        };
       }
-      if (!sessionId) {
-        const output = createResult.stdout + createResult.stderr;
-        const match2 = output.match(/session[:\s]+(\d+)/i) || output.match(/id[:\s]+(\d+)/i);
-        if (match2) {
-          sessionId = match2[1];
-        }
-      }
-      if (!sessionId) {
-        log.warning("Could not extract session ID from output. Session may have been created.");
-        log.info(`Output: ${createResult.stdout}`);
-      } else {
-        log.info(`\u2713 Session created: ${sessionId}`);
-      }
+      finalOutput = finalOutput || result.stdout || "Gemini CLI completed successfully.";
+      log.info("\u2713 Gemini CLI completed successfully");
+      return {
+        success: true,
+        output: finalOutput
+      };
     } catch (error2) {
       const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-      log.error(`Failed to create Jules session: ${errorMessage}`);
+      log.error(`Failed to run Gemini CLI: ${errorMessage}`);
       return {
         success: false,
         error: errorMessage,
-        output: ""
+        output: finalOutput || ""
       };
     }
-    log.info("Monitoring session progress...");
-    let finalOutput = "";
-    const maxPollAttempts = 300;
-    let pollAttempts = 0;
-    while (pollAttempts < maxPollAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, 1e4));
-      pollAttempts++;
-      try {
-        const listResult = await spawn4({
-          cmd: "node",
-          args: [cliPath, "remote", "list", "--session"],
-          onStdout: (chunk) => {
-            const trimmed = chunk.trim();
-            if (trimmed) {
-              log.info(trimmed);
-            }
-          }
-        });
-        if (listResult.exitCode === 0) {
-          const output = listResult.stdout;
-          if (sessionId && output.includes(sessionId)) {
-            if (output.includes("completed") || output.includes("done") || output.includes("finished")) {
-              log.info("Session appears to be completed");
-              finalOutput = "Session completed. Pulling results...";
-              break;
-            }
-          }
-        }
-      } catch (error2) {
-        const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-        log.warning(`Error checking session status: ${errorMessage}`);
-      }
-    }
-    if (sessionId) {
-      try {
-        log.info(`Pulling results for session ${sessionId}...`);
-        const pullResult = await spawn4({
-          cmd: "node",
-          args: [cliPath, "remote", "pull", "--session", sessionId],
-          onStdout: (chunk) => {
-            log.info(chunk.trim());
-          },
-          onStderr: (chunk) => {
-            log.warning(chunk.trim());
-          }
-        });
-        if (pullResult.exitCode === 0) {
-          finalOutput = pullResult.stdout || "Results pulled successfully.";
-        } else {
-          log.warning(`Failed to pull results: ${pullResult.stderr || pullResult.stdout}`);
-          finalOutput = finalOutput || "Session completed. Check Jules dashboard for results.";
-        }
-      } catch (error2) {
-        const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-        log.warning(`Error pulling results: ${errorMessage}`);
-      }
-    }
-    if (pollAttempts >= maxPollAttempts) {
-      log.warning("Session monitoring timeout reached. Session may still be in progress.");
-      finalOutput = finalOutput || "Session monitoring timeout. Check Jules dashboard for session status.";
-    }
-    return {
-      success: true,
-      output: finalOutput || "Jules session completed. Check the Jules dashboard for results."
-    };
   }
 });
+function configureGeminiMcpServers({ mcpServers, cliPath }) {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    const command = serverConfig.command;
+    const args2 = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+    const addArgs = ["mcp", "add", serverName, command, ...args2];
+    for (const [key, value2] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value2}`);
+    }
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync3("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8"
+    });
+    if (addResult.status !== 0) {
+      throw new Error(
+        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 MCP server '${serverName}' configured`);
+  }
+}
 
 // agents/index.ts
 var agents = {
   claude,
   codex,
   cursor,
-  jules
+  gemini
 };
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/shared/registry.js
@@ -42292,6 +42033,194 @@ var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", up
 var fromHere = (...joinWith) => join6(dirOfCaller(), ...joinWith);
 var fsRoot = parse(process3.cwd()).root;
 
+// utils/github.ts
+var core2 = __toESM(require_core(), 1);
+import { createSign } from "node:crypto";
+function checkExistingToken() {
+  const inputToken = core2.getInput("github_installation_token");
+  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
+  return inputToken || envToken || null;
+}
+function isGitHubActionsEnvironment() {
+  return Boolean(process.env.GITHUB_ACTIONS);
+}
+async function acquireTokenViaOIDC() {
+  log.info("Generating OIDC token...");
+  const oidcToken = await core2.getIDToken("pullfrog-api");
+  log.info("OIDC token generated successfully");
+  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  log.info("Exchanging OIDC token for installation token...");
+  const timeoutMs = 5e3;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oidcToken}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!tokenResponse.ok) {
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+    }
+    const tokenData = await tokenResponse.json();
+    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    return tokenData.token;
+  } catch (error2) {
+    clearTimeout(timeoutId);
+    if (error2 instanceof Error && error2.name === "AbortError") {
+      throw new Error(`Token exchange timed out after ${timeoutMs}ms`);
+    }
+    throw error2;
+  }
+}
+var base64UrlEncode = (str) => {
+  return Buffer.from(str).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+};
+var generateJWT = (appId, privateKey) => {
+  const now = Math.floor(Date.now() / 1e3);
+  const payload = {
+    iat: now - 60,
+    exp: now + 5 * 60,
+    iss: appId
+  };
+  const header = {
+    alg: "RS256",
+    typ: "JWT"
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signaturePart = `${encodedHeader}.${encodedPayload}`;
+  const signature = createSign("RSA-SHA256").update(signaturePart).sign(privateKey, "base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return `${signaturePart}.${signature}`;
+};
+var githubRequest = async (path4, options = {}) => {
+  const { method = "GET", headers = {}, body } = options;
+  const url2 = `https://api.github.com${path4}`;
+  const requestHeaders = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "Pullfrog-Installation-Token-Generator/1.0",
+    ...headers
+  };
+  const response = await fetch(url2, {
+    method,
+    headers: requestHeaders,
+    ...body && { body }
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${response.statusText}
+${errorText}`
+    );
+  }
+  return response.json();
+};
+var checkRepositoryAccess = async (token, repoOwner, repoName) => {
+  try {
+    const response = await githubRequest("/installation/repositories", {
+      headers: { Authorization: `token ${token}` }
+    });
+    return response.repositories.some(
+      (repo) => repo.owner.login === repoOwner && repo.name === repoName
+    );
+  } catch {
+    return false;
+  }
+};
+var createInstallationToken = async (jwt, installationId) => {
+  const response = await githubRequest(
+    `/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwt}` }
+    }
+  );
+  return response.token;
+};
+var findInstallationId = async (jwt, repoOwner, repoName) => {
+  const installations = await githubRequest("/app/installations", {
+    headers: { Authorization: `Bearer ${jwt}` }
+  });
+  for (const installation of installations) {
+    try {
+      const tempToken = await createInstallationToken(jwt, installation.id);
+      const hasAccess = await checkRepositoryAccess(tempToken, repoOwner, repoName);
+      if (hasAccess) {
+        return installation.id;
+      }
+    } catch {
+    }
+  }
+  throw new Error(
+    `No installation found with access to ${repoOwner}/${repoName}. Ensure the GitHub App is installed on the target repository.`
+  );
+};
+async function acquireTokenViaGitHubApp() {
+  const repoContext = parseRepoContext();
+  const config = {
+    appId: process.env.GITHUB_APP_ID,
+    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    repoOwner: repoContext.owner,
+    repoName: repoContext.name
+  };
+  const jwt = generateJWT(config.appId, config.privateKey);
+  const installationId = await findInstallationId(jwt, config.repoOwner, config.repoName);
+  const token = await createInstallationToken(jwt, installationId);
+  return token;
+}
+async function acquireNewToken() {
+  if (isGitHubActionsEnvironment()) {
+    return await acquireTokenViaOIDC();
+  } else {
+    return await acquireTokenViaGitHubApp();
+  }
+}
+async function setupGitHubInstallationToken() {
+  const existingToken = checkExistingToken();
+  if (existingToken) {
+    core2.setSecret(existingToken);
+    log.info("Using provided GitHub installation token");
+    return { githubInstallationToken: existingToken, wasAcquired: false };
+  }
+  const acquiredToken = await acquireNewToken();
+  core2.setSecret(acquiredToken);
+  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
+  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+}
+async function revokeInstallationToken(token) {
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+  try {
+    await fetch(`${apiUrl}/installation/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    log.info("Installation token revoked");
+  } catch (error2) {
+    log.warning(
+      `Failed to revoke installation token: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
+}
+function parseRepoContext() {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+  return { owner, name };
+}
+
 // mcp/config.ts
 function createMcpConfigs(githubInstallationToken) {
   const repoContext = parseRepoContext();
@@ -42460,7 +42389,23 @@ async function main(inputs) {
     log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
     const cliPath = await agent2.install();
     log.info(`Running ${agentName}...`);
-    log.box(inputs.prompt, { title: "Prompt" });
+    let payload;
+    try {
+      const parsedPrompt = JSON.parse(inputs.prompt);
+      if (!("~pullfrog" in parsedPrompt)) {
+        throw new Error("Invalid prompt: not a pullfrog webhook payload");
+      }
+      payload = parsedPrompt;
+    } catch {
+      payload = {
+        "~pullfrog": true,
+        agent: null,
+        prompt: inputs.prompt,
+        event: {},
+        modes
+      };
+    }
+    log.box(payload.prompt, { title: "Prompt" });
     const matchingInputKey = agent2.inputKeys.find((inputKey) => inputs[inputKey]);
     if (!matchingInputKey) {
       throwMissingApiKeyError({
@@ -42472,7 +42417,7 @@ async function main(inputs) {
     }
     const apiKey = inputs[matchingInputKey];
     const result = await agent2.run({
-      prompt: inputs.prompt,
+      payload,
       mcpServers,
       githubInstallationToken,
       apiKey,

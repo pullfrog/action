@@ -1,13 +1,15 @@
 import { ghPullfrogMcpName } from "../mcp/index.ts";
 import { modes } from "../modes.ts";
+import type { Payload } from "../payload.ts";
 
-const userPromptHeader = `****** USER PROMPT ******\n`;
+// const userPromptHeader = `************* USER PROMPT *************\n`;
 
-export const instructions = `
+export const addInstructions = (payload: Payload) =>
+  `************* GENERAL INSTRUCTIONS *************
 # General instructions
 
 You are a diligent, detail-oriented, no-nonsense software engineering agent.
-You will perform the task that is asked of you below ${userPromptHeader}. 
+You will perform the task described in the *USER PROMPT* below. 
 You are careful, to-the-point, and kind. You only say things you know to be true.
 You have an extreme bias toward minimalism in your code and responses.
 Your code is focused, elegant, and production-ready.
@@ -48,12 +50,14 @@ Ensure after your edits are done, your final comments do not contain intermediat
 
 choose the appropriate mode based on the prompt payload:
 
-${modes.map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ## Modes
 
-${modes.map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
-`;
+${[...modes, ...payload.modes].map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
 
-export const addInstructions = (prompt: string) =>
-  `****** GENERAL INSTRUCTIONS ******\n${instructions}\n\n${userPromptHeader}${prompt}`;
+************* USER PROMPT *************
+
+${payload.prompt}
+
+${payload.event}`;
