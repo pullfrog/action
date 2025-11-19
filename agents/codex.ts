@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
@@ -14,35 +15,20 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  addMcpServer: ({ serverName, serverConfig, cliPath }) => {
-    // Codex CLI syntax: codex mcp add <name> --env KEY=value -- <command> [args...]
-    const command = serverConfig.command;
-    const args = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
-
-    const addArgs = ["mcp", "add", serverName];
-
-    // Add environment variables as --env flags first
-    for (const [key, value] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value}`);
-    }
-
-    addArgs.push("--", command, ...args);
-
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
-
-    if (addResult.status !== 0) {
-      throw new Error(
-        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-      );
-    }
-    log.info(`✓ MCP server '${serverName}' configured`);
-  },
   run: async ({ prompt, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+    // Configure MCP servers if provided
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
+      // Filter to only stdio servers
+      const stdioServers: Record<string, McpStdioServerConfig> = {};
+      for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+        if ("command" in serverConfig) {
+          stdioServers[serverName] = serverConfig;
+        }
+      }
+      if (Object.keys(stdioServers).length > 0) {
+        configureCodexMcpServers({ mcpServers: stdioServers, cliPath });
+      }
+    }
     process.env.OPENAI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
@@ -182,3 +168,43 @@ const messageHandlers: {
     log.error(`Error: ${event.message}`);
   },
 };
+
+/**
+ * Configure MCP servers for Codex using the CLI.
+ * Codex CLI syntax: codex mcp add <name> --env KEY=value -- <command> [args...]
+ */
+function configureCodexMcpServers({
+  mcpServers,
+  cliPath,
+}: {
+  mcpServers: Record<string, McpStdioServerConfig>;
+  cliPath: string;
+}): void {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    const command = serverConfig.command;
+    const args = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+
+    const addArgs = ["mcp", "add", serverName];
+
+    // Add environment variables as --env flags first
+    for (const [key, value] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value}`);
+    }
+
+    addArgs.push("--", command, ...args);
+
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8",
+    });
+
+    if (addResult.status !== 0) {
+      throw new Error(
+        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`✓ MCP server '${serverName}' configured`);
+  }
+}

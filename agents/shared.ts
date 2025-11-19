@@ -4,7 +4,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
-import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 
 /**
@@ -24,7 +24,7 @@ export interface AgentConfig {
   apiKey: string;
   githubInstallationToken: string;
   prompt: string;
-  mcpServers: Record<string, McpServerConfig>;
+  mcpServers: Record<string, McpStdioServerConfig>;
   cliPath: string;
 }
 
@@ -223,19 +223,9 @@ export const agent = <const agent extends Agent>(agent: agent): agent => {
   return agent;
 };
 
-/**
- * Parameters for adding an MCP server to an agent
- */
-export interface AddMcpServerParams {
-  serverName: string;
-  serverConfig: Extract<McpServerConfig, { command: string }>;
-  cliPath: string;
-}
-
 export type Agent = {
   name: string;
   inputKeys: string[];
   install: () => Promise<string>;
-  addMcpServer: (params: AddMcpServerParams) => void;
   run: (config: AgentConfig) => Promise<AgentResult>;
 };

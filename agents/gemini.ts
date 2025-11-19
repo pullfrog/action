@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
@@ -16,33 +16,8 @@ export const gemini = agent({
       installDependencies: true,
     });
   },
-  addMcpServer: ({ serverName, serverConfig, cliPath }) => {
-    // Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --env KEY=value
-    const command = serverConfig.command;
-    const args = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
-
-    const addArgs = ["mcp", "add", serverName, command, ...args];
-
-    // Add environment variables as --env flags
-    for (const [key, value] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value}`);
-    }
-
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
-
-    if (addResult.status !== 0) {
-      throw new Error(
-        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-      );
-    }
-    log.info(`✓ MCP server '${serverName}' configured`);
-  },
   run: async ({ prompt, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
+    configureGeminiMcpServers({ mcpServers, cliPath });
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
@@ -108,3 +83,40 @@ export const gemini = agent({
   },
 });
 
+/**
+ * Configure MCP servers for Gemini using the CLI.
+ * Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --env KEY=value
+ */
+function configureGeminiMcpServers({
+  mcpServers,
+  cliPath,
+}: {
+  mcpServers: Record<string, McpStdioServerConfig>;
+  cliPath: string;
+}): void {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    const command = serverConfig.command;
+    const args = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+
+    const addArgs = ["mcp", "add", serverName, command, ...args];
+
+    // Add environment variables as --env flags
+    for (const [key, value] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value}`);
+    }
+
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8",
+    });
+
+    if (addResult.status !== 0) {
+      throw new Error(
+        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`✓ MCP server '${serverName}' configured`);
+  }
+}

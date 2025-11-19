@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { type AddMcpServerParams, agent, installFromCurl } from "./shared.ts";
+import { agent, installFromCurl } from "./shared.ts";
 
 export const cursor = agent({
   name: "cursor",
@@ -14,87 +15,11 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  addMcpServer: ({ serverName, serverConfig, cliPath }: AddMcpServerParams) => {
-    const command = serverConfig.command;
-    const args = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
-
-    // Resolve command to absolute path if it's a relative path
-    // For commands like "node", keep as-is; for file paths, resolve them
-    let resolvedCommand = command;
-    if (!command.includes("/") && !command.includes("\\")) {
-      // It's a command in PATH (like "node"), keep as-is
-      resolvedCommand = command;
-    } else {
-      // It's a file path, resolve to absolute path
-      resolvedCommand = resolve(command);
-    }
-
-    // Resolve args to absolute paths if they look like file paths
-    const resolvedArgs = args.map((arg) => {
-      // If arg looks like a file path and is relative, resolve it
-      if (
-        (arg.includes("/") || arg.includes("\\")) &&
-        !arg.startsWith("/") &&
-        !arg.match(/^[A-Z]:\\/)
-      ) {
-        return resolve(arg);
-      }
-      return arg;
-    });
-
-    // Build the server config with resolved paths
-    const resolvedServerConfig = {
-      command: resolvedCommand,
-      args: resolvedArgs,
-      env: envVars,
-    };
-
-    const tempDir = cliPath.split("/.local/bin/")[0];
-    const cursorConfigDir = join(tempDir, ".cursor");
-    const mcpConfigPath = join(cursorConfigDir, "mcp.json");
-
-    // Read existing config if it exists
-    let mcpConfig: { mcpServers: Record<string, unknown> } = { mcpServers: {} };
-    if (existsSync(mcpConfigPath)) {
-      try {
-        const existingConfig = readFileSync(mcpConfigPath, "utf-8");
-        mcpConfig = JSON.parse(existingConfig);
-        if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
-          mcpConfig.mcpServers = {};
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Failed to read existing MCP config at ${mcpConfigPath}: ${errorMessage}`);
-      }
-    }
-
-    // Add the new server
-    mcpConfig.mcpServers[serverName] = resolvedServerConfig;
-    log.info(`Adding MCP server '${serverName}' to Cursor configuration...`);
-
-    // Create .cursor directory if it doesn't exist
-    try {
-      mkdirSync(cursorConfigDir, { recursive: true });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Failed to create Cursor config directory at ${cursorConfigDir}: ${errorMessage}`
-      );
-    }
-
-    // Write MCP configuration file
-    try {
-      writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
-      log.info(`✓ MCP server '${serverName}' added to ${mcpConfigPath}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to write MCP config to ${mcpConfigPath}: ${errorMessage}`);
-    }
-  },
-  run: async ({ prompt, apiKey, cliPath, githubInstallationToken }) => {
+  run: async ({ prompt, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
     process.env.CURSOR_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+
+    configureCursorMcpServers({ mcpServers, cliPath });
 
     try {
       // Run cursor-agent in non-interactive mode with the prompt
@@ -192,3 +117,21 @@ export const cursor = agent({
     }
   },
 });
+
+/**
+ * Configure MCP servers for Cursor by writing to the Cursor configuration file.
+ * For cursor, we need to add the MCP servers to the Cursor configuration file manually as there is no CLI command to do this.
+ */
+function configureCursorMcpServers({
+  mcpServers,
+  cliPath,
+}: {
+  mcpServers: Record<string, McpStdioServerConfig>;
+  cliPath: string;
+}) {
+  const tempDir = cliPath.split("/.local/bin/")[0];
+  const cursorConfigDir = join(tempDir, ".cursor");
+  const mcpConfigPath = join(cursorConfigDir, "mcp.json");
+  mkdirSync(cursorConfigDir, { recursive: true });
+  writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
+}

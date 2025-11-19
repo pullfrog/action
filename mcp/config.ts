@@ -2,7 +2,7 @@
  * Simple MCP configuration helper for adding our minimal GitHub comment server
  */
 
-import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
+import type { McpServerConfig, McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { fromHere } from "@ark/fs";
 import { log } from "../utils/cli.ts";
 import { parseRepoContext } from "../utils/github.ts";
@@ -38,7 +38,7 @@ export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
  */
 export function forEachStdioMcpServer(
   mcpServers: Record<string, McpServerConfig>,
-  handler: (serverName: string, serverConfig: Extract<McpServerConfig, { command: string }>) => void
+  handler: (serverName: string, serverConfig: McpStdioServerConfig) => void
 ): void {
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
     // Only configure stdio servers (CLIs support stdio MCP servers)
@@ -46,7 +46,6 @@ export function forEachStdioMcpServer(
       log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
       continue;
     }
-    handler(serverName, serverConfig as Extract<McpServerConfig, { command: string }>);
+    handler(serverName, serverConfig);
   }
 }
-
