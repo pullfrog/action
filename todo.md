@@ -1,12 +1,12 @@
 ## CURRENT
 
-[] gemini installation speed
+[] gemini installation speed (bundle/esm.sh?)
 [] entry.js
 [] handle defaulting agent name value
 [] test agent/mode combinations
 [] test if home directory mcp.json works if mcp.json is specified in repo
 [] add footer to the working comment ("executed by {agent}", link to pullfrog (homepage) w/ small logo?, feedback (create github issue), link to workflow run)- see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
-
+[] log.txt to stdout
 
 ## MAYBE
 
