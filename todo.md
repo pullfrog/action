@@ -1,8 +1,8 @@
 ## CURRENT
 
-[] jules/gemini support
 [] gemini installation speed
-[] standardize mcp server
+[] entry.js
+
 
 ## MAYBE
 
@@ -24,3 +24,5 @@
 [x] fix pnpm caching
 [x] fix prompt to avoid narration like "I just read all tools from MCP server"
 [x] handle progressive comment updating from pullfrog mcp
+[x] jules/gemini support
+[x] standardize mcp server
