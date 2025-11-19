@@ -1,9 +1,8 @@
 import { spawnSync } from "node:child_process";
-import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromNpmTarball } from "./shared.ts";
+import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./shared.ts";
 
 export const gemini = agent({
   name: "gemini",
@@ -87,13 +86,7 @@ export const gemini = agent({
  * Configure MCP servers for Gemini using the CLI.
  * Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --env KEY=value
  */
-function configureGeminiMcpServers({
-  mcpServers,
-  cliPath,
-}: {
-  mcpServers: Record<string, McpStdioServerConfig>;
-  cliPath: string;
-}): void {
+function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams): void {
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
     const command = serverConfig.command;
     const args = serverConfig.args || [];

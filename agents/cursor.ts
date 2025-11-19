@@ -1,10 +1,9 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromCurl } from "./shared.ts";
+import { agent, type ConfigureMcpServersParams, installFromCurl } from "./shared.ts";
 
 export const cursor = agent({
   name: "cursor",
@@ -122,13 +121,7 @@ export const cursor = agent({
  * Configure MCP servers for Cursor by writing to the Cursor configuration file.
  * For cursor, we need to add the MCP servers to the Cursor configuration file manually as there is no CLI command to do this.
  */
-function configureCursorMcpServers({
-  mcpServers,
-  cliPath,
-}: {
-  mcpServers: Record<string, McpStdioServerConfig>;
-  cliPath: string;
-}) {
+function configureCursorMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams) {
   const tempDir = cliPath.split("/.local/bin/")[0];
   const cursorConfigDir = join(tempDir, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");

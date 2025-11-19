@@ -29,6 +29,40 @@ export interface AgentConfig {
 }
 
 /**
+ * Parameters for configuring MCP servers
+ */
+export interface ConfigureMcpServersParams {
+  mcpServers: Record<string, McpStdioServerConfig>;
+  cliPath: string;
+}
+
+/**
+ * Parameters for installing from npm tarball
+ */
+export interface InstallFromNpmTarballParams {
+  packageName: string;
+  version: string;
+  executablePath: string;
+  installDependencies?: boolean;
+}
+
+/**
+ * Parameters for installing from curl script
+ */
+export interface InstallFromCurlParams {
+  installUrl: string;
+  executableName: string;
+}
+
+/**
+ * NPM registry response data structure
+ */
+export interface NpmRegistryData {
+  "dist-tags": { latest: string };
+  versions: Record<string, unknown>;
+}
+
+/**
  * Install a CLI tool from an npm package tarball
  * Downloads the tarball, extracts it to a temp directory, and returns the path to the CLI executable
  * The temp directory will be cleaned up by the OS automatically
@@ -38,12 +72,7 @@ export async function installFromNpmTarball({
   version,
   executablePath,
   installDependencies,
-}: {
-  packageName: string;
-  version: string;
-  executablePath: string;
-  installDependencies?: boolean;
-}): Promise<string> {
+}: InstallFromNpmTarballParams): Promise<string> {
   // Resolve version if it's a range or "latest"
   let resolvedVersion = version;
   if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
@@ -54,10 +83,7 @@ export async function installFromNpmTarball({
       if (!registryResponse.ok) {
         throw new Error(`Failed to query registry: ${registryResponse.status}`);
       }
-      const registryData = (await registryResponse.json()) as {
-        "dist-tags": { latest: string };
-        versions: Record<string, unknown>;
-      };
+      const registryData = (await registryResponse.json()) as NpmRegistryData;
       resolvedVersion = registryData["dist-tags"].latest;
       log.info(`Resolved to version ${resolvedVersion}`);
     } catch (error) {
@@ -153,10 +179,7 @@ export async function installFromNpmTarball({
 export async function installFromCurl({
   installUrl,
   executableName,
-}: {
-  installUrl: string;
-  executableName: string;
-}): Promise<string> {
+}: InstallFromCurlParams): Promise<string> {
   log.info(`📦 Installing ${executableName}...`);
 
   // Derive temp directory prefix from executable name (sanitize similar to package name)
