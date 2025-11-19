@@ -46,13 +46,17 @@ Ensure after your edits are done, your final comments do not contain intermediat
 
 ## Mode Selection
 
-choose the appropriate mode based on the prompt payload:
+Before starting any work, you must first determine which mode to use by examining the request and calling ${ghPullfrogMcpName}/select_mode.
+
+Available modes:
 
 ${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
-## Modes
-
-${[...modes, ...payload.modes].map((w) => `### ${w.name}\n\n${w.prompt}`).join("\n\n")}
+**IMPORTANT**: The first thing you must do is:
+1. Examine the user's request/prompt carefully
+2. Determine which mode is most appropriate based on the mode descriptions above
+3. Call ${ghPullfrogMcpName}/select_mode with the chosen mode name
+4. The tool will return detailed instructions for that mode - follow those instructions exactly
 
 ************* USER PROMPT *************
 

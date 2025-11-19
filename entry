@@ -18146,7 +18146,7 @@ var require_summary = __commonJS({
     exports.summary = exports.markdownSummary = exports.SUMMARY_DOCS_URL = exports.SUMMARY_ENV_VAR = void 0;
     var os_1 = __require("os");
     var fs_1 = __require("fs");
-    var { access, appendFile, writeFile } = fs_1.promises;
+    var { access, appendFile, writeFile: writeFile2 } = fs_1.promises;
     exports.SUMMARY_ENV_VAR = "GITHUB_STEP_SUMMARY";
     exports.SUMMARY_DOCS_URL = "https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary";
     var Summary = class {
@@ -18204,7 +18204,7 @@ var require_summary = __commonJS({
         return __awaiter(this, void 0, void 0, function* () {
           const overwrite = !!(options === null || options === void 0 ? void 0 : options.overwrite);
           const filePath2 = yield this.filePath();
-          const writeFunc = overwrite ? writeFile : appendFile;
+          const writeFunc = overwrite ? writeFile2 : appendFile;
           yield writeFunc(filePath2, this._buffer, { encoding: "utf8" });
           return this.emptyBuffer();
         });
@@ -26991,13 +26991,13 @@ var ProcessTransport = class {
           this.logForDebugging(data.toString());
         });
       }
-      const cleanup = () => {
+      const cleanup2 = () => {
         if (this.child && !this.child.killed) {
           this.child.kill("SIGTERM");
         }
       };
-      this.processExitHandler = cleanup;
-      this.abortHandler = cleanup;
+      this.processExitHandler = cleanup2;
+      this.abortHandler = cleanup2;
       process.on("exit", this.processExitHandler);
       this.abortController.signal.addEventListener("abort", this.abortHandler);
       this.child.on("error", (error2) => {
@@ -28223,15 +28223,15 @@ var Query = class {
     const messageId = "id" in mcpRequest.message ? mcpRequest.message.id : null;
     const key = `${serverName}:${messageId}`;
     return new Promise((resolve, reject) => {
-      const cleanup = () => {
+      const cleanup2 = () => {
         this.pendingMcpResponses.delete(key);
       };
       const resolveAndCleanup = (response) => {
-        cleanup();
+        cleanup2();
         resolve(response);
       };
       const rejectAndCleanup = (error2) => {
-        cleanup();
+        cleanup2();
         reject(error2);
       };
       this.pendingMcpResponses.set(key, {
@@ -28241,7 +28241,7 @@ var Query = class {
       if (transport.onmessage) {
         transport.onmessage(mcpRequest.message);
       } else {
-        cleanup();
+        cleanup2();
         reject(new Error("No message handler registered"));
         return;
       }
@@ -32888,7 +32888,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.107",
+  version: "0.0.108",
   type: "module",
   files: [
     "index.js",
@@ -32962,6 +32962,8 @@ var package_default = {
 
 // utils/cli.ts
 var core = __toESM(require_core(), 1);
+import { appendFileSync as appendFileSync2, existsSync as existsSync2 } from "node:fs";
+import { join as join4 } from "node:path";
 var isGitHubActions = !!process.env.GITHUB_ACTIONS;
 var isDebugEnabled = process.env.LOG_LEVEL === "debug";
 function startGroup2(name) {
@@ -33157,8 +33159,82 @@ var log = {
   /**
    * End a collapsed group
    */
-  endGroup: endGroup2
+  endGroup: endGroup2,
+  /**
+   * Log MCP tool call information to mcpLog.txt in the temp directory
+   */
+  toolCall: ({
+    toolName,
+    request,
+    result,
+    error: error2
+  }) => {
+    const logPath = getMcpLogPath();
+    const params = { toolName, request };
+    if (error2) {
+      params.error = error2;
+    } else if (result) {
+      params.result = result;
+    }
+    const logEntry = formatToolCall(params);
+    appendFileSync2(logPath, logEntry, "utf-8");
+  }
 };
+function getMcpLogPath() {
+  const tempDir = process.env.PULLFROG_TEMP_DIR;
+  return join4(tempDir, "mcpLog.txt");
+}
+function formatJsonValue(value2) {
+  const compact = JSON.stringify(value2);
+  return compact.length > 80 || compact.includes("\n") ? JSON.stringify(value2, null, 2) : compact;
+}
+function formatIndentedField(label, content) {
+  if (!content.includes("\n")) {
+    return `  ${label}: ${content}
+`;
+  }
+  const lines = content.split("\n");
+  let formatted = `  ${label}: ${lines[0]}
+`;
+  for (let i = 1; i < lines.length; i++) {
+    formatted += `    ${lines[i]}
+`;
+  }
+  return formatted;
+}
+function formatToolInput(request) {
+  const requestFormatted = formatJsonValue(request);
+  if (requestFormatted === "{}") {
+    return "";
+  }
+  return formatIndentedField("input", requestFormatted);
+}
+function formatToolResult(result) {
+  try {
+    const parsed2 = JSON.parse(result);
+    const formatted = formatJsonValue(parsed2);
+    return formatIndentedField("result", formatted);
+  } catch {
+    return formatIndentedField("result", result);
+  }
+}
+function formatToolCall({
+  toolName,
+  request,
+  result,
+  error: error2
+}) {
+  let logEntry = `\u2192 ${toolName}
+`;
+  logEntry += formatToolInput(request);
+  if (error2) {
+    logEntry += formatIndentedField("error", error2);
+  } else if (result) {
+    logEntry += formatToolResult(result);
+  }
+  logEntry += "\n";
+  return logEntry;
+}
 
 // mcp/index.ts
 var ghPullfrogMcpName = "gh-pullfrog";
@@ -33257,15 +33333,17 @@ Ensure after your edits are done, your final comments do not contain intermediat
 
 ## Mode Selection
 
-choose the appropriate mode based on the prompt payload:
+Before starting any work, you must first determine which mode to use by examining the request and calling ${ghPullfrogMcpName}/select_mode.
+
+Available modes:
 
 ${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
-## Modes
-
-${[...modes, ...payload.modes].map((w) => `### ${w.name}
-
-${w.prompt}`).join("\n\n")}
+**IMPORTANT**: The first thing you must do is:
+1. Examine the user's request/prompt carefully
+2. Determine which mode is most appropriate based on the mode descriptions above
+3. Call ${ghPullfrogMcpName}/select_mode with the chosen mode name
+4. The tool will return detailed instructions for that mode - follow those instructions exactly
 
 ************* USER PROMPT *************
 
@@ -33275,10 +33353,8 @@ ${JSON.stringify(payload.event, null, 2)}`;
 
 // agents/shared.ts
 import { spawnSync } from "node:child_process";
-import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync2 } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join4 } from "node:path";
+import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync3 } from "node:fs";
+import { join as join5 } from "node:path";
 import { pipeline } from "node:stream/promises";
 async function installFromNpmTarball({
   packageName,
@@ -33306,9 +33382,8 @@ async function installFromNpmTarball({
     }
   }
   log.info(`\u{1F4E6} Installing ${packageName}@${resolvedVersion}...`);
-  const tempDirPrefix = packageName.replace("@", "").replace(/\//g, "-") + "-";
-  const tempDir = await mkdtemp(join4(tmpdir(), tempDirPrefix));
-  const tarballPath = join4(tempDir, "package.tgz");
+  const tempDir = process.env.PULLFROG_TEMP_DIR;
+  const tarballPath = join5(tempDir, "package.tgz");
   const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
   let tarballUrl;
   if (packageName.startsWith("@")) {
@@ -33337,9 +33412,9 @@ async function installFromNpmTarball({
       `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
     );
   }
-  const extractedDir = join4(tempDir, "package");
-  const cliPath = join4(extractedDir, executablePath);
-  if (!existsSync2(cliPath)) {
+  const extractedDir = join5(tempDir, "package");
+  const cliPath = join5(extractedDir, executablePath);
+  if (!existsSync3(cliPath)) {
     throw new Error(`Executable not found in extracted package at ${cliPath}`);
   }
   if (installDependencies) {
@@ -33365,9 +33440,8 @@ async function installFromCurl({
   executableName
 }) {
   log.info(`\u{1F4E6} Installing ${executableName}...`);
-  const tempDirPrefix = executableName.replace(/[^a-zA-Z0-9]/g, "-") + "-";
-  const tempDir = await mkdtemp(join4(tmpdir(), tempDirPrefix));
-  const installScriptPath = join4(tempDir, "install.sh");
+  const tempDir = process.env.PULLFROG_TEMP_DIR;
+  const installScriptPath = join5(tempDir, "install.sh");
   log.info(`Downloading install script from ${installUrl}...`);
   const installScriptResponse = await fetch(installUrl);
   if (!installScriptResponse.ok) {
@@ -33378,7 +33452,7 @@ async function installFromCurl({
   await pipeline(installScriptResponse.body, fileStream);
   log.info(`Downloaded install script to ${installScriptPath}`);
   chmodSync(installScriptPath, 493);
-  log.info("Installing to temp directory...");
+  log.info(`Installing to temp directory at ${tempDir}...`);
   const installResult = spawnSync("bash", [installScriptPath], {
     cwd: tempDir,
     env: {
@@ -33395,8 +33469,8 @@ async function installFromCurl({
       `Failed to install ${executableName}. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
     );
   }
-  const cliPath = join4(tempDir, ".local", "bin", executableName);
-  if (!existsSync2(cliPath)) {
+  const cliPath = join5(tempDir, ".local", "bin", executableName);
+  if (!existsSync3(cliPath)) {
     throw new Error(`Executable not found at ${cliPath}`);
   }
   chmodSync(cliPath, 493);
@@ -33554,7 +33628,7 @@ async function createOutputSchemaFile(schema2) {
   }
   const schemaDir = await fs2.mkdtemp(path.join(os.tmpdir(), "codex-output-schema-"));
   const schemaPath = path.join(schemaDir, "schema.json");
-  const cleanup = async () => {
+  const cleanup2 = async () => {
     try {
       await fs2.rm(schemaDir, { recursive: true, force: true });
     } catch {
@@ -33562,9 +33636,9 @@ async function createOutputSchemaFile(schema2) {
   };
   try {
     await fs2.writeFile(schemaPath, JSON.stringify(schema2), "utf8");
-    return { schemaPath, cleanup };
+    return { schemaPath, cleanup: cleanup2 };
   } catch (error2) {
-    await cleanup();
+    await cleanup2();
     throw error2;
   }
 }
@@ -33592,7 +33666,7 @@ var Thread = class {
     return { events: this.runStreamedInternal(input, turnOptions) };
   }
   async *runStreamedInternal(input, turnOptions = {}) {
-    const { schemaPath, cleanup } = await createOutputSchemaFile(turnOptions.outputSchema);
+    const { schemaPath, cleanup: cleanup2 } = await createOutputSchemaFile(turnOptions.outputSchema);
     const options = this._threadOptions;
     const { prompt, images } = normalizeInput(input);
     const generator = this._exec.run({
@@ -33625,7 +33699,7 @@ var Thread = class {
         yield parsed2;
       }
     } finally {
-      await cleanup();
+      await cleanup2();
     }
   }
   /** Provides the input to the agent and returns the completed turn. */
@@ -34008,7 +34082,7 @@ function configureCodexMcpServers({ mcpServers, cliPath }) {
 // agents/cursor.ts
 import { spawn as spawn3 } from "node:child_process";
 import { mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 var cursor = agent({
   name: "cursor",
   inputKeys: ["cursor_api_key"],
@@ -34103,8 +34177,8 @@ var cursor = agent({
 });
 function configureCursorMcpServers({ mcpServers, cliPath }) {
   const tempDir = cliPath.split("/.local/bin/")[0];
-  const cursorConfigDir = join5(tempDir, ".cursor");
-  const mcpConfigPath = join5(cursorConfigDir, "mcp.json");
+  const cursorConfigDir = join6(tempDir, ".cursor");
+  const mcpConfigPath = join6(cursorConfigDir, "mcp.json");
   mkdirSync2(cursorConfigDir, { recursive: true });
   writeFileSync2(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
 }
@@ -34288,6 +34362,12 @@ var agents = {
   cursor,
   gemini
 };
+
+// main.ts
+import { existsSync as existsSync4, readFileSync as readFileSync2 } from "node:fs";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join as join8 } from "node:path";
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/shared/registry.js
 var _registryName = "$ark";
@@ -42016,7 +42096,7 @@ var caller = (options = {}) => {
 };
 
 // node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
-import { dirname as dirname2, join as join6, parse } from "node:path";
+import { dirname as dirname2, join as join7, parse } from "node:path";
 import * as process3 from "node:process";
 import { URL as URL2, fileURLToPath as fileURLToPath4 } from "node:url";
 var filePath = (path4) => {
@@ -42030,7 +42110,7 @@ var filePath = (path4) => {
   return file;
 };
 var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
-var fromHere = (...joinWith) => join6(dirOfCaller(), ...joinWith);
+var fromHere = (...joinWith) => join7(dirOfCaller(), ...joinWith);
 var fsRoot = parse(process3.cwd()).root;
 
 // utils/github.ts
@@ -42222,7 +42302,7 @@ function parseRepoContext() {
 }
 
 // mcp/config.ts
-function createMcpConfigs(githubInstallationToken) {
+function createMcpConfigs(githubInstallationToken, modes2) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
@@ -42232,7 +42312,8 @@ function createMcpConfigs(githubInstallationToken) {
       args: [serverPath],
       env: {
         GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-        GITHUB_REPOSITORY: githubRepository
+        GITHUB_REPOSITORY: githubRepository,
+        PULLFROG_MODES: JSON.stringify(modes2)
       }
     }
   };
@@ -42334,6 +42415,32 @@ var Inputs = type({
   ...keyInputDefs,
   "agent?": AgentName.or("undefined")
 });
+async function main(inputs) {
+  const partialCtx = await initializeContext(inputs);
+  const ctx = partialCtx;
+  try {
+    await determineAgent(ctx);
+    setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
+    await setupTempDirectory(ctx);
+    setupMcpLogPolling(ctx);
+    ctx.payload = parsePayload(inputs);
+    setupMcpServers(ctx);
+    await installAgentCli(ctx);
+    validateApiKey(ctx);
+    const result = await runAgent(ctx);
+    return await handleAgentResult(result);
+  } catch (error2) {
+    const errorMessage = error2 instanceof Error ? error2.message : "Unknown error occurred";
+    log.error(errorMessage);
+    await log.writeSummary();
+    return {
+      success: false,
+      error: errorMessage
+    };
+  } finally {
+    await cleanup(partialCtx);
+  }
+}
 function throwMissingApiKeyError({
   agentName,
   inputKeys,
@@ -42367,87 +42474,124 @@ Alternatively, configure Pullfrog to use an agent with existing credentials in y
   log.error(message);
   throw new Error(message);
 }
-async function main(inputs) {
-  let tokenToRevoke = null;
-  try {
-    log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
-    Inputs.assert(inputs);
-    setupGitConfig();
-    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
-    if (wasAcquired) {
-      tokenToRevoke = githubInstallationToken;
-    }
-    const repoContext = parseRepoContext();
-    const repoSettings = await fetchRepoSettings({
-      token: githubInstallationToken,
-      repoContext
-    });
-    const agentName = inputs.agent || repoSettings.defaultAgent || "claude";
-    const agent2 = agents[agentName];
-    setupGitAuth(githubInstallationToken, repoContext);
-    const mcpServers = createMcpConfigs(githubInstallationToken);
-    log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
-    const cliPath = await agent2.install();
-    log.info(`Running ${agentName}...`);
-    let payload;
-    try {
-      const parsedPrompt = JSON.parse(inputs.prompt);
-      if (!("~pullfrog" in parsedPrompt)) {
-        throw new Error();
+async function initializeContext(inputs) {
+  log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
+  Inputs.assert(inputs);
+  setupGitConfig();
+  const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+  const tokenToRevoke = wasAcquired ? githubInstallationToken : null;
+  const repoContext = parseRepoContext();
+  return {
+    inputs,
+    githubInstallationToken,
+    tokenToRevoke,
+    repoContext,
+    agentName: "claude",
+    agent: agents.claude,
+    sharedTempDir: "",
+    mcpLogPath: "",
+    pollInterval: null
+  };
+}
+async function determineAgent(ctx) {
+  const repoSettings = await fetchRepoSettings({
+    token: ctx.githubInstallationToken,
+    repoContext: ctx.repoContext
+  });
+  ctx.agentName = ctx.inputs.agent || repoSettings.defaultAgent || "claude";
+  ctx.agent = agents[ctx.agentName];
+}
+async function setupTempDirectory(ctx) {
+  ctx.sharedTempDir = await mkdtemp(join8(tmpdir(), "pullfrog-"));
+  process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
+  ctx.mcpLogPath = join8(ctx.sharedTempDir, "mcpLog.txt");
+  await writeFile(ctx.mcpLogPath, "", "utf-8");
+  log.info(`\u{1F4C2} PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
+}
+function setupMcpLogPolling(ctx) {
+  let lastSize = 0;
+  ctx.pollInterval = setInterval(() => {
+    if (existsSync4(ctx.mcpLogPath)) {
+      const content = readFileSync2(ctx.mcpLogPath, "utf-8");
+      if (content.length > lastSize) {
+        const newContent = content.slice(lastSize);
+        process.stdout.write(newContent);
+        lastSize = content.length;
       }
-      payload = parsedPrompt;
-    } catch {
-      payload = {
-        "~pullfrog": true,
-        agent: null,
-        prompt: inputs.prompt,
-        event: {},
-        modes
-      };
     }
-    log.box(payload.prompt, { title: "Prompt" });
-    const matchingInputKey = agent2.inputKeys.find((inputKey) => inputs[inputKey]);
-    if (!matchingInputKey) {
-      throwMissingApiKeyError({
-        agentName,
-        inputKeys: agent2.inputKeys,
-        repoContext,
-        inputs
-      });
+  }, 100);
+}
+function parsePayload(inputs) {
+  try {
+    const parsedPrompt = JSON.parse(inputs.prompt);
+    if (!("~pullfrog" in parsedPrompt)) {
+      throw new Error();
     }
-    const apiKey = inputs[matchingInputKey];
-    const result = await agent2.run({
-      payload,
-      mcpServers,
-      githubInstallationToken,
-      apiKey,
-      cliPath
-    });
-    if (!result.success) {
-      return {
-        success: false,
-        error: result.error || "Agent execution failed",
-        output: result.output
-      };
-    }
-    log.success("Task complete.");
-    await log.writeSummary();
+    return parsedPrompt;
+  } catch {
     return {
-      success: true,
-      output: result.output || ""
+      "~pullfrog": true,
+      agent: null,
+      prompt: inputs.prompt,
+      event: {},
+      modes
     };
-  } catch (error2) {
-    const errorMessage = error2 instanceof Error ? error2.message : "Unknown error occurred";
-    log.error(errorMessage);
-    await log.writeSummary();
+  }
+}
+function setupMcpServers(ctx) {
+  const allModes = [...modes, ...ctx.payload.modes || []];
+  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes);
+  log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
+}
+async function installAgentCli(ctx) {
+  ctx.cliPath = await ctx.agent.install();
+}
+function validateApiKey(ctx) {
+  const matchingInputKey = ctx.agent.inputKeys.find(
+    (inputKey) => ctx.inputs[inputKey]
+  );
+  if (!matchingInputKey) {
+    throwMissingApiKeyError({
+      agentName: ctx.agentName,
+      inputKeys: ctx.agent.inputKeys,
+      repoContext: ctx.repoContext,
+      inputs: ctx.inputs
+    });
+  }
+  ctx.apiKey = ctx.inputs[matchingInputKey];
+}
+async function runAgent(ctx) {
+  log.info(`Running ${ctx.agentName}...`);
+  log.box(ctx.payload.prompt, { title: "Prompt" });
+  return ctx.agent.run({
+    payload: ctx.payload,
+    mcpServers: ctx.mcpServers,
+    githubInstallationToken: ctx.githubInstallationToken,
+    apiKey: ctx.apiKey,
+    cliPath: ctx.cliPath
+  });
+}
+async function handleAgentResult(result) {
+  if (!result.success) {
     return {
       success: false,
-      error: errorMessage
+      error: result.error || "Agent execution failed",
+      output: result.output
     };
-  } finally {
-    if (tokenToRevoke) {
-      await revokeInstallationToken(tokenToRevoke);
-    }
+  }
+  log.success("Task complete.");
+  await log.writeSummary();
+  return {
+    success: true,
+    output: result.output || ""
+  };
+}
+async function cleanup(ctx) {
+  if (ctx.pollInterval) {
+    clearInterval(ctx.pollInterval);
+  }
+  if (ctx.tokenToRevoke) {
+    await revokeInstallationToken(ctx.tokenToRevoke);
   }
 }
 

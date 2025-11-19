@@ -2,9 +2,9 @@
  * Simple MCP configuration helper for adding our minimal GitHub comment server
  */
 
-import type { McpServerConfig, McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { fromHere } from "@ark/fs";
-import { log } from "../utils/cli.ts";
+import type { Mode } from "../modes.ts";
 import { parseRepoContext } from "../utils/github.ts";
 import { ghPullfrogMcpName } from "./index.ts";
 
@@ -12,7 +12,7 @@ export type McpName = typeof ghPullfrogMcpName;
 
 export type McpConfigs = Record<McpName, McpStdioServerConfig>;
 
-export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
+export function createMcpConfigs(githubInstallationToken: string, modes: Mode[]): McpConfigs {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
 
@@ -27,25 +27,8 @@ export function createMcpConfigs(githubInstallationToken: string): McpConfigs {
       env: {
         GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
         GITHUB_REPOSITORY: githubRepository,
+        PULLFROG_MODES: JSON.stringify(modes),
       },
     },
   };
-}
-
-/**
- * Iterate through MCP servers and call the provided handler for each stdio server
- * Shared logic to avoid duplication across agents
- */
-export function forEachStdioMcpServer(
-  mcpServers: Record<string, McpServerConfig>,
-  handler: (serverName: string, serverConfig: McpStdioServerConfig) => void
-): void {
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    // Only configure stdio servers (CLIs support stdio MCP servers)
-    if (!("command" in serverConfig)) {
-      log.warning(`MCP server '${serverName}' is not a stdio server, skipping...`);
-      continue;
-    }
-    handler(serverName, serverConfig);
-  }
 }

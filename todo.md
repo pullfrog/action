@@ -3,10 +3,6 @@
 [] gemini installation speed (bundle/esm.sh?) (TODO: SHAWN)
 [] handle defaulting agent name value (TODO: SHAWN)
 
-[] split up prompts, load dynamically based on mode
-[] log.txt to stdout
-
-[] entry.js
 [] test agent/mode combinations
 [] test if home directory mcp.json works if mcp.json is specified in repo
 [] add footer to the working comment ("executed by {agent}", link to pullfrog (homepage) w/ small logo?, feedback (create github issue), link to workflow run)- see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
@@ -33,3 +29,6 @@
 [x] handle progressive comment updating from pullfrog mcp
 [x] jules/gemini support
 [x] standardize mcp server
+[x] entry.js
+[x] split up prompts, load dynamically based on mode
+[x] log.txt to stdout
