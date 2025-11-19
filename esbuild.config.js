@@ -1,5 +1,39 @@
-import { build } from "esbuild";
+// @ts-check
 
+import { build } from "esbuild";
+import { readFileSync, writeFileSync } from "fs";
+
+// Plugin to strip shebangs from output files
+/**
+ * @type {import("esbuild").Plugin}
+ */
+const stripShebangPlugin = {
+  name: "strip-shebang",
+  setup(build) {
+    build.onEnd((result) => {
+      if (result.errors.length > 0) return;
+
+      // Strip shebang from the output file
+      const outputFile = build.initialOptions.outfile;
+      if (outputFile) {
+        try {
+          const content = readFileSync(outputFile, "utf8");
+          // Remove shebang line from the beginning if present
+          const withoutShebang = content.startsWith("#!") 
+            ? content.slice(content.indexOf("\n") + 1)
+            : content;
+          writeFileSync(outputFile, withoutShebang);
+        } catch (error) {
+          // File might not exist, ignore
+        }
+      }
+    });
+  },
+};
+
+/**
+ * @type {import("esbuild").BuildOptions}
+ */
 const sharedConfig = {
   bundle: true,
   format: "esm",
@@ -29,15 +63,16 @@ const sharedConfig = {
 await build({
   ...sharedConfig,
   entryPoints: ["./entry.ts"],
-  outfile: "./entry.js",
+  outfile: "./entry",
+  plugins: [stripShebangPlugin],
 });
 
 // Build the MCP server bundle
 await build({
   ...sharedConfig,
   entryPoints: ["./mcp/server.ts"],
-  outfile: "./mcp-server.js",
+  outfile: "./mcp-server",
+  plugins: [stripShebangPlugin],
 });
 
 console.log("✅ Build completed successfully!");
-
