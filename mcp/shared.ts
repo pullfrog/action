@@ -52,32 +52,27 @@ function logToolCall({
   request: unknown;
   error?: unknown;
   success?: boolean;
-}): void {
-  try {
-    const logPath = getLogPath();
-    const timestamp = new Date().toISOString();
-    const requestStr = JSON.stringify(request, null, 2);
+}) {
+  const logPath = getLogPath();
+  const timestamp = new Date().toISOString();
+  const requestStr = JSON.stringify(request, null, 2);
 
-    let logEntry = `[${timestamp}] Tool: ${toolName}\n`;
-    logEntry += `Request: ${requestStr}\n`;
+  let logEntry = `[${timestamp}] Tool: ${toolName}\nRequest: ${requestStr}\n`;
 
-    if (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      logEntry += `Error: ${errorMessage}\n`;
-      if (errorStack) {
-        logEntry += `Stack: ${errorStack}\n`;
-      }
-      logEntry += `Status: FAILED\n`;
-    } else if (success !== undefined) {
-      logEntry += `Status: ${success ? "SUCCESS" : "FAILED"}\n`;
+  if (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logEntry += `Error: ${errorMessage}\n`;
+    if (errorStack) {
+      logEntry += `Stack: ${errorStack}\n`;
     }
-
-    logEntry += `${"=".repeat(80)}\n\n`;
-    appendFileSync(logPath, logEntry, "utf-8");
-  } catch {
-    // Silently fail if logging fails to avoid breaking the tool
+    logEntry += `Status: FAILED\n`;
+  } else if (success !== undefined) {
+    logEntry += `Status: ${success ? "SUCCESS" : "FAILED"}\n`;
   }
+
+  logEntry += `${"=".repeat(80)}\n\n`;
+  appendFileSync(logPath, logEntry, "utf-8");
 }
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => {

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromCurl, type AddMcpServerParams } from "./shared.ts";
+import { type AddMcpServerParams, agent, installFromCurl } from "./shared.ts";
 
 export const cursor = agent({
   name: "cursor",

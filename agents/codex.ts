@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
