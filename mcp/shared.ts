@@ -1,6 +1,6 @@
-import { cached } from "@ark/util";
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
+import { cached } from "@ark/util";
 import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
@@ -37,20 +37,6 @@ export interface McpContext extends RepoContext {
  */
 function getLogPath(): string {
   return join(process.cwd(), "log.txt");
-}
-
-/**
- * Initialize the log file with server startup information
- */
-export function initLogFile(): void {
-  try {
-    const logPath = getLogPath();
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] MCP Server Started: gh-pullfrog\n`;
-    appendFileSync(logPath, logEntry, "utf-8");
-  } catch {
-    // Silently fail if logging fails to avoid breaking the tool
-  }
 }
 
 /**

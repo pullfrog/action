@@ -29,11 +29,6 @@ export async function run(
         agent.inputKeys.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),
     };
-    // agent: "cursor",
-    //   ...flatMorph(agents, (_, agent) => [
-    //     agent.inputKey,
-    //     process.env[agent.inputKey.toUpperCase()],
-    //   ]),
 
     const result = await main(inputs);
 
