@@ -1,10 +1,5 @@
-/** May be a `github.event` payload that has been stringified. This case needs to be detected and handled appropriately. */
-
 import type { AgentName } from "./main.ts";
 import type { Mode } from "./modes.ts";
-
-// type Payload = GithubEventPayload | WorkflowDispatchPayload;
-// type GithubEventPayload = Record<string, any>;
 
 export type Payload = {
   "~pullfrog": true;
