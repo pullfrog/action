@@ -56,6 +56,17 @@ export interface InstallFromCurlParams {
 }
 
 /**
+ * Parameters for installing from GitHub releases
+ */
+export interface InstallFromGithubParams {
+  owner: string;
+  repo: string;
+  tag?: string;
+  assetName?: string;
+  executablePath?: string;
+}
+
+/**
  * NPM registry response data structure
  */
 export interface NpmRegistryData {
@@ -168,6 +179,140 @@ export async function installFromNpmTarball({
   chmodSync(cliPath, 0o755);
 
   log.info(`✓ ${packageName} installed at ${cliPath}`);
+
+  return cliPath;
+}
+
+/**
+ * Install a CLI tool from GitHub releases
+ * Downloads the latest release asset from GitHub and returns the path to the executable
+ * The temp directory will be cleaned up by the OS automatically
+ */
+export async function installFromGithub({
+  owner,
+  repo,
+  tag,
+  assetName,
+  executablePath,
+}: InstallFromGithubParams): Promise<string> {
+  log.info(`📦 Installing ${owner}/${repo} from GitHub releases...`);
+
+  // fetch release from GitHub API (specific tag or latest)
+  const releaseUrl = tag
+    ? `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`
+    : `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+  log.info(`Fetching release from ${releaseUrl}...`);
+  const releaseResponse = await fetch(releaseUrl);
+  if (!releaseResponse.ok) {
+    throw new Error(
+      `Failed to fetch release: ${releaseResponse.status} ${releaseResponse.statusText}`
+    );
+  }
+
+  const releaseData = (await releaseResponse.json()) as {
+    tag_name: string;
+    assets: Array<{
+      name: string;
+      browser_download_url: string;
+    }>;
+  };
+
+  log.info(`Found release: ${releaseData.tag_name}`);
+
+  // find the asset to download
+  let assetUrl: string;
+  if (assetName) {
+    const asset = releaseData.assets.find((a) => a.name === assetName);
+    if (!asset) {
+      throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
+    }
+    assetUrl = asset.browser_download_url;
+  } else {
+    // if no asset name specified, try to find a .js file or use the first asset
+    const jsAsset = releaseData.assets.find((a) => a.name.endsWith(".js"));
+    if (!jsAsset) {
+      if (releaseData.assets.length === 0) {
+        throw new Error(`No assets found in release ${releaseData.tag_name}`);
+      }
+      assetUrl = releaseData.assets[0].browser_download_url;
+    } else {
+      assetUrl = jsAsset.browser_download_url;
+    }
+  }
+
+  log.info(`Downloading asset from ${assetUrl}...`);
+
+  // create temp directory
+  const tempDirPrefix = `${owner}-${repo}-github-`;
+  const tempDir = await mkdtemp(join(tmpdir(), tempDirPrefix));
+
+  // determine file extension and download path
+  const urlPath = new URL(assetUrl).pathname;
+  const fileName = urlPath.split("/").pop() || "asset";
+  const downloadPath = join(tempDir, fileName);
+
+  // download the asset
+  const assetResponse = await fetch(assetUrl);
+  if (!assetResponse.ok) {
+    throw new Error(
+      `Failed to download asset: ${assetResponse.status} ${assetResponse.statusText}`
+    );
+  }
+
+  if (!assetResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream(downloadPath);
+  await pipeline(assetResponse.body, fileStream);
+  log.info(`Downloaded asset to ${downloadPath}`);
+
+  // determine the executable path
+  let cliPath: string;
+  if (executablePath) {
+    // if executablePath is provided, assume the downloaded file needs to be extracted
+    // and the executable is inside
+    if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) {
+      // extract tarball
+      log.info(`Extracting tarball...`);
+      const extractResult = spawnSync("tar", ["-xzf", downloadPath, "-C", tempDir], {
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
+      if (extractResult.status !== 0) {
+        throw new Error(
+          `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+        );
+      }
+      // find the extracted directory (usually named after the repo)
+      const extractedDir = join(tempDir, repo);
+      cliPath = join(extractedDir, executablePath);
+    } else if (fileName.endsWith(".zip")) {
+      // extract zip
+      log.info(`Extracting zip...`);
+      const extractResult = spawnSync("unzip", ["-q", downloadPath, "-d", tempDir], {
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
+      if (extractResult.status !== 0) {
+        throw new Error(
+          `Failed to extract zip: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+        );
+      }
+      const extractedDir = join(tempDir, repo);
+      cliPath = join(extractedDir, executablePath);
+    } else {
+      // assume it's a single file, executablePath is relative to temp dir
+      cliPath = join(tempDir, executablePath);
+    }
+  } else {
+    // no executablePath, assume the downloaded file is the executable
+    cliPath = downloadPath;
+  }
+
+  if (!existsSync(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+
+  chmodSync(cliPath, 0o755);
+  log.info(`✓ Installed from GitHub release at ${cliPath}`);
 
   return cliPath;
 }

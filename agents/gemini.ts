@@ -2,17 +2,17 @@ import { spawnSync } from "node:child_process";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./shared.ts";
+import { agent, type ConfigureMcpServersParams, installFromGithub } from "./shared.ts";
 
 export const gemini = agent({
   name: "gemini",
   inputKeys: ["google_api_key", "gemini_api_key"],
   install: async () => {
-    return await installFromNpmTarball({
-      packageName: "@google/gemini-cli",
-      version: "latest",
-      executablePath: "dist/index.js",
-      installDependencies: true,
+    return await installFromGithub({
+      owner: "google-gemini",
+      repo: "gemini-cli",
+      tag: "v0.16.0",
+      assetName: "gemini.js",
     });
   },
   run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
