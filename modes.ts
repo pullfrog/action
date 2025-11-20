@@ -6,7 +6,7 @@ export interface Mode {
   prompt: string;
 }
 
-const initialCommentInstruction = `Use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment that contains a SENTENCE FRAGMENT that casually describes the actions you're about to perform. It must be of the form "Starting work on this issue...". You MUST use an -ing verb!`;
+const initialCommentInstruction = `Use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment with a conversational description of what work you are about to perform.`;
 
 export const modes: Mode[] = [
   {

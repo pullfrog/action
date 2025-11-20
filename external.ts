@@ -12,19 +12,19 @@ export const ghPullfrogMcpName = "gh-pullfrog";
 // agent manifest - static metadata about available agents
 export const agentsManifest = {
   claude: {
-    name: "claude",
+    name: "Claude Code",
     apiKeys: ["anthropic_api_key"],
   },
   codex: {
-    name: "codex",
+    name: "Codex CLI",
     apiKeys: ["openai_api_key"],
   },
   cursor: {
-    name: "cursor",
+    name: "Cursor CLI",
     apiKeys: ["cursor_api_key"],
   },
   gemini: {
-    name: "gemini",
+    name: "Gemini CLI",
     apiKeys: ["google_api_key", "gemini_api_key"],
   },
 } as const;
