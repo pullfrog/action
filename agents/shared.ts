@@ -1,7 +1,5 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, createWriteStream, existsSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
@@ -108,11 +106,7 @@ export async function installFromNpmTarball({
 
   log.info(`📦 Installing ${packageName}@${resolvedVersion}...`);
 
-  // Derive temp directory prefix from package name (remove @, replace / with -, add trailing -)
-  const tempDirPrefix = packageName.replace("@", "").replace(/\//g, "-") + "-";
-
-  // Create temp directory
-  const tempDir = await mkdtemp(join(tmpdir(), tempDirPrefix));
+  const tempDir = process.env.PULLFROG_TEMP_DIR!;
   const tarballPath = join(tempDir, "package.tgz");
 
   // Download tarball from npm
@@ -279,12 +273,7 @@ export async function installFromCurl({
 }: InstallFromCurlParams): Promise<string> {
   log.info(`📦 Installing ${executableName}...`);
 
-  // Derive temp directory prefix from executable name (sanitize similar to package name)
-  // Replace any special characters with - and ensure trailing -
-  const tempDirPrefix = executableName.replace(/[^a-zA-Z0-9]/g, "-") + "-";
-
-  // Create temp directory
-  const tempDir = await mkdtemp(join(tmpdir(), tempDirPrefix));
+  const tempDir = process.env.PULLFROG_TEMP_DIR!;
   const installScriptPath = join(tempDir, "install.sh");
 
   // Download the install script
@@ -302,7 +291,7 @@ export async function installFromCurl({
   // Make install script executable
   chmodSync(installScriptPath, 0o755);
 
-  log.info("Installing to temp directory...");
+  log.info(`Installing to temp directory at ${tempDir}...`);
 
   // Run the install script with HOME set to temp directory
   // The Cursor install script installs to $HOME/.local/bin/{executableName}

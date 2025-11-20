@@ -1,2 +1,0 @@
-# Mark generated files as linguist-generated to exclude from language statistics
-*.js linguist-detectable=false

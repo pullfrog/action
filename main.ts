@@ -1,7 +1,11 @@
+import { existsSync, readFileSync } from "node:fs";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
-import type { Payload } from "./external.ts";
+import type { AgentName as AgentNameType, Payload } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -15,8 +19,9 @@ import {
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
+// runtime validation using agents (needed for ArkType)
+// Note: The AgentName type is defined in external.ts, this is the runtime validator
 export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
-export type AgentName = typeof AgentName.infer;
 
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.inputKeys)
@@ -30,7 +35,7 @@ const keyInputDefs = flatMorph(agents, (_, agent) =>
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": AgentName.or("undefined"),
+  "agent?": type.enumerated(...Object.values(agents).map((agent) => agent.name)).or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -39,6 +44,36 @@ export interface MainResult {
   success: boolean;
   output?: string | undefined;
   error?: string | undefined;
+}
+
+export async function main(inputs: Inputs): Promise<MainResult> {
+  const partialCtx = await initializeContext(inputs);
+  const ctx = partialCtx as MainContext;
+
+  try {
+    await determineAgent(ctx);
+    setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
+    await setupTempDirectory(ctx);
+    setupMcpLogPolling(ctx);
+
+    ctx.payload = parsePayload(inputs);
+    setupMcpServers(ctx);
+    await installAgentCli(ctx);
+    validateApiKey(ctx);
+
+    const result = await runAgent(ctx);
+    return await handleAgentResult(result);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    log.error(errorMessage);
+    await log.writeSummary();
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  } finally {
+    await cleanup(partialCtx);
+  }
 }
 
 /**
@@ -90,110 +125,165 @@ To fix this, add the required secret to your GitHub repository:
   throw new Error(message);
 }
 
-export async function main(inputs: Inputs): Promise<MainResult> {
-  let tokenToRevoke: string | null = null;
+interface MainContext {
+  inputs: Inputs;
+  githubInstallationToken: string;
+  tokenToRevoke: string | null;
+  repoContext: RepoContext;
+  agentName: AgentNameType;
+  agent: (typeof agents)[AgentNameType];
+  sharedTempDir: string;
+  mcpLogPath: string;
+  pollInterval: NodeJS.Timeout | null;
+  payload: Payload;
+  mcpServers: ReturnType<typeof createMcpConfigs>;
+  cliPath: string;
+  apiKey: string;
+}
 
-  try {
-    log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
+async function initializeContext(
+  inputs: Inputs
+): Promise<Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">> {
+  log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
+  Inputs.assert(inputs);
+  setupGitConfig();
 
-    Inputs.assert(inputs);
-    setupGitConfig();
+  const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
+  const tokenToRevoke = wasAcquired ? githubInstallationToken : null;
+  const repoContext = parseRepoContext();
 
-    const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
-    if (wasAcquired) {
-      tokenToRevoke = githubInstallationToken;
-    }
-    const repoContext = parseRepoContext();
+  return {
+    inputs,
+    githubInstallationToken,
+    tokenToRevoke,
+    repoContext,
+    agentName: "claude" as AgentNameType,
+    agent: agents.claude,
+    sharedTempDir: "",
+    mcpLogPath: "",
+    pollInterval: null,
+  };
+}
 
-    const repoSettings = await fetchRepoSettings({
-      token: githubInstallationToken,
-      repoContext,
-    });
+async function determineAgent(
+  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
+): Promise<void> {
+  const repoSettings = await fetchRepoSettings({
+    token: ctx.githubInstallationToken,
+    repoContext: ctx.repoContext,
+  });
 
-    const agentName: AgentName = inputs.agent || repoSettings.defaultAgent || "claude";
+  ctx.agentName = ctx.inputs.agent || repoSettings.defaultAgent || "claude";
+  ctx.agent = agents[ctx.agentName];
+}
 
-    const agent = agents[agentName];
+async function setupTempDirectory(
+  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
+): Promise<void> {
+  ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
+  process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
+  ctx.mcpLogPath = join(ctx.sharedTempDir, "mcpLog.txt");
+  await writeFile(ctx.mcpLogPath, "", "utf-8");
+  log.info(`📂 PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
+}
 
-    setupGitAuth(githubInstallationToken, repoContext);
-
-    const mcpServers = createMcpConfigs(githubInstallationToken);
-
-    log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
-
-    // Install agent CLI before running
-    const cliPath = await agent.install();
-
-    log.info(`Running ${agentName}...`);
-
-    let payload: Payload;
-
-    try {
-      // attempt JSON parsing
-      const parsedPrompt = JSON.parse(inputs.prompt);
-      if (!("~pullfrog" in parsedPrompt)) {
-        // is non-pullfrog JSON (probably from a GitHub event), treat it as a plain text prompt
-        throw new Error();
+function setupMcpLogPolling(ctx: MainContext): void {
+  let lastSize = 0;
+  ctx.pollInterval = setInterval(() => {
+    if (existsSync(ctx.mcpLogPath)) {
+      const content = readFileSync(ctx.mcpLogPath, "utf-8");
+      if (content.length > lastSize) {
+        const newContent = content.slice(lastSize);
+        process.stdout.write(newContent);
+        lastSize = content.length;
       }
-      payload = parsedPrompt as Payload;
-    } catch {
-      payload = {
-        "~pullfrog": true,
-        agent: null,
-        prompt: inputs.prompt,
-        event: {},
-        modes,
-      };
     }
+  }, 100);
+}
 
-    log.box(payload.prompt, { title: "Prompt" });
-
-    const matchingInputKey = agent.inputKeys.find((inputKey) => inputs[inputKey]);
-
-    if (!matchingInputKey) {
-      throwMissingApiKeyError({
-        agentName,
-        inputKeys: agent.inputKeys,
-        repoContext,
-        inputs,
-      });
+function parsePayload(inputs: Inputs): Payload {
+  try {
+    const parsedPrompt = JSON.parse(inputs.prompt);
+    if (!("~pullfrog" in parsedPrompt)) {
+      throw new Error();
     }
-
-    const apiKey = inputs[matchingInputKey]!;
-
-    const result = await agent.run({
-      payload,
-      mcpServers,
-      githubInstallationToken,
-      apiKey,
-      cliPath,
-    });
-
-    if (!result.success) {
-      return {
-        success: false,
-        error: result.error || "Agent execution failed",
-        output: result.output!,
-      };
-    }
-
-    log.success("Task complete.");
-    await log.writeSummary();
-
+    return parsedPrompt as Payload;
+  } catch {
     return {
-      success: true,
-      output: result.output || "",
+      "~pullfrog": true,
+      agent: null,
+      prompt: inputs.prompt,
+      event: {},
+      modes,
     };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-    log.error(errorMessage);
-    await log.writeSummary();
+  }
+}
+
+function setupMcpServers(ctx: MainContext): void {
+  const allModes = [...modes, ...(ctx.payload.modes || [])];
+  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes);
+  log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
+}
+
+async function installAgentCli(ctx: MainContext): Promise<void> {
+  ctx.cliPath = await ctx.agent.install();
+}
+
+function validateApiKey(ctx: MainContext): void {
+  const matchingInputKey = ctx.agent.inputKeys.find(
+    (inputKey: string) => ctx.inputs[inputKey as AgentInputKey]
+  );
+  if (!matchingInputKey) {
+    throwMissingApiKeyError({
+      agentName: ctx.agentName,
+      inputKeys: ctx.agent.inputKeys,
+      repoContext: ctx.repoContext,
+      inputs: ctx.inputs,
+    });
+  }
+  ctx.apiKey = ctx.inputs[matchingInputKey as AgentInputKey]!;
+}
+
+async function runAgent(ctx: MainContext): Promise<import("./agents/shared.ts").AgentResult> {
+  log.info(`Running ${ctx.agentName}...`);
+  log.box(ctx.payload.prompt, { title: "Prompt" });
+
+  return ctx.agent.run({
+    payload: ctx.payload,
+    mcpServers: ctx.mcpServers,
+    githubInstallationToken: ctx.githubInstallationToken,
+    apiKey: ctx.apiKey,
+    cliPath: ctx.cliPath,
+  });
+}
+
+async function handleAgentResult(
+  result: import("./agents/shared.ts").AgentResult
+): Promise<MainResult> {
+  if (!result.success) {
     return {
       success: false,
-      error: errorMessage,
+      error: result.error || "Agent execution failed",
+      output: result.output!,
     };
-  } finally {
-    if (tokenToRevoke) {
-      await revokeInstallationToken(tokenToRevoke);
-    }
+  }
+
+  log.success("Task complete.");
+  await log.writeSummary();
+
+  return {
+    success: true,
+    output: result.output || "",
+  };
+}
+
+async function cleanup(
+  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
+): Promise<void> {
+  if (ctx.pollInterval) {
+    clearInterval(ctx.pollInterval);
+  }
+  if (ctx.tokenToRevoke) {
+    await revokeInstallationToken(ctx.tokenToRevoke);
   }
 }

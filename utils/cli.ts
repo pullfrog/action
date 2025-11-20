@@ -2,9 +2,11 @@
  * CLI output utilities that work well in both local and GitHub Actions environments
  */
 
+import { spawnSync } from "node:child_process";
+import { appendFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import * as core from "@actions/core";
-import { spawnSync } from "child_process";
-import { existsSync } from "fs";
+import { table } from "table";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = process.env.LOG_LEVEL === "debug";
@@ -160,6 +162,43 @@ async function summaryTable(
 }
 
 /**
+ * Print a formatted table using the table package
+ * Also logs to console and GitHub Actions summary
+ */
+async function printTable(
+  rows: Array<Array<{ data: string; header?: boolean } | string>>,
+  options?: {
+    title?: string;
+  }
+): Promise<void> {
+  const { title } = options || {};
+
+  // Convert rows to string arrays for the table package
+  const tableData = rows.map((row) =>
+    row.map((cell) => {
+      if (typeof cell === "string") {
+        return cell;
+      }
+      return cell.data;
+    })
+  );
+
+  const formatted = table(tableData);
+
+  if (title) {
+    core.info(`\n${title}`);
+  }
+  core.info(`\n${formatted}\n`);
+
+  if (isGitHubActions) {
+    if (title) {
+      core.summary.addRaw(`**${title}**\n\n`);
+    }
+    core.summary.addRaw(`\`\`\`\n${formatted}\n\`\`\`\n`);
+  }
+}
+
+/**
  * Print a separator line
  */
 function separator(length: number = 50): void {
@@ -240,6 +279,11 @@ export const log = {
   summaryTable,
 
   /**
+   * Print a formatted table using the table package
+   */
+  table: printTable,
+
+  /**
    * Print a separator line
    */
   separator,
@@ -263,7 +307,118 @@ export const log = {
    * End a collapsed group
    */
   endGroup,
+
+  /**
+   * Log MCP tool call information to mcpLog.txt in the temp directory
+   */
+  toolCall: ({
+    toolName,
+    request,
+    result,
+    error,
+  }: {
+    toolName: string;
+    request: unknown;
+    result?: string;
+    error?: string;
+  }): void => {
+    const logPath = getMcpLogPath();
+    const params: Parameters<typeof formatToolCall>[0] = { toolName, request };
+    if (error) {
+      params.error = error;
+    } else if (result) {
+      params.result = result;
+    }
+    const logEntry = formatToolCall(params);
+    appendFileSync(logPath, logEntry, "utf-8");
+  },
 };
+
+/**
+ * Get the path to the MCP log file in the temp directory
+ */
+function getMcpLogPath(): string {
+  const tempDir = process.env.PULLFROG_TEMP_DIR!;
+  return join(tempDir, "mcpLog.txt");
+}
+
+/**
+ * Format a value as JSON, using compact format for simple values and pretty-printed for complex ones
+ */
+function formatJsonValue(value: unknown): string {
+  const compact = JSON.stringify(value);
+  return compact.length > 80 || compact.includes("\n") ? JSON.stringify(value, null, 2) : compact;
+}
+
+/**
+ * Format a multi-line string with proper indentation for tool call output
+ * First line has the label, subsequent lines are indented 4 spaces
+ */
+function formatIndentedField(label: string, content: string): string {
+  if (!content.includes("\n")) {
+    return `  ${label}: ${content}\n`;
+  }
+
+  const lines = content.split("\n");
+  let formatted = `  ${label}: ${lines[0]}\n`;
+  for (let i = 1; i < lines.length; i++) {
+    formatted += `    ${lines[i]}\n`;
+  }
+  return formatted;
+}
+
+/**
+ * Format the input field for a tool call
+ */
+function formatToolInput(request: unknown): string {
+  const requestFormatted = formatJsonValue(request);
+  if (requestFormatted === "{}") {
+    return "";
+  }
+  return formatIndentedField("input", requestFormatted);
+}
+
+/**
+ * Format the result field for a tool call, parsing JSON if possible
+ */
+function formatToolResult(result: string): string {
+  try {
+    const parsed = JSON.parse(result);
+    const formatted = formatJsonValue(parsed);
+    return formatIndentedField("result", formatted);
+  } catch {
+    // Not JSON, display as-is
+    return formatIndentedField("result", result);
+  }
+}
+
+/**
+ * Format a complete tool call entry with tool name, input, result, and error
+ */
+function formatToolCall({
+  toolName,
+  request,
+  result,
+  error,
+}: {
+  toolName: string;
+  request: unknown;
+  result?: string;
+  error?: string;
+}): string {
+  let logEntry = `→ ${toolName}\n`;
+
+  logEntry += formatToolInput(request);
+
+  if (error) {
+    logEntry += formatIndentedField("error", error);
+  } else if (result) {
+    logEntry += formatToolResult(result);
+  }
+
+  logEntry += "\n";
+  return logEntry;
+}
 
 /**
  * Finds a CLI executable path by checking if it's installed globally

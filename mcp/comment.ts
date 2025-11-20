@@ -77,7 +77,7 @@ export const CreateWorkingCommentTool = tool({
       owner: ctx.owner,
       repo: ctx.name,
       issue_number: issueNumber,
-      body: intent,
+      body: `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />`,
     });
 
     workingCommentId = result.data.id;
