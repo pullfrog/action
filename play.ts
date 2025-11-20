@@ -6,15 +6,14 @@ import { flatMorph } from "@ark/util";
 import arg from "arg";
 import { config } from "dotenv";
 import { agents } from "./agents/index.ts";
+import type { AgentResult } from "./agents/shared.ts";
 import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
 
-export async function run(
-  prompt: string
-): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
+export async function run(prompt: string): Promise<AgentResult> {
   try {
     const tempDir = join(process.cwd(), ".temp");
     setupTestRepo({ tempDir, forceClean: true });
