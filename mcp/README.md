@@ -1,4 +1,4 @@
-# gh-pullfrog MCP Tools
+# gh_pullfrog MCP Tools
 
 this directory contains the mcp (model context protocol) server tools for interacting with github.
 
@@ -22,7 +22,7 @@ all logs from all failed workflow runs in the check suite, including:
 **example:**
 ```typescript
 // when handling a check_suite_completed webhook
-await mcp.call("gh-pullfrog/get_check_suite_logs", {
+await mcp.call("gh_pullfrog/get_check_suite_logs", {
   check_suite_id: check_suite.id
 });
 ```
@@ -48,7 +48,7 @@ array of review comments including:
 **example:**
 ```typescript
 // when handling a pull_request_review_submitted webhook
-await mcp.call("gh-pullfrog/get_review_comments", {
+await mcp.call("gh_pullfrog/get_review_comments", {
   pull_number: 47,
   review_id: review.id
 });
@@ -69,7 +69,7 @@ array of reviews with:
 
 **example:**
 ```typescript
-await mcp.call("gh-pullfrog/list_pull_request_reviews", {
+await mcp.call("gh_pullfrog/list_pull_request_reviews", {
   pull_number: 47
 });
 ```
