@@ -38979,7 +38979,6 @@ var modes = [
     description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
 1. ${initialCommentInstruction}
-    
 2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 3. Understand the requirements and any existing plan
 4. Make the necessary code changes
@@ -39054,9 +39053,6 @@ Do not under any circumstances use the github cli (\`gh\`). Find the correspondi
 Do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
 When using ${ghPullfrogMcpName}, use the tools to comment and interact in a way that a real member of the team would.
 Ensure after your edits are done, your final comments do not contain intermediate reasoning or context, e.g. "I'll respond to the question."
-
-For CI failures:
-- Use ${ghPullfrogMcpName}/get_check_suite_logs with check_suite.id to get all failed workflow logs
 
 ## Mode Selection
 
