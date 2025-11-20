@@ -6,7 +6,6 @@ import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./
 
 export const gemini = agent({
   name: "gemini",
-  inputKeys: ["google_api_key", "gemini_api_key"],
   install: async () => {
     return await installFromNpmTarball({
       packageName: "@google/gemini-cli",

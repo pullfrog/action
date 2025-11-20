@@ -7,7 +7,6 @@ import { agent, type ConfigureMcpServersParams, installFromCurl } from "./shared
 
 export const cursor = agent({
   name: "cursor",
-  inputKeys: ["cursor_api_key"],
   install: async () => {
     return await installFromCurl({
       installUrl: "https://cursor.com/install",

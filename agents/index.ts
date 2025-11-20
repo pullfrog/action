@@ -11,5 +11,3 @@ export const agents = {
   cursor,
   gemini,
 } satisfies Record<AgentName, Agent>;
-
-export type AgentInputKey = (typeof agents)[keyof typeof agents]["inputKeys"][number];
