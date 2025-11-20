@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
+import { $ } from "./shell.ts";
 
 export interface SetupOptions {
   tempDir: string;
@@ -25,7 +26,7 @@ export function setupTestRepo(options: SetupOptions): void {
       rmSync(tempDir, { recursive: true, force: true });
 
       log.info("📦 Cloning pullfrogai/scratch into .temp...");
-      execSync(`git clone ${repoUrl} ${tempDir}`, { stdio: "inherit" });
+      $("git", ["clone", repoUrl, tempDir]);
     } else {
       log.info("📦 Resetting existing .temp repository...");
       execSync("git reset --hard HEAD && git clean -fd", {
@@ -35,7 +36,7 @@ export function setupTestRepo(options: SetupOptions): void {
     }
   } else {
     log.info("📦 Cloning pullfrogai/scratch into .temp...");
-    execSync(`git clone ${repoUrl} ${tempDir}`, { stdio: "inherit" });
+    $("git", ["clone", repoUrl, tempDir]);
   }
 }
 
@@ -87,6 +88,6 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
 
   // Update remote URL to embed the token
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
-  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  $("git", ["remote", "set-url", "origin", remoteUrl]);
   log.info("✓ Updated remote URL with authentication token");
 }

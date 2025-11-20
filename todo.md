@@ -8,6 +8,11 @@
 [] add footer to the working comment ("executed by {agent}", link to pullfrog (homepage) w/ small logo?, feedback (create github issue), link to workflow run)- see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
 [] avoid passing all of process.env into agents: minimum # of vars
 [] toon encode in prompt
+[] branching: use pullfrog/ prefix
+[] test modifications to existing PRs (proper branching)
+[] web access settings
+[] implement Learnings
+[] implement Billing
 
 ## MAYBE
 
