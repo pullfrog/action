@@ -1,4 +1,5 @@
 import { FastMCP } from "fastmcp";
+import { ghPullfrogMcpName } from "../external.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
@@ -6,7 +7,6 @@ import {
   EditCommentTool,
   UpdateWorkingCommentTool,
 } from "./comment.ts";
-// import { ListFilesTool } from "./files.ts";
 import { IssueTool } from "./issue.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
@@ -16,7 +16,7 @@ import { SelectModeTool } from "./selectMode.ts";
 import { addTools } from "./shared.ts";
 
 const server = new FastMCP({
-  name: "gh-pullfrog",
+  name: ghPullfrogMcpName,
   version: "0.0.1",
 });
 
