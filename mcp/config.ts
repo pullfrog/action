@@ -4,9 +4,9 @@
 
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { fromHere } from "@ark/fs";
+import { ghPullfrogMcpName } from "../external.ts";
 import type { Mode } from "../modes.ts";
 import { parseRepoContext } from "../utils/github.ts";
-import { ghPullfrogMcpName } from "../external.ts";
 
 export type McpName = typeof ghPullfrogMcpName;
 
@@ -16,9 +16,9 @@ export function createMcpConfigs(githubInstallationToken: string, modes: Mode[])
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
 
-  // In production (GitHub Actions), mcp-server.js is in same directory as entry.js (where this is bundled)
+  // In production (GitHub Actions), mcp-server is in same directory as entry.js (where this is bundled)
   // In development, server.ts is in the same directory as this file (config.ts)
-  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server.js") : fromHere("server.ts");
+  const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server") : fromHere("server.ts");
 
   return {
     [ghPullfrogMcpName]: {

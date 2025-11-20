@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as core from "@actions/core";
+import { table } from "table";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = process.env.LOG_LEVEL === "debug";
@@ -161,6 +162,43 @@ async function summaryTable(
 }
 
 /**
+ * Print a formatted table using the table package
+ * Also logs to console and GitHub Actions summary
+ */
+async function printTable(
+  rows: Array<Array<{ data: string; header?: boolean } | string>>,
+  options?: {
+    title?: string;
+  }
+): Promise<void> {
+  const { title } = options || {};
+
+  // Convert rows to string arrays for the table package
+  const tableData = rows.map((row) =>
+    row.map((cell) => {
+      if (typeof cell === "string") {
+        return cell;
+      }
+      return cell.data;
+    })
+  );
+
+  const formatted = table(tableData);
+
+  if (title) {
+    core.info(`\n${title}`);
+  }
+  core.info(`\n${formatted}\n`);
+
+  if (isGitHubActions) {
+    if (title) {
+      core.summary.addRaw(`**${title}**\n\n`);
+    }
+    core.summary.addRaw(`\`\`\`\n${formatted}\n\`\`\`\n`);
+  }
+}
+
+/**
  * Print a separator line
  */
 function separator(length: number = 50): void {
@@ -239,6 +277,11 @@ export const log = {
    * Only use this once at the end of execution
    */
   summaryTable,
+
+  /**
+   * Print a formatted table using the table package
+   */
+  table: printTable,
 
   /**
    * Print a separator line
