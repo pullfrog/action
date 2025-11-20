@@ -12,16 +12,17 @@ export const GetCheckSuiteLogsTool = tool({
   parameters: GetCheckSuiteLogs,
   execute: contextualize(async ({ check_suite_id }, ctx) => {
     // get workflow runs for this specific check suite
-    const runsResponse = await ctx.octokit.rest.actions.listWorkflowRunsForRepo({
-      owner: ctx.owner,
-      repo: ctx.name,
-      check_suite_id,
-      per_page: 100,
-    });
-
-    const failedRuns = runsResponse.data.workflow_runs.filter(
-      (run) => run.conclusion === "failure"
+    const workflowRuns = await ctx.octokit.paginate(
+      ctx.octokit.rest.actions.listWorkflowRunsForRepo,
+      {
+        owner: ctx.owner,
+        repo: ctx.name,
+        check_suite_id,
+        per_page: 100,
+      }
     );
+
+    const failedRuns = workflowRuns.filter((run) => run.conclusion === "failure");
 
     if (failedRuns.length === 0) {
       return {
@@ -34,14 +35,14 @@ export const GetCheckSuiteLogsTool = tool({
     // get logs for each failed run
     const logsForRuns = await Promise.all(
       failedRuns.map(async (run) => {
-        const jobsResponse = await ctx.octokit.rest.actions.listJobsForWorkflowRun({
+        const jobs = await ctx.octokit.paginate(ctx.octokit.rest.actions.listJobsForWorkflowRun, {
           owner: ctx.owner,
           repo: ctx.name,
           run_id: run.id,
         });
 
         const jobLogs = await Promise.all(
-          jobsResponse.data.jobs.map(async (job) => {
+          jobs.map(async (job) => {
             try {
               const logsResponse = await ctx.octokit.rest.actions.downloadJobLogsForWorkflowRun({
                 owner: ctx.owner,

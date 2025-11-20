@@ -27,6 +27,53 @@ await mcp.call("gh-pullfrog/get_check_suite_logs", {
 });
 ```
 
+### review tools
+
+#### `get_review_comments`
+get all line-by-line comments for a specific pull request review.
+
+**parameters:**
+- `pull_number` (number): the pull request number
+- `review_id` (number): the id from review.id in the webhook payload
+
+**replaces:** `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/comments`
+
+**returns:**
+array of review comments including:
+- file path, line number, comment body
+- side (LEFT/RIGHT) and position in diff
+- user, timestamps, html_url
+- in_reply_to_id for threaded comments
+
+**example:**
+```typescript
+// when handling a pull_request_review_submitted webhook
+await mcp.call("gh-pullfrog/get_review_comments", {
+  pull_number: 47,
+  review_id: review.id
+});
+```
+
+#### `list_pull_request_reviews`
+list all reviews for a pull request.
+
+**parameters:**
+- `pull_number` (number): the pull request number
+
+**replaces:** `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews`
+
+**returns:**
+array of reviews with:
+- review id, body, state (approved/changes_requested/commented)
+- user, commit_id, submitted_at, html_url
+
+**example:**
+```typescript
+await mcp.call("gh-pullfrog/list_pull_request_reviews", {
+  pull_number: 47
+});
+```
+
 ### other tools
 
 see individual files for documentation on other tools:

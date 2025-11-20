@@ -36,7 +36,8 @@ export const PullRequestInfoTool = tool({
     execSync(`git fetch origin ${headBranch}`, { stdio: "inherit" });
 
     log.info(`Checking out PR branch: origin/${headBranch}`);
-    execSync(`git checkout origin/${headBranch}`, { stdio: "inherit" });
+    // check out a local branch tracking the remote branch so we can push changes
+    execSync(`git checkout -B ${headBranch} origin/${headBranch}`, { stdio: "inherit" });
 
     return {
       number: data.number,

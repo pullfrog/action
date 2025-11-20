@@ -6,10 +6,12 @@ import {
   EditCommentTool,
   UpdateWorkingCommentTool,
 } from "./comment.ts";
+// import { ListFilesTool } from "./files.ts";
 import { IssueTool } from "./issue.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
+import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
 import { addTools } from "./shared.ts";
 
@@ -25,9 +27,12 @@ addTools(server, [
   CreateWorkingCommentTool,
   UpdateWorkingCommentTool,
   IssueTool,
+  // ListFilesTool,
   PullRequestTool,
   ReviewTool,
   PullRequestInfoTool,
+  GetReviewCommentsTool,
+  ListPullRequestReviewsTool,
   GetCheckSuiteLogsTool,
 ]);
 
