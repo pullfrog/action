@@ -32,10 +32,11 @@ export const gemini = agent({
     try {
       const result = await spawn({
         cmd: "node",
-        args: [cliPath, "--yolo", "--output-format", "text", "-p", sessionPrompt],
+        args: [cliPath, "--yolo", "--output-format=text", "-p", sessionPrompt],
         env: {
           GEMINI_API_KEY: apiKey,
           GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+          GEMINI_CLI_DISABLE_SCHEMA_VALIDATION: "1",
         },
         onStdout: (chunk) => {
           const trimmed = chunk.trim();
@@ -94,7 +95,6 @@ function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersP
 
     const addArgs = ["mcp", "add", serverName, command, ...args];
 
-    // Add environment variables as --env flags
     for (const [key, value] of Object.entries(envVars)) {
       addArgs.push("--env", `${key}=${value}`);
     }

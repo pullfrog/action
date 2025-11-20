@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, createWriteStream, existsSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";

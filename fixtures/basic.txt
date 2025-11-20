@@ -1,1 +1,1 @@
-create a comment on https://github.com/pullfrogai/scratch/pull/29 that says Things just got out of hand
+comment on https://github.com/pullfrogai/scratch/pull/29 that writes a really funny joke about Arktype

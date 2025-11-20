@@ -21,24 +21,18 @@ export const cursor = agent({
     configureCursorMcpServers({ mcpServers, cliPath });
 
     try {
-      // Run cursor-agent in non-interactive mode with the prompt
-      // Using -p flag for prompt, --output-format text for plain text output
-      // and --approve-mcps to automatically approve all MCP servers
       const fullPrompt = addInstructions(payload);
 
-      // Find temp directory from cliPath to set HOME for MCP config lookup
       const tempDir = cliPath.split("/.local/bin/")[0];
 
       log.info("Running Cursor CLI...");
 
-      // Use spawn to handle streaming output
-      // Use --print flag explicitly for non-interactive mode
       return new Promise((resolve) => {
         const child = spawn(
           cliPath,
           ["--print", fullPrompt, "--output-format", "text", "--approve-mcps", "--force"],
           {
-            cwd: process.cwd(), // Run in current working directory
+            cwd: process.cwd(),
             env: {
               ...process.env,
               CURSOR_API_KEY: apiKey,
@@ -52,7 +46,6 @@ export const cursor = agent({
         let stdout = "";
         let stderr = "";
 
-        // Log when process starts
         child.on("spawn", () => {
           log.debug("Cursor CLI process spawned");
         });
@@ -67,12 +60,10 @@ export const cursor = agent({
         child.stderr?.on("data", (data) => {
           const text = data.toString();
           stderr += text;
-          // Log errors as they come - but also write to stdout so we can see it
           process.stderr.write(text);
           log.warning(text);
         });
 
-        // Handle process exit
         child.on("close", (code, signal) => {
           if (signal) {
             log.warning(`Cursor CLI terminated by signal: ${signal}`);
