@@ -26,7 +26,7 @@ export async function run(
       prompt,
       agent: "gemini",
       ...flatMorph(agents, (_, agent) =>
-        agent.inputKeys.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
+        agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),
     };
 
