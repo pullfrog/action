@@ -24,12 +24,12 @@ import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
 
 export const AgentInputKey = type.enumerated(
-  ...Object.values(agents).flatMap((agent) => agent.inputKeys)
+  ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
 );
 export type AgentInputKey = typeof AgentInputKey.infer;
 
 const keyInputDefs = flatMorph(agents, (_, agent) =>
-  agent.inputKeys.map((inputKey) => [inputKey, "string | undefined?"] as const)
+  agent.apiKeyNames.map((inputKey) => [inputKey, "string | undefined?"] as const)
 );
 
 export const Inputs = type({
@@ -102,7 +102,7 @@ function throwMissingApiKeyError({
 
   // Find which agents have inputKeys that match the provided inputs
   const availableAgents = Object.values(agents).filter((agent) =>
-    agent.inputKeys.some((inputKey) => inputs[inputKey])
+    agent.apiKeyNames.some((inputKey) => inputs[inputKey])
   );
 
   let message = `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.
@@ -230,13 +230,13 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
 }
 
 function validateApiKey(ctx: MainContext): void {
-  const matchingInputKey = ctx.agent.inputKeys.find(
+  const matchingInputKey = ctx.agent.apiKeyNames.find(
     (inputKey: string) => ctx.inputs[inputKey as AgentInputKey]
   );
   if (!matchingInputKey) {
     throwMissingApiKeyError({
       agentName: ctx.agentName,
-      inputKeys: ctx.agent.inputKeys,
+      inputKeys: ctx.agent.apiKeyNames,
       repoContext: ctx.repoContext,
       inputs: ctx.inputs,
     });

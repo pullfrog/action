@@ -7,30 +7,37 @@
 import type { Mode } from "./modes.ts";
 
 // mcp name constant
-export const ghPullfrogMcpName = "gh-pullfrog";
+export const ghPullfrogMcpName = "gh_pullfrog";
+
+export interface AgentManifest {
+  displayName: string;
+  apiKeyNames: string[];
+}
 
 // agent manifest - static metadata about available agents
 export const agentsManifest = {
   claude: {
-    name: "Claude Code",
-    apiKeys: ["anthropic_api_key"],
+    displayName: "Claude Code",
+    apiKeyNames: ["anthropic_api_key"],
   },
   codex: {
-    name: "Codex CLI",
-    apiKeys: ["openai_api_key"],
+    displayName: "Codex CLI",
+    apiKeyNames: ["openai_api_key"],
   },
   cursor: {
-    name: "Cursor CLI",
-    apiKeys: ["cursor_api_key"],
+    displayName: "Cursor CLI",
+    apiKeyNames: ["cursor_api_key"],
   },
   gemini: {
-    name: "Gemini CLI",
-    apiKeys: ["google_api_key", "gemini_api_key"],
+    displayName: "Gemini CLI",
+    apiKeyNames: ["google_api_key", "gemini_api_key"],
   },
-} as const;
+} as const satisfies Record<string, AgentManifest>;
 
 // agent name type - union of agent slugs
 export type AgentName = keyof typeof agentsManifest;
+
+export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
 // payload type for agent execution
 export type Payload = {

@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import type { Payload } from "../external.ts";
+import type { show } from "@ark/util";
+import { type AgentManifest, type AgentName, agentsManifest, type Payload } from "../external.ts";
 import { log } from "../utils/cli.ts";
 
 /**
@@ -330,13 +331,18 @@ export async function installFromCurl({
   return cliPath;
 }
 
-export const agent = <const agent extends Agent>(agent: agent): agent => {
-  return agent;
+export const agent = <const input extends AgentInput>(input: input): defineAgent<input> => {
+  return { ...input, ...agentsManifest[input.name] } as never;
 };
 
-export type Agent = {
-  name: string;
-  inputKeys: string[];
+export interface AgentInput {
+  name: AgentName;
   install: () => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
-};
+}
+
+export interface Agent extends AgentInput, AgentManifest {}
+
+type agentManifest<name extends AgentName> = (typeof agentsManifest)[name];
+
+type defineAgent<input extends AgentInput> = show<input & agentManifest<input["name"]>>;

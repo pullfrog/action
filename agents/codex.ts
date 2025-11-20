@@ -6,7 +6,6 @@ import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./
 
 export const codex = agent({
   name: "codex",
-  inputKeys: ["openai_api_key"],
   install: async () => {
     return await installFromNpmTarball({
       packageName: "@openai/codex",

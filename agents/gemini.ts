@@ -6,7 +6,6 @@ import { agent, type ConfigureMcpServersParams, installFromGithub } from "./shar
 
 export const gemini = agent({
   name: "gemini",
-  inputKeys: ["google_api_key", "gemini_api_key"],
   install: async () => {
     return await installFromGithub({
       owner: "google-gemini",
