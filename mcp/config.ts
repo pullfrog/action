@@ -6,7 +6,7 @@ import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { fromHere } from "@ark/fs";
 import type { Mode } from "../modes.ts";
 import { parseRepoContext } from "../utils/github.ts";
-import { ghPullfrogMcpName } from "./index.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 
 export type McpName = typeof ghPullfrogMcpName;
 

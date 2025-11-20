@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
-import type { Payload } from "./external.ts";
+import type { AgentName as AgentNameType, Payload } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -19,8 +19,9 @@ import {
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 
+// runtime validation using agents (needed for ArkType)
+// Note: The AgentName type is defined in external.ts, this is the runtime validator
 export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
-export type AgentName = typeof AgentName.infer;
 
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.inputKeys)
@@ -34,7 +35,7 @@ const keyInputDefs = flatMorph(agents, (_, agent) =>
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": AgentName.or("undefined"),
+  "agent?": type.enumerated(...Object.values(agents).map((agent) => agent.name)).or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -129,8 +130,8 @@ interface MainContext {
   githubInstallationToken: string;
   tokenToRevoke: string | null;
   repoContext: RepoContext;
-  agentName: AgentName;
-  agent: (typeof agents)[AgentName];
+  agentName: AgentNameType;
+  agent: (typeof agents)[AgentNameType];
   sharedTempDir: string;
   mcpLogPath: string;
   pollInterval: NodeJS.Timeout | null;
@@ -156,7 +157,7 @@ async function initializeContext(
     githubInstallationToken,
     tokenToRevoke,
     repoContext,
-    agentName: "claude" as AgentName,
+    agentName: "claude" as AgentNameType,
     agent: agents.claude,
     sharedTempDir: "",
     mcpLogPath: "",
@@ -230,7 +231,7 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
 
 function validateApiKey(ctx: MainContext): void {
   const matchingInputKey = ctx.agent.inputKeys.find(
-    (inputKey) => ctx.inputs[inputKey as AgentInputKey]
+    (inputKey: string) => ctx.inputs[inputKey as AgentInputKey]
   );
   if (!matchingInputKey) {
     throwMissingApiKeyError({

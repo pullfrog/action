@@ -1,4 +1,4 @@
-import { ghPullfrogMcpName } from "./mcp/index.ts";
+import { ghPullfrogMcpName } from "./external.ts";
 
 export interface Mode {
   name: string;

@@ -1,5 +1,5 @@
 import type { Payload } from "../external.ts";
-import { ghPullfrogMcpName } from "../mcp/index.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import { modes } from "../modes.ts";
 
 export const addInstructions = (payload: Payload) =>
