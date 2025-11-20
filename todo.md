@@ -7,7 +7,6 @@
 [] test if home directory mcp.json works if mcp.json is specified in repo
 [] add footer to the working comment ("executed by {agent}", link to pullfrog (homepage) w/ small logo?, feedback (create github issue), link to workflow run)- see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
 [] avoid passing all of process.env into agents: minimum # of vars
-[] external.ts align to agents
 [] toon encode in prompt
 
 ## MAYBE
@@ -36,3 +35,4 @@
 [x] split up prompts, load dynamically based on mode
 [x] log.txt to stdout
 [x] rename mcp to use underscore
+[x] external.ts align to agents
