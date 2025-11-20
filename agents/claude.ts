@@ -19,6 +19,7 @@ export const claude = agent({
     process.env.ANTHROPIC_API_KEY = apiKey;
 
     const prompt = addInstructions(payload);
+    console.log(prompt);
 
     const queryInstance = query({
       prompt,

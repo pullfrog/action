@@ -1,4 +1,5 @@
 import { FastMCP } from "fastmcp";
+import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
   CreateWorkingCommentTool,
@@ -27,6 +28,7 @@ addTools(server, [
   PullRequestTool,
   ReviewTool,
   PullRequestInfoTool,
+  GetCheckSuiteLogsTool,
 ]);
 
 server.start();

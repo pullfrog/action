@@ -29,7 +29,6 @@ export const modes: Mode[] = [
       "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
     prompt: `Follow these steps:
 1. ${initialCommentInstruction}
-    
 2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 3. Understand the requirements and any existing plan
 4. Make the necessary code changes

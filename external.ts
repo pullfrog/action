@@ -48,8 +48,9 @@ export type Payload = {
 
   /**
    * Event data from webhook payload.
+   * Can be an object (will be JSON.stringify'd) or a string (used as-is).
    */
-  readonly event: object;
+  readonly event: object | string;
 
   /**
    * Execution mode configuration

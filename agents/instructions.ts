@@ -44,6 +44,9 @@ Do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that
 When using ${ghPullfrogMcpName}, use the tools to comment and interact in a way that a real member of the team would.
 Ensure after your edits are done, your final comments do not contain intermediate reasoning or context, e.g. "I'll respond to the question."
 
+For CI failures:
+- Use ${ghPullfrogMcpName}/get_check_suite_logs with check_suite.id to get all failed workflow logs
+
 ## Mode Selection
 
 Before starting any work, you must first determine which mode to use by examining the request and calling ${ghPullfrogMcpName}/select_mode.
@@ -62,4 +65,4 @@ ${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`)
 
 ${payload.prompt}
 
-${JSON.stringify(payload.event, null, 2)}`;
+${typeof payload.event === "string" ? payload.event : JSON.stringify(payload.event, null, 2)}`;
