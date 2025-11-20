@@ -16,6 +16,7 @@ export const codex = agent({
   run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.OPENAI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    process.env.HOME = process.env.PULLFROG_TEMP_DIR;
 
     configureCodexMcpServers({ mcpServers, cliPath });
 
