@@ -39,6 +39,86 @@ export type AgentName = keyof typeof agentsManifest;
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
+// discriminated union for payload event based on trigger
+export type PayloadEvent =
+  | {
+      trigger: "pull_request_opened";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_requested";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_submitted";
+      pr_number: number;
+      review_id: number;
+      review_body: string | null;
+      review_state: string;
+      review_comments: any[];
+      context: any;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_comment_created";
+      pr_number: number;
+      pr_title: string;
+      comment_id: number;
+      comment_body: string;
+      thread?: any;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_opened";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_assigned";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_labeled";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issue_comment_created";
+      comment_id: number;
+      comment_body: string;
+      issue_number: number;
+      [key: string]: any;
+    }
+  | {
+      trigger: "check_suite_completed";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      pull_request: any;
+      check_suite: {
+        id: number;
+        head_sha: string;
+        head_branch: string | null;
+        status: string | null;
+        conclusion: string | null;
+        url: string;
+      };
+      [key: string]: any;
+    };
+
 // payload type for agent execution
 export type Payload = {
   "~pullfrog": true;
@@ -55,9 +135,9 @@ export type Payload = {
 
   /**
    * Event data from webhook payload.
-   * Can be an object (will be JSON.stringify'd) or a string (used as-is).
+   * Discriminated union based on trigger field.
    */
-  readonly event: object | string;
+  readonly event: PayloadEvent;
 
   /**
    * Execution mode configuration

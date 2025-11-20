@@ -1,3 +1,4 @@
+import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { modes } from "../modes.ts";
@@ -62,4 +63,4 @@ ${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`)
 
 ${payload.prompt}
 
-${typeof payload.event === "string" ? payload.event : JSON.stringify(payload.event, null, 2)}`;
+${toonEncode(payload.event)}`;

@@ -213,7 +213,12 @@ function parsePayload(inputs: Inputs): Payload {
       "~pullfrog": true,
       agent: null,
       prompt: inputs.prompt,
-      event: {},
+      event: {
+        trigger: "issues_opened",
+        issue_number: 0,
+        issue_title: "",
+        issue_body: null,
+      } as Payload["event"],
       modes,
     };
   }
