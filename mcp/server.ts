@@ -1,3 +1,5 @@
+import "./arkConfig.ts";
+// this must be imported first
 import { FastMCP } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
@@ -27,7 +29,6 @@ addTools(server, [
   CreateWorkingCommentTool,
   UpdateWorkingCommentTool,
   IssueTool,
-  // ListFilesTool,
   PullRequestTool,
   ReviewTool,
   PullRequestInfoTool,
