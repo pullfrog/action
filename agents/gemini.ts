@@ -32,7 +32,7 @@ export const gemini = agent({
     try {
       const result = await spawn({
         cmd: "node",
-        args: [cliPath, "--yolo", "--output-format", "text", sessionPrompt],
+        args: [cliPath, "--yolo", "--output-format", "text", "-p", sessionPrompt],
         env: {
           GEMINI_API_KEY: apiKey,
           GITHUB_INSTALLATION_TOKEN: githubInstallationToken,

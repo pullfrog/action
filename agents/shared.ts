@@ -219,26 +219,11 @@ export async function installFromGithub({
 
   log.info(`Found release: ${releaseData.tag_name}`);
 
-  // find the asset to download
-  let assetUrl: string;
-  if (assetName) {
-    const asset = releaseData.assets.find((a) => a.name === assetName);
-    if (!asset) {
-      throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
-    }
-    assetUrl = asset.browser_download_url;
-  } else {
-    // if no asset name specified, try to find a .js file or use the first asset
-    const jsAsset = releaseData.assets.find((a) => a.name.endsWith(".js"));
-    if (!jsAsset) {
-      if (releaseData.assets.length === 0) {
-        throw new Error(`No assets found in release ${releaseData.tag_name}`);
-      }
-      assetUrl = releaseData.assets[0].browser_download_url;
-    } else {
-      assetUrl = jsAsset.browser_download_url;
-    }
+  const asset = releaseData.assets.find((a) => a.name === assetName);
+  if (!asset) {
+    throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
   }
+  const assetUrl = asset.browser_download_url;
 
   log.info(`Downloading asset from ${assetUrl}...`);
 
@@ -267,41 +252,7 @@ export async function installFromGithub({
   // determine the executable path
   let cliPath: string;
   if (executablePath) {
-    // if executablePath is provided, assume the downloaded file needs to be extracted
-    // and the executable is inside
-    if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) {
-      // extract tarball
-      log.info(`Extracting tarball...`);
-      const extractResult = spawnSync("tar", ["-xzf", downloadPath, "-C", tempDir], {
-        stdio: "pipe",
-        encoding: "utf-8",
-      });
-      if (extractResult.status !== 0) {
-        throw new Error(
-          `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
-        );
-      }
-      // find the extracted directory (usually named after the repo)
-      const extractedDir = join(tempDir, repo);
-      cliPath = join(extractedDir, executablePath);
-    } else if (fileName.endsWith(".zip")) {
-      // extract zip
-      log.info(`Extracting zip...`);
-      const extractResult = spawnSync("unzip", ["-q", downloadPath, "-d", tempDir], {
-        stdio: "pipe",
-        encoding: "utf-8",
-      });
-      if (extractResult.status !== 0) {
-        throw new Error(
-          `Failed to extract zip: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
-        );
-      }
-      const extractedDir = join(tempDir, repo);
-      cliPath = join(extractedDir, executablePath);
-    } else {
-      // assume it's a single file, executablePath is relative to temp dir
-      cliPath = join(tempDir, executablePath);
-    }
+    cliPath = join(tempDir, executablePath);
   } else {
     // no executablePath, assume the downloaded file is the executable
     cliPath = downloadPath;
