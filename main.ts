@@ -24,7 +24,6 @@ import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
 
-const AGENT_OVERRIDE: AgentName | null = "cursor";
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
 );
@@ -218,15 +217,15 @@ async function resolveAgent(
     repoContext,
   });
 
-  const configuredAgentName =
-    (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
-    payload.agent ||
-    repoSettings.defaultAgent ||
-    null;
+  const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
+  const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
   if (configuredAgentName) {
     const agentName = configuredAgentName;
     const agent = agents[agentName];
+    if (!agent) {
+      throw new Error(`invalid agent name: ${agentName}`);
+    }
     log.info(`Selected configured agent: ${agentName}`);
     return { agentName, agent };
   }

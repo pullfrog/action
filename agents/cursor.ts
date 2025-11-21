@@ -25,10 +25,20 @@ export const cursor = agent({
 
       log.info("Running Cursor CLI...");
 
+      const startTime = Date.now();
+
       return new Promise((resolve) => {
         const child = spawn(
           cliPath,
-          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps", "--force"],
+          [
+            "--print",
+            fullPrompt,
+            "--output-format",
+            "stream-json",
+            "--stream-partial-output",
+            "--approve-mcps",
+            "--force",
+          ],
           {
             cwd: process.cwd(),
             env: {
@@ -44,16 +54,36 @@ export const cursor = agent({
 
         let stdout = "";
         let stderr = "";
+        let jsonBuffer = "";
 
         child.on("spawn", () => {
           log.debug("Cursor CLI process spawned");
         });
 
-        child.stdout?.on("data", (data) => {
+        child.stdout?.on("data", async (data) => {
           const text = data.toString();
           stdout += text;
-          // Stream output in real-time
-          process.stdout.write(text);
+          jsonBuffer += text;
+
+          // parse ndjson (newline-delimited json)
+          const lines = jsonBuffer.split("\n");
+          // keep last incomplete line in buffer
+          jsonBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+
+            try {
+              const event = JSON.parse(trimmedLine);
+              // log everything for now - we'll infer types from real output
+              log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
+            } catch {
+              // if json parse fails, might be partial line or non-json output
+              // log debug info but don't crash
+              log.debug(`failed to parse json line: ${trimmedLine.substring(0, 100)}`);
+            }
+          }
         });
 
         child.stderr?.on("data", (data) => {
@@ -63,20 +93,32 @@ export const cursor = agent({
           log.warning(text);
         });
 
-        child.on("close", (code, signal) => {
+        child.on("close", async (code, signal) => {
+          // process any remaining buffered json
+          if (jsonBuffer.trim()) {
+            try {
+              const event = JSON.parse(jsonBuffer.trim());
+              log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
+            } catch {
+              // ignore parse errors for final buffer
+            }
+          }
+
           if (signal) {
             log.warning(`Cursor CLI terminated by signal: ${signal}`);
           }
 
+          const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
           if (code === 0) {
-            log.success("Cursor CLI completed successfully");
+            log.success(`Cursor CLI completed successfully in ${duration}s`);
             resolve({
               success: true,
               output: stdout.trim(),
             });
           } else {
             const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
-            log.error(`Cursor CLI failed: ${errorMessage}`);
+            log.error(`Cursor CLI failed after ${duration}s: ${errorMessage}`);
             resolve({
               success: false,
               error: errorMessage,
@@ -86,8 +128,9 @@ export const cursor = agent({
         });
 
         child.on("error", (error) => {
+          const duration = ((Date.now() - startTime) / 1000).toFixed(1);
           const errorMessage = error.message || String(error);
-          log.error(`Cursor CLI execution failed: ${errorMessage}`);
+          log.error(`Cursor CLI execution failed after ${duration}s: ${errorMessage}`);
           resolve({
             success: false,
             error: errorMessage,
