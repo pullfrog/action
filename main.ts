@@ -17,7 +17,7 @@ import {
   revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
-import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
+import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
@@ -57,6 +57,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     setupMcpLogPolling(ctx);
 
     ctx.payload = parsePayload(inputs);
+    setupGitBranch(ctx.payload);
     setupMcpServers(ctx);
     await installAgentCli(ctx);
     validateApiKey(ctx);

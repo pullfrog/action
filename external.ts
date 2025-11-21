@@ -46,6 +46,7 @@ export type PayloadEvent =
       pr_number: number;
       pr_title: string;
       pr_body: string | null;
+      branch: string;
       [key: string]: any;
     }
   | {
@@ -53,6 +54,7 @@ export type PayloadEvent =
       pr_number: number;
       pr_title: string;
       pr_body: string | null;
+      branch: string;
       [key: string]: any;
     }
   | {
@@ -63,6 +65,7 @@ export type PayloadEvent =
       review_state: string;
       review_comments: any[];
       context: any;
+      branch: string;
       [key: string]: any;
     }
   | {
@@ -72,6 +75,7 @@ export type PayloadEvent =
       comment_id: number;
       comment_body: string;
       thread?: any;
+      branch: string;
       [key: string]: any;
     }
   | {
@@ -100,6 +104,7 @@ export type PayloadEvent =
       comment_id: number;
       comment_body: string;
       issue_number: number;
+      branch?: string;
       [key: string]: any;
     }
   | {
@@ -108,6 +113,7 @@ export type PayloadEvent =
       pr_title: string;
       pr_body: string | null;
       pull_request: any;
+      branch: string;
       check_suite: {
         id: number;
         head_sha: string;

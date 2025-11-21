@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
+import type { Payload } from "../external.ts";
 import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 import { $ } from "./shell.ts";
@@ -90,4 +91,43 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
   $("git", ["remote", "set-url", "origin", remoteUrl]);
   log.info("✓ Updated remote URL with authentication token");
+}
+
+/**
+ * Setup git branch based on payload event context
+ * Automatically checks out the appropriate branch before agent execution
+ */
+export function setupGitBranch(payload: Payload): void {
+  // Only set up git branch in GitHub Actions environment
+  // In local testing, this might interfere with local git state
+  if (!process.env.GITHUB_ACTIONS) {
+    return;
+  }
+
+  const branch = payload.event.branch;
+
+  if (!branch) {
+    log.debug("No branch specified in payload, using default branch");
+    return;
+  }
+
+  log.info(`🌿 Setting up git branch: ${branch}`);
+
+  try {
+    // Fetch the branch from origin
+    log.debug(`Fetching branch from origin: ${branch}`);
+    execSync(`git fetch origin ${branch}`, { stdio: "pipe" });
+
+    // Checkout the branch, creating local tracking branch
+    log.debug(`Checking out branch: ${branch}`);
+    execSync(`git checkout -B ${branch} origin/${branch}`, { stdio: "pipe" });
+
+    log.info(`✓ Successfully checked out branch: ${branch}`);
+  } catch (error) {
+    // If git operations fail, log warning but don't fail the action
+    // The agent might still be able to work with the default branch
+    log.warning(
+      `Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
