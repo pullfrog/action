@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, createWriteStream, existsSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
@@ -52,6 +54,17 @@ export interface InstallFromNpmTarballParams {
 export interface InstallFromCurlParams {
   installUrl: string;
   executableName: string;
+}
+
+/**
+ * Parameters for installing from GitHub releases
+ */
+export interface InstallFromGithubParams {
+  owner: string;
+  repo: string;
+  tag?: string;
+  assetName?: string;
+  executablePath?: string;
 }
 
 /**
@@ -163,6 +176,91 @@ export async function installFromNpmTarball({
   chmodSync(cliPath, 0o755);
 
   log.info(`✓ ${packageName} installed at ${cliPath}`);
+
+  return cliPath;
+}
+
+/**
+ * Install a CLI tool from GitHub releases
+ * Downloads the latest release asset from GitHub and returns the path to the executable
+ * The temp directory will be cleaned up by the OS automatically
+ */
+export async function installFromGithub({
+  owner,
+  repo,
+  tag,
+  assetName,
+  executablePath,
+}: InstallFromGithubParams): Promise<string> {
+  log.info(`📦 Installing ${owner}/${repo} from GitHub releases...`);
+
+  // fetch release from GitHub API (specific tag or latest)
+  const releaseUrl = tag
+    ? `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`
+    : `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+  log.info(`Fetching release from ${releaseUrl}...`);
+  const releaseResponse = await fetch(releaseUrl);
+  if (!releaseResponse.ok) {
+    throw new Error(
+      `Failed to fetch release: ${releaseResponse.status} ${releaseResponse.statusText}`
+    );
+  }
+
+  const releaseData = (await releaseResponse.json()) as {
+    tag_name: string;
+    assets: Array<{
+      name: string;
+      browser_download_url: string;
+    }>;
+  };
+
+  log.info(`Found release: ${releaseData.tag_name}`);
+
+  const asset = releaseData.assets.find((a) => a.name === assetName);
+  if (!asset) {
+    throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
+  }
+  const assetUrl = asset.browser_download_url;
+
+  log.info(`Downloading asset from ${assetUrl}...`);
+
+  // create temp directory
+  const tempDirPrefix = `${owner}-${repo}-github-`;
+  const tempDir = await mkdtemp(join(tmpdir(), tempDirPrefix));
+
+  // determine file extension and download path
+  const urlPath = new URL(assetUrl).pathname;
+  const fileName = urlPath.split("/").pop() || "asset";
+  const downloadPath = join(tempDir, fileName);
+
+  // download the asset
+  const assetResponse = await fetch(assetUrl);
+  if (!assetResponse.ok) {
+    throw new Error(
+      `Failed to download asset: ${assetResponse.status} ${assetResponse.statusText}`
+    );
+  }
+
+  if (!assetResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream(downloadPath);
+  await pipeline(assetResponse.body, fileStream);
+  log.info(`Downloaded asset to ${downloadPath}`);
+
+  // determine the executable path
+  let cliPath: string;
+  if (executablePath) {
+    cliPath = join(tempDir, executablePath);
+  } else {
+    // no executablePath, assume the downloaded file is the executable
+    cliPath = downloadPath;
+  }
+
+  if (!existsSync(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+
+  chmodSync(cliPath, 0o755);
+  log.info(`✓ Installed from GitHub release at ${cliPath}`);
 
   return cliPath;
 }

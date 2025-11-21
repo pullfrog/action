@@ -2,16 +2,16 @@ import { spawnSync } from "node:child_process";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./shared.ts";
+import { agent, type ConfigureMcpServersParams, installFromGithub } from "./shared.ts";
 
 export const gemini = agent({
   name: "gemini",
   install: async () => {
-    return await installFromNpmTarball({
-      packageName: "@google/gemini-cli",
-      version: "latest",
-      executablePath: "dist/index.js",
-      installDependencies: true,
+    return await installFromGithub({
+      owner: "google-gemini",
+      repo: "gemini-cli",
+      tag: "v0.16.0",
+      assetName: "gemini.js",
     });
   },
   run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
@@ -31,7 +31,7 @@ export const gemini = agent({
     try {
       const result = await spawn({
         cmd: "node",
-        args: [cliPath, "--yolo", "--output-format", "text", sessionPrompt],
+        args: [cliPath, "--yolo", "--output-format=text", "-p", sessionPrompt],
         env: {
           GEMINI_API_KEY: apiKey,
           GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
@@ -93,7 +93,6 @@ function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersP
 
     const addArgs = ["mcp", "add", serverName, command, ...args];
 
-    // Add environment variables as --env flags
     for (const [key, value] of Object.entries(envVars)) {
       addArgs.push("--env", `${key}=${value}`);
     }

@@ -43,12 +43,6 @@ interface RepositoriesResponse {
   repositories: Repository[];
 }
 
-function checkExistingToken(): string | null {
-  const inputToken = core.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  return inputToken || envToken || null;
-}
-
 function isGitHubActionsEnvironment(): boolean {
   return Boolean(process.env.GITHUB_ACTIONS);
 }
@@ -249,24 +243,13 @@ async function acquireNewToken(): Promise<string> {
 
 /**
  * Setup GitHub installation token for the action
- * Returns the token and whether it was acquired (needs revocation)
  */
-export async function setupGitHubInstallationToken(): Promise<{
-  githubInstallationToken: string;
-  wasAcquired: boolean;
-}> {
-  const existingToken = checkExistingToken();
-  if (existingToken) {
-    core.setSecret(existingToken);
-    log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
-  }
-
+export async function setupGitHubInstallationToken(): Promise<string> {
   const acquiredToken = await acquireNewToken();
   core.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
 
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+  return acquiredToken;
 }
 
 /**
