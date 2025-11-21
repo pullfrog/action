@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { formatToolCallLog, log } from "../utils/cli.ts";
+import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, type ConfigureMcpServersParams, installFromCurl } from "./shared.ts";
 
@@ -105,17 +105,15 @@ const messageHandlers = {
       const builtinToolCall = (event.tool_call as any)?.builtinToolCall;
 
       if (mcpToolCall?.args?.toolName && mcpToolCall?.args?.args) {
-        const formatted = formatToolCallLog({
+        log.toolCall({
           toolName: mcpToolCall.args.toolName,
           input: mcpToolCall.args.args,
         });
-        log.info(formatted);
       } else if (builtinToolCall?.args?.name && builtinToolCall?.args?.args) {
-        const formatted = formatToolCallLog({
+        log.toolCall({
           toolName: builtinToolCall.args.name,
           input: builtinToolCall.args.args,
         });
-        log.info(formatted);
       }
     } else if (event.subtype === "completed") {
       const isError = event.tool_call?.mcpToolCall?.result?.success?.isError;

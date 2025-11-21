@@ -62,37 +62,15 @@ const messageHandlers: SDKMessageHandlers = {
         if (content.type === "text" && content.text?.trim()) {
           log.box(content.text.trim(), { title: "Claude" });
         } else if (content.type === "tool_use") {
-          log.info(`→ ${content.name}`);
-
           // Track bash tool IDs
           if (content.name === "bash" && content.id) {
             bashToolIds.add(content.id);
           }
 
-          if (content.input) {
-            const input = content.input as any;
-            if (input.description) log.info(`   └─ ${input.description}`);
-            if (input.command) log.info(`   └─ command: ${input.command}`);
-            if (input.file_path) log.info(`   └─ file: ${input.file_path}`);
-            if (input.content) {
-              const preview =
-                input.content.length > 100
-                  ? `${input.content.substring(0, 100)}...`
-                  : input.content;
-              log.info(`   └─ content: ${preview}`);
-            }
-            if (input.query) log.info(`   └─ query: ${input.query}`);
-            if (input.pattern) log.info(`   └─ pattern: ${input.pattern}`);
-            if (input.url) log.info(`   └─ url: ${input.url}`);
-            if (input.edits && Array.isArray(input.edits)) {
-              log.info(`   └─ edits: ${input.edits.length} changes`);
-              input.edits.forEach((edit: any, index: number) => {
-                if (edit.file_path) log.info(`      ${index + 1}. ${edit.file_path}`);
-              });
-            }
-            if (input.task) log.info(`   └─ task: ${input.task}`);
-            if (input.bash_command) log.info(`   └─ bash_command: ${input.bash_command}`);
-          }
+          log.toolCall({
+            toolName: content.name,
+            input: content.input,
+          });
         }
       }
     }

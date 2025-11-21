@@ -53,7 +53,7 @@ export const codex = agent({
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers[event.type];
-        console.log(event as never);
+        log.debug(JSON.stringify(event, null, 2));
         if (handler) {
           handler(event as never);
         }
@@ -116,12 +116,21 @@ const messageHandlers: {
   "item.started": (event) => {
     const item = event.item;
     if (item.type === "command_execution") {
-      log.info(`→ ${item.command}`);
       commandExecutionIds.add(item.id);
+      log.toolCall({
+        toolName: item.command,
+        input: (item as any).args || {},
+      });
     } else if (item.type === "agent_message") {
       // Will be handled on completion
     } else if (item.type === "mcp_tool_call") {
-      log.info(`→ ${item.tool} (${item.server})`);
+      log.toolCall({
+        toolName: item.tool,
+        input: {
+          server: item.server,
+          ...((item as any).args || {}),
+        },
+      });
     }
     // Reasoning items are handled on completion for better readability
   },

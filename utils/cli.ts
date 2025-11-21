@@ -309,9 +309,23 @@ export const log = {
   endGroup,
 
   /**
+   * Log tool call information to console with formatted output
+   */
+  toolCall: ({ toolName, input }: { toolName: string; input: unknown }): void => {
+    let output = `→ ${toolName}\n`;
+
+    const inputFormatted = formatJsonValue(input);
+    if (inputFormatted !== "{}") {
+      output += formatIndentedField("input", inputFormatted);
+    }
+
+    log.info(output.trimEnd());
+  },
+
+  /**
    * Log MCP tool call information to mcpLog.txt in the temp directory
    */
-  toolCall: ({
+  toolCallToFile: ({
     toolName,
     request,
     result,
@@ -418,30 +432,6 @@ function formatToolCall({
 
   logEntry += "\n";
   return logEntry;
-}
-
-/**
- * Format a tool call log entry with tool name and input
- */
-export function formatToolCallLog({
-  toolName,
-  input,
-  result: _result,
-}: {
-  toolName: string;
-  input: unknown;
-  result?: unknown;
-}): string {
-  let output = `→ ${toolName}\n`;
-
-  const inputFormatted = formatJsonValue(input);
-  if (inputFormatted !== "{}") {
-    output += formatIndentedField("input", inputFormatted);
-  }
-
-  // result parameter added for future use but not implemented yet
-
-  return output.trimEnd();
 }
 
 /**
