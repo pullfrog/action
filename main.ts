@@ -6,6 +6,7 @@ import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
+import { agentsManifest } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -22,7 +23,7 @@ import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
 
-const AGENT_OVERRIDE: AgentName | null = "cursor";
+const AGENT_OVERRIDE: AgentName | null = null;
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
 );
@@ -84,18 +85,36 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 }
 
 /**
+ * Get agents that have matching API keys in the inputs
+ */
+function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentNameType][] {
+  return Object.values(agents).filter((agent) =>
+    agent.apiKeyNames.some((inputKey) => inputs[inputKey])
+  );
+}
+
+/**
+ * Get all possible API key names from agentsManifest using flatMorph
+ */
+function getAllPossibleKeyNames(): string[] {
+  return Object.keys(
+    flatMorph(agentsManifest, (_, manifest) =>
+      manifest.apiKeyNames.map((keyName) => [keyName, true] as const)
+    )
+  );
+}
+
+/**
  * Throw an error for missing API key with helpful message linking to repo settings
  */
 function throwMissingApiKeyError({
   agentName,
   inputKeys,
   repoContext,
-  inputs,
 }: {
-  agentName: string;
+  agentName: string | null;
   inputKeys: string[];
   repoContext: RepoContext;
-  inputs: Inputs;
 }): never {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
@@ -107,12 +126,11 @@ function throwMissingApiKeyError({
   const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
 
-  // Find which agents have inputKeys that match the provided inputs
-  const availableAgents = Object.values(agents).filter((agent) =>
-    agent.apiKeyNames.some((inputKey) => inputs[inputKey])
-  );
-
-  let message = `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.
+  let message = `${
+    agentName === null
+      ? "Pullfrog has no agent configured and no API keys are available in the environment."
+      : `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.`
+  }
 
 To fix this, add the required secret to your GitHub repository:
 
@@ -122,10 +140,8 @@ To fix this, add the required secret to your GitHub repository:
 4. Set the value to your API key
 5. Click "Add secret"`;
 
-  // If other credentials are present, suggest alternative agents
-  if (availableAgents.length > 0) {
-    const agentNames = availableAgents.map((agent) => agent.name).join(", ");
-    message += `\n\nAlternatively, configure Pullfrog to use an agent with existing credentials in your environment (${agentNames}) at ${settingsUrl}`;
+  if (agentName === null) {
+    message += `\n\nAlternatively, configure Pullfrog to use an agent at ${settingsUrl}`;
   }
 
   log.error(message);
@@ -177,14 +193,38 @@ async function determineAgent(
     repoContext: ctx.repoContext,
   });
 
-  // precedence: override agent > payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > "claude"
-  ctx.agentName =
+  // precedence: override agent > payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > first available agent
+  const configuredAgentName =
     (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
     ctx.payload.agent ||
     ctx.inputs.defaultAgent ||
     repoSettings.defaultAgent ||
-    "claude"; // TODO: look at env vars
-  ctx.agent = agents[ctx.agentName];
+    null;
+
+  if (configuredAgentName) {
+    ctx.agentName = configuredAgentName;
+    ctx.agent = agents[ctx.agentName];
+    log.info(`Selected configured agent: ${ctx.agentName}`);
+    return;
+  }
+
+  // if no agent is configured, default to first available agent
+  // const availableAgents = getAvailableAgents(ctx.inputs);
+  const availableAgents = getAvailableAgents(ctx.inputs);
+  const availableAgentNames = availableAgents.map((agent) => agent.name).join(", ");
+  log.debug(`Available agents: ${availableAgentNames || "none"}`);
+
+  if (availableAgents.length === 0) {
+    throwMissingApiKeyError({
+      agentName: null,
+      inputKeys: getAllPossibleKeyNames(),
+      repoContext: ctx.repoContext,
+    });
+  }
+
+  ctx.agentName = availableAgents[0].name;
+  ctx.agent = availableAgents[0];
+  log.info(`No agent configured, defaulting to first available agent: ${ctx.agentName}`);
 }
 
 async function setupTempDirectory(
@@ -250,7 +290,6 @@ function validateApiKey(ctx: MainContext): void {
       agentName: ctx.agentName,
       inputKeys: ctx.agent.apiKeyNames,
       repoContext: ctx.repoContext,
-      inputs: ctx.inputs,
     });
   }
   ctx.apiKey = ctx.inputs[matchingInputKey as AgentInputKey]!;
