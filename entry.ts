@@ -7,7 +7,7 @@
 import * as core from "@actions/core";
 import { flatMorph } from "@ark/util";
 import { agents } from "./agents/index.ts";
-import { AgentName, type Inputs, main } from "./main.ts";
+import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
@@ -22,7 +22,6 @@ async function run(): Promise<void> {
   try {
     const inputs: Required<Inputs> = {
       prompt: core.getInput("prompt", { required: true }),
-      defaultAgent: core.getInput("defaultAgent") ? AgentName.assert(core.getInput("defaultAgent")) : undefined,
       ...flatMorph(agents, (_, agent) =>
         agent.apiKeyNames.map((inputKey) => [inputKey, core.getInput(inputKey)])
       ),

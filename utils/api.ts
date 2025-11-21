@@ -1,5 +1,4 @@
 import type { AgentName } from "../external.ts";
-import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 
 export interface Mode {
