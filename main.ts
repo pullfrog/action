@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
+import type { AgentResult } from "./agents/shared.ts";
 import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -23,7 +24,7 @@ import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
 
-const AGENT_OVERRIDE: AgentName | null = null;
+const AGENT_OVERRIDE: AgentName | null = "cursor";
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
 );
@@ -36,9 +37,6 @@ const keyInputDefs = flatMorph(agents, (_, agent) =>
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "defaultAgent?": type
-    .enumerated(...Object.values(agents).map((agent) => agent.name))
-    .or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -193,11 +191,9 @@ async function determineAgent(
     repoContext: ctx.repoContext,
   });
 
-  // precedence: override agent > payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > first available agent
-  const configuredAgentName =
+  ctx.agentName =
     (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
     ctx.payload.agent ||
-    ctx.inputs.defaultAgent ||
     repoSettings.defaultAgent ||
     null;
 
@@ -282,9 +278,7 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
 }
 
 function validateApiKey(ctx: MainContext): void {
-  const matchingInputKey = ctx.agent.apiKeyNames.find(
-    (inputKey: string) => ctx.inputs[inputKey as AgentInputKey]
-  );
+  const matchingInputKey = ctx.agent.apiKeyNames.find((inputKey) => ctx.inputs[inputKey]);
   if (!matchingInputKey) {
     throwMissingApiKeyError({
       agentName: ctx.agentName,
@@ -292,10 +286,10 @@ function validateApiKey(ctx: MainContext): void {
       repoContext: ctx.repoContext,
     });
   }
-  ctx.apiKey = ctx.inputs[matchingInputKey as AgentInputKey]!;
+  ctx.apiKey = ctx.inputs[matchingInputKey]!;
 }
 
-async function runAgent(ctx: MainContext): Promise<import("./agents/shared.ts").AgentResult> {
+async function runAgent(ctx: MainContext): Promise<AgentResult> {
   log.info(`Running ${ctx.agentName}...`);
   log.box(ctx.payload.prompt, { title: "Prompt" });
 
@@ -308,9 +302,7 @@ async function runAgent(ctx: MainContext): Promise<import("./agents/shared.ts").
   });
 }
 
-async function handleAgentResult(
-  result: import("./agents/shared.ts").AgentResult
-): Promise<MainResult> {
+async function handleAgentResult(result: AgentResult): Promise<MainResult> {
   if (!result.success) {
     return {
       success: false,
