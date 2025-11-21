@@ -65,36 +65,9 @@ export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>)
   return toolDef;
 };
 
-// recursively remove $schema fields from JSON Schema objects
-function removeSchemaFields(obj: any): any {
-  if (obj === null || typeof obj !== "object") {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(removeSchemaFields);
-  }
-
-  const result: any = {};
-  for (const [key, value] of Object.entries(obj)) {
-    // skip $schema fields
-    if (key === "$schema") {
-      continue;
-    }
-    result[key] = removeSchemaFields(value);
-  }
-
-  return result;
-}
-
 export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
   for (const tool of tools) {
-    // clone tool and remove $schema from parameters schema
-    const cleanedTool = {
-      ...tool,
-      parameters: tool.parameters ? removeSchemaFields(tool.parameters) : undefined,
-    };
-    server.addTool(cleanedTool);
+    server.addTool(tool);
   }
   return server;
 };

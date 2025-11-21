@@ -1,1 +1,1 @@
-comment on https://github.com/pullfrogai/scratch/pull/29 that writes a really funny joke about Arktype
+comment on https://github.com/pullfrogai/scratch/pull/29 that writes a really funny joke about Codex
