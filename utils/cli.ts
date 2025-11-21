@@ -79,7 +79,11 @@ function boxString(
   }
 
   const maxLineLength = Math.max(...wrappedLines.map((line) => line.length));
-  const boxWidth = maxLineLength + padding * 2;
+  const contentBoxWidth = maxLineLength + padding * 2;
+
+  // ensure box width is at least as wide as the title line when title exists
+  const titleLineLength = title ? ` ${title} `.length : 0;
+  const boxWidth = Math.max(contentBoxWidth, titleLineLength);
 
   let result = "";
 
