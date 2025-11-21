@@ -12,6 +12,7 @@ import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
+config({ path: join(process.cwd(), "../.env") });
 
 export async function run(prompt: string): Promise<AgentResult> {
   try {
@@ -26,7 +27,7 @@ export async function run(prompt: string): Promise<AgentResult> {
     // we don't need to extract it here since main() will parse the payload
     const inputs: Required<Inputs> = {
       prompt,
-      defaultAgent: undefined,
+      defaultAgent: "cursor",
       ...flatMorph(agents, (_, agent) =>
         agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),

@@ -98,12 +98,6 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
  * Automatically checks out the appropriate branch before agent execution
  */
 export function setupGitBranch(payload: Payload): void {
-  // Only set up git branch in GitHub Actions environment
-  // In local testing, this might interfere with local git state
-  if (!process.env.GITHUB_ACTIONS) {
-    return;
-  }
-
   const branch = payload.event.branch;
 
   if (!branch) {

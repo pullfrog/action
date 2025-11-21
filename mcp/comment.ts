@@ -4,6 +4,8 @@ import { agentsManifest } from "../external.ts";
 import { parseRepoContext } from "../utils/github.ts";
 import { contextualize, tool } from "./shared.ts";
 
+const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
+
 function buildCommentFooter(payload: Payload): string {
   const repoContext = parseRepoContext();
   const runId = process.env.GITHUB_RUN_ID;
@@ -19,10 +21,24 @@ function buildCommentFooter(payload: Payload): string {
     : `https://github.com/${repoContext.owner}/${repoContext.name}`;
 
   return `
-
+${PULLFROG_DIVIDER}
 ---
 
-<sup>Triggered by [Pullfrog](https://pullfrog.ai) | Using [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [𝕏](https://x.com/pullfrogai)</sup>`;
+<sup>🐸 Triggered by [Pullfrog](https://pullfrog.ai) | 🤖 [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [𝕏](https://x.com/pullfrogai)</sup>`;
+}
+
+function stripExistingFooter(body: string): string {
+  const dividerIndex = body.indexOf(PULLFROG_DIVIDER);
+  if (dividerIndex === -1) {
+    return body;
+  }
+  return body.substring(0, dividerIndex).trimEnd();
+}
+
+function addFooter(body: string, payload: Payload): string {
+  const bodyWithoutFooter = stripExistingFooter(body);
+  const footer = buildCommentFooter(payload);
+  return `${bodyWithoutFooter}${footer}`;
 }
 
 export const Comment = type({
@@ -35,11 +51,13 @@ export const CreateCommentTool = tool({
   description: "Create a comment on a GitHub issue",
   parameters: Comment,
   execute: contextualize(async ({ issueNumber, body }, ctx) => {
+    const bodyWithFooter = addFooter(body, ctx.payload);
+
     const result = await ctx.octokit.rest.issues.createComment({
       owner: ctx.owner,
       repo: ctx.name,
       issue_number: issueNumber,
-      body: body,
+      body: bodyWithFooter,
     });
 
     return {
@@ -61,11 +79,13 @@ export const EditCommentTool = tool({
   description: "Edit a GitHub issue comment by its ID",
   parameters: EditComment,
   execute: contextualize(async ({ commentId, body }, ctx) => {
+    const bodyWithFooter = addFooter(body, ctx.payload);
+
     const result = await ctx.octokit.rest.issues.updateComment({
       owner: ctx.owner,
       repo: ctx.name,
       comment_id: commentId,
-      body: body,
+      body: bodyWithFooter,
     });
 
     return {
@@ -97,14 +117,14 @@ export const CreateWorkingCommentTool = tool({
       throw new Error("create_working_comment may not be called multiple times");
     }
 
-    const footer = buildCommentFooter(ctx.payload);
-    const body = `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />${footer}`;
+    const body = `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />`;
+    const bodyWithFooter = addFooter(body, ctx.payload);
 
     const result = await ctx.octokit.rest.issues.createComment({
       owner: ctx.owner,
       repo: ctx.name,
       issue_number: issueNumber,
-      body,
+      body: bodyWithFooter,
     });
 
     workingCommentId = result.data.id;
@@ -131,8 +151,7 @@ export const UpdateWorkingCommentTool = tool({
       throw new Error("create_working_comment must be called before update_working_comment");
     }
 
-    const footer = buildCommentFooter(ctx.payload);
-    const bodyWithFooter = `${body}${footer}`;
+    const bodyWithFooter = addFooter(body, ctx.payload);
 
     const result = await ctx.octokit.rest.issues.updateComment({
       owner: ctx.owner,
