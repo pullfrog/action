@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
-import type { AgentName as AgentNameType, Payload } from "./external.ts";
+import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -21,8 +21,8 @@ import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
-export const AgentName = type.enumerated(...Object.values(agents).map((agent) => agent.name));
 
+const AGENT_OVERRIDE: AgentName | null = "cursor";
 export const AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
 );
@@ -177,9 +177,13 @@ async function determineAgent(
     repoContext: ctx.repoContext,
   });
 
-  // precedence: payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > "claude"
+  // precedence: override agent > payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > "claude"
   ctx.agentName =
-    ctx.payload.agent || ctx.inputs.defaultAgent || repoSettings.defaultAgent || "claude";
+    (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
+    ctx.payload.agent ||
+    ctx.inputs.defaultAgent ||
+    repoSettings.defaultAgent ||
+    "claude"; // TODO: look at env vars
   ctx.agent = agents[ctx.agentName];
 }
 

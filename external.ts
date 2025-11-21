@@ -4,6 +4,7 @@
  * Other files in action/ re-export from this file for backward compatibility.
  */
 
+import { type } from "arktype";
 import type { Mode } from "./modes.ts";
 
 // mcp name constant
@@ -41,6 +42,7 @@ export const agentsManifest = {
 
 // agent name type - union of agent slugs
 export type AgentName = keyof typeof agentsManifest;
+export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
