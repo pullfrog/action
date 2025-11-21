@@ -36,9 +36,7 @@ export async function fetchRepoSettings({
   token: string;
   repoContext: RepoContext;
 }): Promise<RepoSettings> {
-  log.info("Fetching repository settings...");
   const settings = await getRepoSettings(token, repoContext);
-  log.info("Repository settings fetched");
   return settings;
 }
 

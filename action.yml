@@ -7,6 +7,15 @@ inputs:
     description: "Prompt to send to Claude Code"
     required: true
     default: "Hello from Claude Code!"
+  defaultAgent:
+    description: "Default agent to use. Overridden by payload.agent if present."
+    required: false
+    type: choice
+    options:
+      - claude
+      - codex
+      - cursor
+      - gemini
   anthropic_api_key:
     description: "Anthropic API key for Claude Code authentication"
     required: false

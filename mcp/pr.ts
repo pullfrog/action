@@ -1,6 +1,6 @@
-import { execSync } from "node:child_process";
 import { type } from "arktype";
 import { log } from "../utils/cli.ts";
+import { $ } from "../utils/shell.ts";
 import { contextualize, tool } from "./shared.ts";
 
 export const PullRequest = type({
@@ -15,9 +15,7 @@ export const PullRequestTool = tool({
   parameters: PullRequest,
   execute: contextualize(async ({ title, body, base }, ctx) => {
     // Get the current branch name
-    const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", {
-      encoding: "utf8",
-    }).trim();
+    const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
     log.info(`Current branch: ${currentBranch}`);
 

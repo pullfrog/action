@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
@@ -16,6 +18,13 @@ export const codex = agent({
   run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
     process.env.OPENAI_API_KEY = apiKey;
     process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+
+    // create config directory for codex before setting HOME
+    const tempHome = process.env.PULLFROG_TEMP_DIR!;
+    const configDir = join(tempHome, ".config", "codex");
+    mkdirSync(configDir, { recursive: true });
+
+    process.env.HOME = tempHome;
 
     configureCodexMcpServers({ mcpServers, cliPath });
 
@@ -44,6 +53,7 @@ export const codex = agent({
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers[event.type];
+        console.log(event as never);
         if (handler) {
           handler(event as never);
         }

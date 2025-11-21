@@ -1,6 +1,6 @@
-import { execSync } from "node:child_process";
 import { type } from "arktype";
 import { log } from "../utils/cli.ts";
+import { $ } from "../utils/shell.ts";
 import { contextualize, tool } from "./shared.ts";
 
 export const PullRequestInfo = type({
@@ -30,14 +30,14 @@ export const PullRequestInfoTool = tool({
 
     // Automatically fetch and checkout branches for review
     log.info(`Fetching base branch: origin/${baseBranch}`);
-    execSync(`git fetch origin ${baseBranch} --depth=20`, { stdio: "inherit" });
+    $("git", ["fetch", "origin", baseBranch, "--depth=20"]);
 
     log.info(`Fetching PR branch: origin/${headBranch}`);
-    execSync(`git fetch origin ${headBranch}`, { stdio: "inherit" });
+    $("git", ["fetch", "origin", headBranch]);
 
     log.info(`Checking out PR branch: origin/${headBranch}`);
     // check out a local branch tracking the remote branch so we can push changes
-    execSync(`git checkout -B ${headBranch} origin/${headBranch}`, { stdio: "inherit" });
+    $("git", ["checkout", "-B", headBranch, `origin/${headBranch}`]);
 
     return {
       number: data.number,

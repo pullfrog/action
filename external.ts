@@ -12,6 +12,7 @@ export const ghPullfrogMcpName = "gh_pullfrog";
 export interface AgentManifest {
   displayName: string;
   apiKeyNames: string[];
+  url: string;
 }
 
 // agent manifest - static metadata about available agents
@@ -19,18 +20,22 @@ export const agentsManifest = {
   claude: {
     displayName: "Claude Code",
     apiKeyNames: ["anthropic_api_key"],
+    url: "https://claude.com/claude-code",
   },
   codex: {
     displayName: "Codex CLI",
     apiKeyNames: ["openai_api_key"],
+    url: "https://platform.openai.com/docs/guides/codex",
   },
   cursor: {
     displayName: "Cursor CLI",
     apiKeyNames: ["cursor_api_key"],
+    url: "https://cursor.com/",
   },
   gemini: {
     displayName: "Gemini CLI",
     apiKeyNames: ["google_api_key", "gemini_api_key"],
+    url: "https://ai.google.dev/gemini-api/docs",
   },
 } as const satisfies Record<string, AgentManifest>;
 
@@ -38,6 +43,96 @@ export const agentsManifest = {
 export type AgentName = keyof typeof agentsManifest;
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
+
+// discriminated union for payload event based on trigger
+export type PayloadEvent =
+  | {
+      trigger: "pull_request_opened";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      branch: string;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_requested";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      branch: string;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_submitted";
+      pr_number: number;
+      review_id: number;
+      review_body: string | null;
+      review_state: string;
+      review_comments: any[];
+      context: any;
+      branch: string;
+      [key: string]: any;
+    }
+  | {
+      trigger: "pull_request_review_comment_created";
+      pr_number: number;
+      pr_title: string;
+      comment_id: number;
+      comment_body: string;
+      thread?: any;
+      branch: string;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_opened";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_assigned";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issues_labeled";
+      issue_number: number;
+      issue_title: string;
+      issue_body: string | null;
+      [key: string]: any;
+    }
+  | {
+      trigger: "issue_comment_created";
+      comment_id: number;
+      comment_body: string;
+      issue_number: number;
+      branch?: string;
+      [key: string]: any;
+    }
+  | {
+      trigger: "check_suite_completed";
+      pr_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      pull_request: any;
+      branch: string;
+      check_suite: {
+        id: number;
+        head_sha: string;
+        head_branch: string | null;
+        status: string | null;
+        conclusion: string | null;
+        url: string;
+      };
+      [key: string]: any;
+    }
+  | {
+      trigger: "unknown";
+      [key: string]: any;
+    };
 
 // payload type for agent execution
 export type Payload = {
@@ -55,9 +150,9 @@ export type Payload = {
 
   /**
    * Event data from webhook payload.
-   * Can be an object (will be JSON.stringify'd) or a string (used as-is).
+   * Discriminated union based on trigger field.
    */
-  readonly event: object | string;
+  readonly event: PayloadEvent;
 
   /**
    * Execution mode configuration

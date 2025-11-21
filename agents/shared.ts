@@ -14,8 +14,8 @@ import { log } from "../utils/cli.ts";
  */
 export interface AgentResult {
   success: boolean;
-  output?: string;
-  error?: string;
+  output?: string | undefined;
+  error?: string | undefined;
   metadata?: Record<string, unknown>;
 }
 

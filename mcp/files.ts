@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
 import { type } from "arktype";
+import { $ } from "../utils/shell.ts";
 import { contextualize, tool } from "./shared.ts";
 
 export const ListFiles = type({
@@ -17,14 +17,19 @@ export const ListFilesTool = tool({
     try {
       // Use git ls-files to list tracked files
       // This respects .gitignore and gives a clean list of source files
-      const command = path === "." ? "git ls-files" : `git ls-files ${path}`;
-      const output = execSync(command, { encoding: "utf-8" });
+      const pathStr = path ?? ".";
+      const output = $("git", pathStr === "." ? ["ls-files"] : ["ls-files", pathStr], {
+        log: false,
+      });
       const files = output.split("\n").filter((f) => f.trim() !== "");
 
       if (files.length === 0) {
         // Fallback for non-git environments or untracked files
-        const findCmd = `find ${path} -maxdepth 3 -not -path '*/.*' -type f`;
-        const findOutput = execSync(findCmd, { encoding: "utf-8" });
+        const findOutput = $(
+          "find",
+          [pathStr, "-maxdepth", "3", "-not", "-path", "*/.*", "-type", "f"],
+          { log: false }
+        );
         return {
           files: findOutput.split("\n").filter((f) => f.trim() !== ""),
           method: "find",

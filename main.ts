@@ -17,7 +17,7 @@ import {
   revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
-import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
+import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
@@ -35,7 +35,9 @@ const keyInputDefs = flatMorph(agents, (_, agent) =>
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": type.enumerated(...Object.values(agents).map((agent) => agent.name)).or("undefined"),
+  "defaultAgent?": type
+    .enumerated(...Object.values(agents).map((agent) => agent.name))
+    .or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -51,12 +53,14 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   const ctx = partialCtx as MainContext;
 
   try {
+    // parse payload early to extract agent for determineAgent
+    ctx.payload = parsePayload(inputs);
     await determineAgent(ctx);
     setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
 
-    ctx.payload = parsePayload(inputs);
+    setupGitBranch(ctx.payload);
     setupMcpServers(ctx);
     await installAgentCli(ctx);
     validateApiKey(ctx);
@@ -72,7 +76,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       error: errorMessage,
     };
   } finally {
-    await cleanup(partialCtx);
+    await cleanup({
+      ...partialCtx,
+      payload: ctx.payload,
+    });
   }
 }
 
@@ -166,14 +173,16 @@ async function initializeContext(
 }
 
 async function determineAgent(
-  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
+  ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">
 ): Promise<void> {
   const repoSettings = await fetchRepoSettings({
     token: ctx.githubInstallationToken,
     repoContext: ctx.repoContext,
   });
 
-  ctx.agentName = ctx.inputs.agent || repoSettings.defaultAgent || "claude";
+  // precedence: payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > "claude"
+  ctx.agentName =
+    ctx.payload.agent || ctx.inputs.defaultAgent || repoSettings.defaultAgent || "claude";
   ctx.agent = agents[ctx.agentName];
 }
 
@@ -213,7 +222,9 @@ function parsePayload(inputs: Inputs): Payload {
       "~pullfrog": true,
       agent: null,
       prompt: inputs.prompt,
-      event: {},
+      event: {
+        trigger: "unknown",
+      },
       modes,
     };
   }
@@ -221,7 +232,7 @@ function parsePayload(inputs: Inputs): Payload {
 
 function setupMcpServers(ctx: MainContext): void {
   const allModes = [...modes, ...(ctx.payload.modes || [])];
-  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes);
+  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes, ctx.payload);
   log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 
@@ -277,9 +288,7 @@ async function handleAgentResult(
   };
 }
 
-async function cleanup(
-  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
-): Promise<void> {
+async function cleanup(ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">): Promise<void> {
   if (ctx.pollInterval) {
     clearInterval(ctx.pollInterval);
   }

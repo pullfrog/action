@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
@@ -22,8 +23,6 @@ export const cursor = agent({
     try {
       const fullPrompt = addInstructions(payload);
 
-      const tempDir = cliPath.split("/.local/bin/")[0];
-
       log.info("Running Cursor CLI...");
 
       return new Promise((resolve) => {
@@ -36,7 +35,8 @@ export const cursor = agent({
               ...process.env,
               CURSOR_API_KEY: apiKey,
               GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-              HOME: tempDir, // Set HOME so Cursor CLI can find .cursor/mcp.json
+              // Don't override HOME - Cursor CLI needs access to macOS keychain
+              // MCP config is written to tempDir/.cursor/mcp.json which Cursor will find
             },
             stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
           }
@@ -107,14 +107,14 @@ export const cursor = agent({
   },
 });
 
-/**
- * Configure MCP servers for Cursor by writing to the Cursor configuration file.
- * For cursor, we need to add the MCP servers to the Cursor configuration file manually as there is no CLI command to do this.
- */
-function configureCursorMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams) {
-  const tempDir = cliPath.split("/.local/bin/")[0];
-  const cursorConfigDir = join(tempDir, ".cursor");
+// There was an issue on macOS when you set HOME to a temp directory
+// it was unable to find the macOS keychain and would fail
+// temp solution is to stick with the actual $HOME
+function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
+  const realHome = homedir();
+  const cursorConfigDir = join(realHome, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");
   mkdirSync(cursorConfigDir, { recursive: true });
   writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
+  log.info(`MCP config written to ${mcpConfigPath}`);
 }

@@ -5,9 +5,21 @@
 
 [] test agent/mode combinations
 [] test if home directory mcp.json works if mcp.json is specified in repo
-[] add footer to the working comment ("executed by {agent}", link to pullfrog (homepage) w/ small logo?, feedback (create github issue), link to workflow run)- see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
+[] add footer to the working comment
+  - "executed by {agent}"
+  - link to pullfrog (homepage) w/ small logo?
+  - feedback (create github issue)
+  - link to workflow run
+  - Open in Pullfrog?
+  - update with "Execute Plan"?
+  - see https://github.com/colinhacks/zod/issues/5459#issuecomment-3548382991
 [] avoid passing all of process.env into agents: minimum # of vars
-[] toon encode in prompt
+[x] toon encode in prompt
+[] branching: use pullfrog/ prefix
+[] test modifications to existing PRs (proper branching)
+[] web access settings
+[] implement Learnings
+[] implement Billing
 
 ## MAYBE
 

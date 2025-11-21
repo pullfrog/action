@@ -6,15 +6,15 @@ import { flatMorph } from "@ark/util";
 import arg from "arg";
 import { config } from "dotenv";
 import { agents } from "./agents/index.ts";
+import type { AgentResult } from "./agents/shared.ts";
 import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
 config();
+config({ path: join(process.cwd(), "../.env") });
 
-export async function run(
-  prompt: string
-): Promise<{ success: boolean; output?: string | undefined; error?: string | undefined }> {
+export async function run(prompt: string): Promise<AgentResult> {
   try {
     const tempDir = join(process.cwd(), ".temp");
     setupTestRepo({ tempDir, forceClean: true });
@@ -22,9 +22,12 @@ export async function run(
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
+    // check if prompt is a pullfrog payload and extract agent
+    // note: agent from payload will be used by determineAgent with highest precedence
+    // we don't need to extract it here since main() will parse the payload
     const inputs: Required<Inputs> = {
       prompt,
-      agent: "codex",
+      defaultAgent: "cursor",
       ...flatMorph(agents, (_, agent) =>
         agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),
