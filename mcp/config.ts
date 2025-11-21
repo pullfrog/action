@@ -30,6 +30,7 @@ export function createMcpConfigs(
     GITHUB_REPOSITORY: githubRepository,
     PULLFROG_MODES: JSON.stringify(modes),
     PULLFROG_PAYLOAD: JSON.stringify(payload),
+    PULLFROG_TEMP_DIR: process.env.PULLFROG_TEMP_DIR!,
   };
 
   // pass through GITHUB_RUN_ID if available (automatically set in GitHub Actions)
