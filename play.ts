@@ -21,9 +21,12 @@ export async function run(prompt: string): Promise<AgentResult> {
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
+    // check if prompt is a pullfrog payload and extract agent
+    // note: agent from payload will be used by determineAgent with highest precedence
+    // we don't need to extract it here since main() will parse the payload
     const inputs: Required<Inputs> = {
       prompt,
-      agent: "codex",
+      defaultAgent: undefined,
       ...flatMorph(agents, (_, agent) =>
         agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),

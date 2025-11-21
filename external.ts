@@ -123,6 +123,10 @@ export type PayloadEvent =
         url: string;
       };
       [key: string]: any;
+    }
+  | {
+      trigger: "unknown";
+      [key: string]: any;
     };
 
 // payload type for agent execution

@@ -35,7 +35,9 @@ const keyInputDefs = flatMorph(agents, (_, agent) =>
 export const Inputs = type({
   prompt: "string",
   ...keyInputDefs,
-  "agent?": type.enumerated(...Object.values(agents).map((agent) => agent.name)).or("undefined"),
+  "defaultAgent?": type
+    .enumerated(...Object.values(agents).map((agent) => agent.name))
+    .or("undefined"),
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -51,12 +53,13 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   const ctx = partialCtx as MainContext;
 
   try {
+    // parse payload early to extract agent for determineAgent
+    ctx.payload = parsePayload(inputs);
     await determineAgent(ctx);
     setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
 
-    ctx.payload = parsePayload(inputs);
     setupGitBranch(ctx.payload);
     setupMcpServers(ctx);
     await installAgentCli(ctx);
@@ -73,7 +76,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       error: errorMessage,
     };
   } finally {
-    await cleanup(partialCtx);
+    await cleanup({
+      ...partialCtx,
+      payload: ctx.payload,
+    });
   }
 }
 
@@ -167,14 +173,16 @@ async function initializeContext(
 }
 
 async function determineAgent(
-  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
+  ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">
 ): Promise<void> {
   const repoSettings = await fetchRepoSettings({
     token: ctx.githubInstallationToken,
     repoContext: ctx.repoContext,
   });
 
-  ctx.agentName = ctx.inputs.agent || repoSettings.defaultAgent || "claude";
+  // precedence: payload.agent > inputs.defaultAgent > repoSettings.defaultAgent > "claude"
+  ctx.agentName =
+    ctx.payload.agent || ctx.inputs.defaultAgent || repoSettings.defaultAgent || "claude";
   ctx.agent = agents[ctx.agentName];
 }
 
@@ -215,11 +223,8 @@ function parsePayload(inputs: Inputs): Payload {
       agent: null,
       prompt: inputs.prompt,
       event: {
-        trigger: "issues_opened",
-        issue_number: 0,
-        issue_title: "",
-        issue_body: null,
-      } as Payload["event"],
+        trigger: "unknown",
+      },
       modes,
     };
   }
@@ -283,9 +288,7 @@ async function handleAgentResult(
   };
 }
 
-async function cleanup(
-  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
-): Promise<void> {
+async function cleanup(ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">): Promise<void> {
   if (ctx.pollInterval) {
     clearInterval(ctx.pollInterval);
   }
