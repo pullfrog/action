@@ -29,9 +29,11 @@ function buildCommentFooter(payload: Payload): string {
     ? `https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId}`
     : `https://github.com/${repoContext.owner}/${repoContext.name}`;
 
-  return `---
+  return `
 
-<img src="https://pullfrog.ai/pullfrog-logo.png" width="12px" height="12px" style="vertical-align: middle;" /> <sup>Triggered by [Pullfrog](https://pullfrog.ai) | Using [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [![Share on X](https://img.shields.io/badge/X-share-black)](https://x.com/pullfrogai)</sup>`;
+---
+
+<sup>Triggered by [Pullfrog](https://pullfrog.ai) | Using [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [𝕏](https://x.com/pullfrogai)</sup>`;
 }
 
 export const Comment = type({
