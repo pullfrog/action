@@ -191,7 +191,7 @@ async function determineAgent(
     repoContext: ctx.repoContext,
   });
 
-  ctx.agentName =
+  const configuredAgentName =
     (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
     ctx.payload.agent ||
     repoSettings.defaultAgent ||
@@ -204,15 +204,13 @@ async function determineAgent(
     return;
   }
 
-  // if no agent is configured, default to first available agent
-  // const availableAgents = getAvailableAgents(ctx.inputs);
   const availableAgents = getAvailableAgents(ctx.inputs);
   const availableAgentNames = availableAgents.map((agent) => agent.name).join(", ");
   log.debug(`Available agents: ${availableAgentNames || "none"}`);
 
   if (availableAgents.length === 0) {
     throwMissingApiKeyError({
-      agentName: null,
+      agentName: configuredAgentName,
       inputKeys: getAllPossibleKeyNames(),
       repoContext: ctx.repoContext,
     });
