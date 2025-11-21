@@ -9,7 +9,7 @@ import * as core from "@actions/core";
 import { table } from "table";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
-const isDebugEnabled = process.env.LOG_LEVEL === "debug";
+const isDebugEnabled = () => process.env.LOG_LEVEL === "debug";
 
 /**
  * Start a collapsed group (GitHub Actions) or regular group (local)
@@ -258,7 +258,7 @@ export const log = {
    * Print debug message (only if LOG_LEVEL=debug)
    */
   debug: (message: string): void => {
-    if (isDebugEnabled) {
+    if (isDebugEnabled()) {
       if (isGitHubActions) {
         core.debug(message);
       } else {
@@ -345,7 +345,7 @@ function getMcpLogPath(): string {
 /**
  * Format a value as JSON, using compact format for simple values and pretty-printed for complex ones
  */
-function formatJsonValue(value: unknown): string {
+export function formatJsonValue(value: unknown): string {
   const compact = JSON.stringify(value);
   return compact.length > 80 || compact.includes("\n") ? JSON.stringify(value, null, 2) : compact;
 }
@@ -354,7 +354,7 @@ function formatJsonValue(value: unknown): string {
  * Format a multi-line string with proper indentation for tool call output
  * First line has the label, subsequent lines are indented 4 spaces
  */
-function formatIndentedField(label: string, content: string): string {
+export function formatIndentedField(label: string, content: string): string {
   if (!content.includes("\n")) {
     return `  ${label}: ${content}\n`;
   }
@@ -418,6 +418,30 @@ function formatToolCall({
 
   logEntry += "\n";
   return logEntry;
+}
+
+/**
+ * Format a tool call log entry with tool name and input
+ */
+export function formatToolCallLog({
+  toolName,
+  input,
+  result: _result,
+}: {
+  toolName: string;
+  input: unknown;
+  result?: unknown;
+}): string {
+  let output = `→ ${toolName}\n`;
+
+  const inputFormatted = formatJsonValue(input);
+  if (inputFormatted !== "{}") {
+    output += formatIndentedField("input", inputFormatted);
+  }
+
+  // result parameter added for future use but not implemented yet
+
+  return output.trimEnd();
 }
 
 /**

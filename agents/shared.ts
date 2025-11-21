@@ -302,8 +302,11 @@ export async function installFromCurl({
   const installResult = spawnSync("bash", [installScriptPath], {
     cwd: tempDir,
     env: {
-      ...process.env,
       HOME: tempDir, // Cursor install script uses HOME for installation path
+      PATH: process.env.PATH || "",
+      SHELL: process.env.SHELL || "/bin/bash",
+      USER: process.env.USER || "",
+      TMPDIR: process.env.TMPDIR || "/tmp",
     },
     stdio: "pipe",
     encoding: "utf-8",

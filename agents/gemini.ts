@@ -35,6 +35,8 @@ export const gemini = agent({
         env: {
           GEMINI_API_KEY: apiKey,
           GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+          LOG_LEVEL: process.env.LOG_LEVEL!,
+          NODE_ENV: process.env.NODE_ENV!,
         },
         onStdout: (chunk) => {
           const trimmed = chunk.trim();

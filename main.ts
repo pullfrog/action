@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
+import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
@@ -316,7 +317,11 @@ function validateApiKey(ctx: MainContext): void {
 
 async function runAgent(ctx: MainContext): Promise<AgentResult> {
   log.info(`Running ${ctx.agentName}...`);
-  log.box(ctx.payload.prompt, { title: "Prompt" });
+  // strip context from event
+  const { context: _context, ...eventWithoutContext } = ctx.payload.event;
+  // format: prompt + two newlines + TOON encoded event
+  const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
+  log.box(promptContent, { title: "Prompt" });
 
   return ctx.agent.run({
     payload: ctx.payload,

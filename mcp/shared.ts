@@ -56,25 +56,28 @@ export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>)
   toolDef.execute = async (args: params, context: any) => {
     try {
       const result = await originalExecute(args, context);
-      // Check if result is a ToolResult with isError property
-      const isError =
-        result && typeof result === "object" && "isError" in result && result.isError === true;
-      const resultData =
-        result && typeof result === "object" && "content" in result
-          ? (result as ToolResult).content[0]?.text
-          : undefined;
 
-      if (isError && resultData) {
-        log.toolCall({ toolName, request: args, error: resultData });
-      } else if (resultData) {
-        log.toolCall({ toolName, request: args, result: resultData });
-      } else {
-        log.toolCall({ toolName, request: args });
-      }
+      // TOOL CALL LOGGING DISABLED — now handled by each agent
+
+      // Check if result is a ToolResult with isError property
+      // const isError =
+      //   result && typeof result === "object" && "isError" in result && result.isError === true;
+      // const resultData =
+      //   result && typeof result === "object" && "content" in result
+      //     ? (result as ToolResult).content[0]?.text
+      //     : undefined;
+
+      // if (isError && resultData) {
+      //   log.toolCall({ toolName, request: args, error: resultData });
+      // } else if (resultData) {
+      //   log.toolCall({ toolName, request: args, result: resultData });
+      // } else {
+      //   log.toolCall({ toolName, request: args });
+      // }
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      log.toolCall({ toolName, request: args, error: errorMessage });
+      // const errorMessage = error instanceof Error ? error.message : String(error);
+      // log.toolCall({ toolName, request: args, error: errorMessage });
       throw error;
     }
   };

@@ -29,8 +29,12 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
   let stderrBuffer = "";
 
   return new Promise((resolve, reject) => {
+    // security: caller must provide complete env object, not merged with process.env
     const child = nodeSpawn(cmd, args, {
-      env: env ? { ...process.env, ...env } : process.env,
+      env: env || {
+        PATH: process.env.PATH || "",
+        HOME: process.env.HOME || "",
+      },
       stdio: ["pipe", "pipe", "pipe"],
       cwd: cwd || process.cwd(),
     });

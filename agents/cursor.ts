@@ -2,9 +2,135 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { log } from "../utils/cli.ts";
+import { formatToolCallLog, log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, type ConfigureMcpServersParams, installFromCurl } from "./shared.ts";
+
+// cursor cli event types inferred from stream-json output
+interface CursorSystemEvent {
+  type: "system";
+  subtype?: string;
+  [key: string]: unknown;
+}
+
+interface CursorUserEvent {
+  type: "user";
+  message?: {
+    role: string;
+    content: Array<{ type: string; text?: string }>;
+  };
+  [key: string]: unknown;
+}
+
+interface CursorThinkingEvent {
+  type: "thinking";
+  subtype: "delta" | "completed";
+  text?: string;
+  [key: string]: unknown;
+}
+
+interface CursorAssistantEvent {
+  type: "assistant";
+  model_call_id?: string;
+  message?: {
+    role: string;
+    content: Array<{ type: string; text?: string }>;
+  };
+  [key: string]: unknown;
+}
+
+interface CursorToolCallEvent {
+  type: "tool_call";
+  subtype: "started" | "completed";
+  call_id?: string;
+  tool_call?: {
+    mcpToolCall?: {
+      args?: {
+        name?: string;
+        args?: unknown;
+        toolName?: string;
+        providerIdentifier?: string;
+      };
+      result?: {
+        success?: {
+          content?: Array<{ text?: { text?: string } }>;
+          isError?: boolean;
+        };
+      };
+    };
+  };
+  [key: string]: unknown;
+}
+
+interface CursorResultEvent {
+  type: "result";
+  subtype: "success" | "error";
+  result?: string;
+  duration_ms?: number;
+  [key: string]: unknown;
+}
+
+type CursorEvent =
+  | CursorSystemEvent
+  | CursorUserEvent
+  | CursorThinkingEvent
+  | CursorAssistantEvent
+  | CursorToolCallEvent
+  | CursorResultEvent;
+
+const messageHandlers = {
+  system: (_event: CursorSystemEvent) => {
+    // system init events - no logging needed
+  },
+  user: (_event: CursorUserEvent) => {
+    // user messages already logged in prompt box
+  },
+  thinking: (_event: CursorThinkingEvent) => {
+    // thinking events are internal - no logging needed
+  },
+  assistant: (event: CursorAssistantEvent) => {
+    // only log finalized messages (ones with model_call_id)
+    // cursor emits each message twice: once without model_call_id, then again with it
+    if (event.model_call_id) {
+      const text = event.message?.content?.[0]?.text;
+      if (text?.trim()) {
+        log.box(text.trim(), { title: "Cursor" });
+      }
+    }
+  },
+  tool_call: (event: CursorToolCallEvent) => {
+    if (event.subtype === "started") {
+      // handle both MCP tools and built-in tools (bash, WebFetch, etc)
+      const mcpToolCall = event.tool_call?.mcpToolCall;
+      const builtinToolCall = (event.tool_call as any)?.builtinToolCall;
+
+      if (mcpToolCall?.args?.toolName && mcpToolCall?.args?.args) {
+        const formatted = formatToolCallLog({
+          toolName: mcpToolCall.args.toolName,
+          input: mcpToolCall.args.args,
+        });
+        log.info(formatted);
+      } else if (builtinToolCall?.args?.name && builtinToolCall?.args?.args) {
+        const formatted = formatToolCallLog({
+          toolName: builtinToolCall.args.name,
+          input: builtinToolCall.args.args,
+        });
+        log.info(formatted);
+      }
+    } else if (event.subtype === "completed") {
+      const isError = event.tool_call?.mcpToolCall?.result?.success?.isError;
+      if (isError) {
+        log.warning("Tool call failed");
+      }
+    }
+  },
+  result: async (event: CursorResultEvent) => {
+    if (event.subtype === "success" && event.duration_ms) {
+      const durationSec = (event.duration_ms / 1000).toFixed(1);
+      log.debug(`Cursor completed in ${durationSec}s`);
+    }
+  },
+};
 
 export const cursor = agent({
   name: "cursor",
@@ -42,9 +168,12 @@ export const cursor = agent({
           {
             cwd: process.cwd(),
             env: {
-              ...process.env,
               CURSOR_API_KEY: apiKey,
               GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+              LOG_LEVEL: process.env.LOG_LEVEL,
+              NODE_ENV: process.env.NODE_ENV,
+              HOME: process.env.HOME,
+              PATH: process.env.PATH,
               // Don't override HOME - Cursor CLI needs access to macOS keychain
               // MCP config is written to tempDir/.cursor/mcp.json which Cursor will find
             },
@@ -54,7 +183,6 @@ export const cursor = agent({
 
         let stdout = "";
         let stderr = "";
-        let jsonBuffer = "";
 
         child.on("spawn", () => {
           log.debug("Cursor CLI process spawned");
@@ -63,26 +191,21 @@ export const cursor = agent({
         child.stdout?.on("data", async (data) => {
           const text = data.toString();
           stdout += text;
-          jsonBuffer += text;
 
-          // parse ndjson (newline-delimited json)
-          const lines = jsonBuffer.split("\n");
-          // keep last incomplete line in buffer
-          jsonBuffer = lines.pop() || "";
+          try {
+            const event = JSON.parse(text) as CursorEvent;
 
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) continue;
-
-            try {
-              const event = JSON.parse(trimmedLine);
-              // log everything for now - we'll infer types from real output
-              log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
-            } catch {
-              // if json parse fails, might be partial line or non-json output
-              // log debug info but don't crash
-              log.debug(`failed to parse json line: ${trimmedLine.substring(0, 100)}`);
+            // route to appropriate handler
+            const handler = messageHandlers[event.type as keyof typeof messageHandlers];
+            if (handler) {
+              await handler(event as never);
             }
+
+            // debug: log all events
+            log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
+          } catch {
+            // ignore parse errors - might be formatted tool call logs from cursor cli
+            // our handlers log tool calls instead, so we don't need to display these
           }
         });
 
@@ -94,16 +217,6 @@ export const cursor = agent({
         });
 
         child.on("close", async (code, signal) => {
-          // process any remaining buffered json
-          if (jsonBuffer.trim()) {
-            try {
-              const event = JSON.parse(jsonBuffer.trim());
-              log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
-            } catch {
-              // ignore parse errors for final buffer
-            }
-          }
-
           if (signal) {
             log.warning(`Cursor CLI terminated by signal: ${signal}`);
           }
