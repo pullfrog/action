@@ -226,7 +226,7 @@ function parsePayload(inputs: Inputs): Payload {
 
 function setupMcpServers(ctx: MainContext): void {
   const allModes = [...modes, ...(ctx.payload.modes || [])];
-  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes);
+  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes, ctx.payload);
   log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 

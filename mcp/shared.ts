@@ -1,7 +1,7 @@
-import { cached } from "@ark/util";
 import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
+import type { Payload } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { parseRepoContext, type RepoContext } from "../utils/github.ts";
 
@@ -13,7 +13,22 @@ export interface ToolResult {
   isError?: boolean;
 }
 
-export const getMcpContext = cached((): McpContext => {
+export function getPayload(): Payload {
+  const payloadEnv = process.env.PULLFROG_PAYLOAD;
+  if (!payloadEnv) {
+    throw new Error("PULLFROG_PAYLOAD environment variable is required");
+  }
+
+  try {
+    return JSON.parse(payloadEnv) as Payload;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse PULLFROG_PAYLOAD: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+export function getMcpContext(): McpContext {
   const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
   if (!githubInstallationToken) {
     throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
@@ -24,11 +39,13 @@ export const getMcpContext = cached((): McpContext => {
     octokit: new Octokit({
       auth: githubInstallationToken,
     }),
+    payload: getPayload(),
   };
-});
+}
 
 export interface McpContext extends RepoContext {
   octokit: Octokit;
+  payload: Payload;
 }
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => {

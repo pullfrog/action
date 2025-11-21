@@ -1,5 +1,38 @@
 import { type } from "arktype";
+import type { Payload } from "../external.ts";
+import { agentsManifest } from "../external.ts";
+import { parseRepoContext } from "../utils/github.ts";
 import { contextualize, tool } from "./shared.ts";
+
+function buildCommentFooter(payload: Payload): string {
+  const repoContext = parseRepoContext();
+  const runId = process.env.GITHUB_RUN_ID;
+
+  const agentName = payload.agent;
+  const agentInfo = agentName ? agentsManifest[agentName] : null;
+  const agentDisplayName = agentInfo?.displayName || "Unknown Agent";
+
+  // agent URLs based on manifest
+  const agentUrls: Record<string, string> = {
+    claude: "https://claude.com/claude-code",
+    codex: "https://platform.openai.com/docs/guides/codex",
+    cursor: "https://cursor.com/",
+    gemini: "https://ai.google.dev/gemini-api/docs",
+  };
+
+  const agentUrl = agentName
+    ? agentUrls[agentName] || "https://pullfrog.ai"
+    : "https://pullfrog.ai";
+
+  // build workflow run URL
+  const workflowRunUrl = runId
+    ? `https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId}`
+    : `https://github.com/${repoContext.owner}/${repoContext.name}`;
+
+  return `---
+
+<img src="https://pullfrog.ai/pullfrog-logo.png" width="12px" height="12px" style="vertical-align: middle;" /> <sup>Triggered by [Pullfrog](https://pullfrog.ai) | Using [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [![Share on X](https://img.shields.io/badge/X-share-black)](https://x.com/pullfrogai)</sup>`;
+}
 
 export const Comment = type({
   issueNumber: type.number.describe("the issue number to comment on"),
@@ -73,11 +106,14 @@ export const CreateWorkingCommentTool = tool({
       throw new Error("create_working_comment may not be called multiple times");
     }
 
+    const footer = buildCommentFooter(ctx.payload);
+    const body = `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />${footer}`;
+
     const result = await ctx.octokit.rest.issues.createComment({
       owner: ctx.owner,
       repo: ctx.name,
       issue_number: issueNumber,
-      body: `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />`,
+      body,
     });
 
     workingCommentId = result.data.id;
@@ -104,11 +140,14 @@ export const UpdateWorkingCommentTool = tool({
       throw new Error("create_working_comment must be called before update_working_comment");
     }
 
+    const footer = buildCommentFooter(ctx.payload);
+    const bodyWithFooter = `${body}${footer}`;
+
     const result = await ctx.octokit.rest.issues.updateComment({
       owner: ctx.owner,
       repo: ctx.name,
       comment_id: workingCommentId,
-      body,
+      body: bodyWithFooter,
     });
 
     return {
