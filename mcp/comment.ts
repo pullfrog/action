@@ -11,18 +11,7 @@ function buildCommentFooter(payload: Payload): string {
   const agentName = payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
   const agentDisplayName = agentInfo?.displayName || "Unknown Agent";
-
-  // agent URLs based on manifest
-  const agentUrls: Record<string, string> = {
-    claude: "https://claude.com/claude-code",
-    codex: "https://platform.openai.com/docs/guides/codex",
-    cursor: "https://cursor.com/",
-    gemini: "https://ai.google.dev/gemini-api/docs",
-  };
-
-  const agentUrl = agentName
-    ? agentUrls[agentName] || "https://pullfrog.ai"
-    : "https://pullfrog.ai";
+  const agentUrl = agentInfo?.url || "https://pullfrog.ai";
 
   // build workflow run URL
   const workflowRunUrl = runId

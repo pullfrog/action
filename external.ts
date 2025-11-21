@@ -12,6 +12,7 @@ export const ghPullfrogMcpName = "gh_pullfrog";
 export interface AgentManifest {
   displayName: string;
   apiKeyNames: string[];
+  url: string;
 }
 
 // agent manifest - static metadata about available agents
@@ -19,18 +20,22 @@ export const agentsManifest = {
   claude: {
     displayName: "Claude Code",
     apiKeyNames: ["anthropic_api_key"],
+    url: "https://claude.com/claude-code",
   },
   codex: {
     displayName: "Codex CLI",
     apiKeyNames: ["openai_api_key"],
+    url: "https://platform.openai.com/docs/guides/codex",
   },
   cursor: {
     displayName: "Cursor CLI",
     apiKeyNames: ["cursor_api_key"],
+    url: "https://cursor.com/",
   },
   gemini: {
     displayName: "Gemini CLI",
     apiKeyNames: ["google_api_key", "gemini_api_key"],
+    url: "https://ai.google.dev/gemini-api/docs",
   },
 } as const satisfies Record<string, AgentManifest>;
 
