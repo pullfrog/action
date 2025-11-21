@@ -135,7 +135,6 @@ To fix this, add the required secret to your GitHub repository:
 interface MainContext {
   inputs: Inputs;
   githubInstallationToken: string;
-  tokenToRevoke: string | null;
   repoContext: RepoContext;
   agentName: AgentNameType;
   agent: (typeof agents)[AgentNameType];
@@ -155,16 +154,14 @@ async function initializeContext(
   Inputs.assert(inputs);
   setupGitConfig();
 
-  const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
-  const tokenToRevoke = wasAcquired ? githubInstallationToken : null;
+  const githubInstallationToken = await setupGitHubInstallationToken();
   const repoContext = parseRepoContext();
 
   return {
     inputs,
     githubInstallationToken,
-    tokenToRevoke,
     repoContext,
-    agentName: "claude" as AgentNameType,
+    agentName: "claude",
     agent: agents.claude,
     sharedTempDir: "",
     mcpLogPath: "",
@@ -292,7 +289,5 @@ async function cleanup(ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey
   if (ctx.pollInterval) {
     clearInterval(ctx.pollInterval);
   }
-  if (ctx.tokenToRevoke) {
-    await revokeInstallationToken(ctx.tokenToRevoke);
-  }
+  await revokeInstallationToken(ctx.githubInstallationToken);
 }

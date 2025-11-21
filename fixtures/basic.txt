@@ -1,3 +1,1 @@
-Print the MCP tools available to you.
-Try to call select_mode with the name "Plan".
-Then tell me a joke
+write a comment to https://github.com/pullfrogai/scratch/pull/29 that tells a joke

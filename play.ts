@@ -27,7 +27,7 @@ export async function run(prompt: string): Promise<AgentResult> {
     // we don't need to extract it here since main() will parse the payload
     const inputs: Required<Inputs> = {
       prompt,
-      defaultAgent: "cursor",
+      defaultAgent: "gemini",
       ...flatMorph(agents, (_, agent) =>
         agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
       ),
