@@ -48,16 +48,37 @@ export interface MainResult {
 }
 
 export async function main(inputs: Inputs): Promise<MainResult> {
-  const partialCtx = await initializeContext(inputs);
-  const ctx = partialCtx as MainContext;
+  let githubInstallationToken: string | undefined;
+  let pollInterval: NodeJS.Timeout | null = null;
 
   try {
-    // parse payload early to extract agent for determineAgent
-    ctx.payload = parsePayload(inputs);
-    await determineAgent(ctx);
+    // parse payload early to extract agent
+    const payload = parsePayload(inputs);
+
+    // resolve agent before initializing context
+    githubInstallationToken = await setupGitHubInstallationToken();
+    const repoContext = parseRepoContext();
+    const { agentName, agent } = await resolveAgent(
+      inputs,
+      payload,
+      githubInstallationToken,
+      repoContext
+    );
+
+    const partialCtx = await initializeContext(
+      inputs,
+      agentName,
+      agent,
+      githubInstallationToken,
+      repoContext
+    );
+    const ctx = partialCtx as MainContext;
+    ctx.payload = payload;
+
     setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
+    pollInterval = ctx.pollInterval;
 
     setupGitBranch(ctx.payload);
     setupMcpServers(ctx);
@@ -75,10 +96,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       error: errorMessage,
     };
   } finally {
-    await cleanup({
-      ...partialCtx,
-      payload: ctx.payload,
-    });
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
+    if (githubInstallationToken) {
+      await revokeInstallationToken(githubInstallationToken);
+    }
   }
 }
 
@@ -162,49 +185,53 @@ interface MainContext {
 }
 
 async function initializeContext(
-  inputs: Inputs
+  inputs: Inputs,
+  agentName: AgentNameType,
+  agent: (typeof agents)[AgentNameType],
+  githubInstallationToken: string,
+  repoContext: RepoContext
 ): Promise<Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">> {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
   Inputs.assert(inputs);
   setupGitConfig();
 
-  const githubInstallationToken = await setupGitHubInstallationToken();
-  const repoContext = parseRepoContext();
-
   return {
     inputs,
     githubInstallationToken,
     repoContext,
-    agentName: "claude",
-    agent: agents.claude,
+    agentName,
+    agent,
     sharedTempDir: "",
     mcpLogPath: "",
     pollInterval: null,
   };
 }
 
-async function determineAgent(
-  ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">
-): Promise<void> {
+async function resolveAgent(
+  inputs: Inputs,
+  payload: Payload,
+  githubInstallationToken: string,
+  repoContext: RepoContext
+): Promise<{ agentName: AgentNameType; agent: (typeof agents)[AgentNameType] }> {
   const repoSettings = await fetchRepoSettings({
-    token: ctx.githubInstallationToken,
-    repoContext: ctx.repoContext,
+    token: githubInstallationToken,
+    repoContext,
   });
 
   const configuredAgentName =
     (process.env.NODE_ENV === "development" && AGENT_OVERRIDE) ||
-    ctx.payload.agent ||
+    payload.agent ||
     repoSettings.defaultAgent ||
     null;
 
   if (configuredAgentName) {
-    ctx.agentName = configuredAgentName;
-    ctx.agent = agents[ctx.agentName];
-    log.info(`Selected configured agent: ${ctx.agentName}`);
-    return;
+    const agentName = configuredAgentName;
+    const agent = agents[agentName];
+    log.info(`Selected configured agent: ${agentName}`);
+    return { agentName, agent };
   }
 
-  const availableAgents = getAvailableAgents(ctx.inputs);
+  const availableAgents = getAvailableAgents(inputs);
   const availableAgentNames = availableAgents.map((agent) => agent.name).join(", ");
   log.debug(`Available agents: ${availableAgentNames || "none"}`);
 
@@ -212,13 +239,14 @@ async function determineAgent(
     throwMissingApiKeyError({
       agentName: configuredAgentName,
       inputKeys: getAllPossibleKeyNames(),
-      repoContext: ctx.repoContext,
+      repoContext,
     });
   }
 
-  ctx.agentName = availableAgents[0].name;
-  ctx.agent = availableAgents[0];
-  log.info(`No agent configured, defaulting to first available agent: ${ctx.agentName}`);
+  const agentName = availableAgents[0].name;
+  const agent = availableAgents[0];
+  log.info(`No agent configured, defaulting to first available agent: ${agentName}`);
+  return { agentName, agent };
 }
 
 async function setupTempDirectory(
@@ -316,11 +344,4 @@ async function handleAgentResult(result: AgentResult): Promise<MainResult> {
     success: true,
     output: result.output || "",
   };
-}
-
-async function cleanup(ctx: Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">): Promise<void> {
-  if (ctx.pollInterval) {
-    clearInterval(ctx.pollInterval);
-  }
-  await revokeInstallationToken(ctx.githubInstallationToken);
 }
