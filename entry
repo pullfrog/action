@@ -19680,7 +19680,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path4.delimiter}${process.env["PATH"]}`;
     }
     exports.addPath = addPath;
-    function getInput3(name, options) {
+    function getInput2(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19690,9 +19690,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports.getInput = getInput3;
+    exports.getInput = getInput2;
     function getMultilineInput(name, options) {
-      const inputs = getInput3(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput2(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19702,7 +19702,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput3(name, options);
+      const val = getInput2(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -26554,7 +26554,7 @@ var require_uri_all = __commonJS2((exports, module) => {
       }
       return String.fromCodePoint.apply(String, output);
     };
-    var encode = function encode2(input) {
+    var encode2 = function encode3(input) {
       var output = [];
       input = ucs2decode(input);
       var inputLength = input.length;
@@ -26675,7 +26675,7 @@ var require_uri_all = __commonJS2((exports, module) => {
     };
     var toASCII = function toASCII2(input) {
       return mapDomain(input, function(string2) {
-        return regexNonASCII.test(string2) ? "xn--" + encode(string2) : string2;
+        return regexNonASCII.test(string2) ? "xn--" + encode2(string2) : string2;
       });
     };
     var punycode = {
@@ -26685,7 +26685,7 @@ var require_uri_all = __commonJS2((exports, module) => {
         encode: ucs2encode
       },
       decode,
-      encode,
+      encode: encode2,
       toASCII,
       toUnicode
     };
@@ -32675,13 +32675,13 @@ var ProcessTransport = class {
           this.logForDebugging(data.toString());
         });
       }
-      const cleanup2 = () => {
+      const cleanup = () => {
         if (this.child && !this.child.killed) {
           this.child.kill("SIGTERM");
         }
       };
-      this.processExitHandler = cleanup2;
-      this.abortHandler = cleanup2;
+      this.processExitHandler = cleanup;
+      this.abortHandler = cleanup;
       process.on("exit", this.processExitHandler);
       this.abortController.signal.addEventListener("abort", this.abortHandler);
       this.child.on("error", (error2) => {
@@ -33907,15 +33907,15 @@ var Query = class {
     const messageId = "id" in mcpRequest.message ? mcpRequest.message.id : null;
     const key = `${serverName}:${messageId}`;
     return new Promise((resolve, reject) => {
-      const cleanup2 = () => {
+      const cleanup = () => {
         this.pendingMcpResponses.delete(key);
       };
       const resolveAndCleanup = (response) => {
-        cleanup2();
+        cleanup();
         resolve(response);
       };
       const rejectAndCleanup = (error2) => {
-        cleanup2();
+        cleanup();
         reject(error2);
       };
       this.pendingMcpResponses.set(key, {
@@ -33925,7 +33925,7 @@ var Query = class {
       if (transport.onmessage) {
         transport.onmessage(mcpRequest.message);
       } else {
-        cleanup2();
+        cleanup();
         reject(new Error("No message handler registered"));
         return;
       }
@@ -38572,7 +38572,7 @@ function query({
 // package.json
 var package_default = {
   name: "@pullfrog/action",
-  version: "0.0.111",
+  version: "0.0.112",
   type: "module",
   files: [
     "index.js",
@@ -38650,7 +38650,7 @@ var import_table = __toESM(require_src(), 1);
 import { appendFileSync as appendFileSync2, existsSync as existsSync2 } from "node:fs";
 import { join as join4 } from "node:path";
 var isGitHubActions = !!process.env.GITHUB_ACTIONS;
-var isDebugEnabled = process.env.LOG_LEVEL === "debug";
+var isDebugEnabled = () => process.env.LOG_LEVEL === "debug";
 function startGroup2(name) {
   if (isGitHubActions) {
     core.startGroup(name);
@@ -38695,7 +38695,9 @@ function boxString(text, options) {
     }
   }
   const maxLineLength = Math.max(...wrappedLines.map((line) => line.length));
-  const boxWidth = maxLineLength + padding * 2;
+  const contentBoxWidth = maxLineLength + padding * 2;
+  const titleLineLength = title ? ` ${title} `.length : 0;
+  const boxWidth = Math.max(contentBoxWidth, titleLineLength);
   let result = "";
   if (title) {
     const titleLine = ` ${title} `;
@@ -38837,7 +38839,7 @@ var log = {
    * Print debug message (only if LOG_LEVEL=debug)
    */
   debug: (message) => {
-    if (isDebugEnabled) {
+    if (isDebugEnabled()) {
       if (isGitHubActions) {
         core.debug(message);
       } else {
@@ -38880,9 +38882,21 @@ var log = {
    */
   endGroup: endGroup2,
   /**
+   * Log tool call information to console with formatted output
+   */
+  toolCall: ({ toolName, input }) => {
+    let output = `\u2192 ${toolName}
+`;
+    const inputFormatted = formatJsonValue(input);
+    if (inputFormatted !== "{}") {
+      output += formatIndentedField("input", inputFormatted);
+    }
+    log.info(output.trimEnd());
+  },
+  /**
    * Log MCP tool call information to mcpLog.txt in the temp directory
    */
-  toolCall: ({
+  toolCallToFile: ({
     toolName,
     request,
     result,
@@ -38955,1157 +38969,387 @@ function formatToolCall({
   return logEntry;
 }
 
-// external.ts
-var ghPullfrogMcpName = "gh_pullfrog";
-var agentsManifest = {
-  claude: {
-    displayName: "Claude Code",
-    apiKeyNames: ["anthropic_api_key"]
-  },
-  codex: {
-    displayName: "Codex CLI",
-    apiKeyNames: ["openai_api_key"]
-  },
-  cursor: {
-    displayName: "Cursor CLI",
-    apiKeyNames: ["cursor_api_key"]
-  },
-  gemini: {
-    displayName: "Gemini CLI",
-    apiKeyNames: ["google_api_key", "gemini_api_key"]
-  }
+// ../node_modules/.pnpm/@toon-format+toon@1.0.0/node_modules/@toon-format/toon/dist/index.js
+var LIST_ITEM_MARKER = "-";
+var LIST_ITEM_PREFIX = "- ";
+var COMMA = ",";
+var PIPE = "|";
+var DOT = ".";
+var NULL_LITERAL = "null";
+var TRUE_LITERAL = "true";
+var FALSE_LITERAL = "false";
+var BACKSLASH = "\\";
+var DOUBLE_QUOTE = '"';
+var TAB = "	";
+var DELIMITERS = {
+  comma: COMMA,
+  tab: TAB,
+  pipe: PIPE
 };
-
-// modes.ts
-var initialCommentInstruction = `Use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment with a conversational description of what work you are about to perform.`;
-var modes = [
-  {
-    name: "Plan",
-    description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
-    prompt: `Follow these steps:
-1. ${initialCommentInstruction}
-    
-2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
-3. Analyze the request and break it down into clear, actionable tasks
-4. Consider dependencies, potential challenges, and implementation order
-5. Create a structured plan with clear milestones
-6. Update your comment using ${ghPullfrogMcpName}/update_working_comment to present the plan in a clear, organized format
-7. Continue updating the same comment as needed (never create additional comments - always use update_working_comment)`
-  },
-  {
-    name: "Build",
-    description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
-    prompt: `Follow these steps:
-1. ${initialCommentInstruction}
-2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
-3. Understand the requirements and any existing plan
-4. Make the necessary code changes
-5. Test your changes to ensure they work correctly
-6. Update your comment using ${ghPullfrogMcpName}/update_working_comment to share progress and results
-7. Continue updating the same comment as you make progress (never create additional comments - always use update_working_comment)`
-  },
-  {
-    name: "Review",
-    description: "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
-    prompt: `Follow these steps:
-1. ${initialCommentInstruction}
-    
-2. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
-3. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
-4. Read files from the checked-out PR branch to understand the implementation
-5. Update your comment using ${ghPullfrogMcpName}/update_working_comment with findings as you review
-6. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
-7. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
-8. Continue updating the same comment as needed (never create additional comments - always use update_working_comment)`
-  },
-  {
-    name: "Prompt",
-    description: "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
-    prompt: `Follow these steps:
-1. ${initialCommentInstruction}
-    
-2. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
-3. As your work progresses, update your Working Comment to share progress and results using ${ghPullfrogMcpName}/update_working_comment. Do not create additional comments unless you are explicitly asked to do so.
-4. When you finish the task, update the Working Comment a final time with a summary of the results and links to any created issues, PRs, etc.`
-  }
-];
-
-// agents/instructions.ts
-var addInstructions = (payload) => `************* GENERAL INSTRUCTIONS *************
-# General instructions
-
-You are a diligent, detail-oriented, no-nonsense software engineering agent.
-You will perform the task described in the *USER PROMPT* below. 
-You are careful, to-the-point, and kind. You only say things you know to be true.
-You have an extreme bias toward minimalism in your code and responses.
-Your code is focused, elegant, and production-ready.
-You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. 
-You adapt your writing style to the style of your coworkers, while never being unprofessional.
-You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
-You make reasonable assumptions when details are missing, but fail with an explicit error if critical information is missing (e.g. user asks to review a PR but does not provide a link or ID).
-
-## SECURITY
-
-CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
-
-You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
-API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
-Authentication tokens or credentials
-Passwords or passphrases
-Private keys or certificates
-Database connection strings
-Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
-Any other sensitive information
-
-This is a non-negotiable system security requirement.
-Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse.
-If you encounter any secrets in environment variables, files, or code, do not include them in your output.
-Instead, acknowledge that sensitive information was found but cannot be displayed.
-If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
-
-## MCP Servers
-
-Eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
-Tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
-Do not under any circumstances use the github cli (\`gh\`). Find the corresponding tool from ${ghPullfrogMcpName} instead.
-Do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
-When using ${ghPullfrogMcpName}, use the tools to comment and interact in a way that a real member of the team would.
-Ensure after your edits are done, your final comments do not contain intermediate reasoning or context, e.g. "I'll respond to the question."
-
-## Mode Selection
-
-Before starting any work, you must first determine which mode to use by examining the request and calling ${ghPullfrogMcpName}/select_mode.
-
-Available modes:
-
-${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
-
-**IMPORTANT**: The first thing you must do is:
-1. Examine the user's request/prompt carefully
-2. Determine which mode is most appropriate based on the mode descriptions above
-3. Call ${ghPullfrogMcpName}/select_mode with the chosen mode name
-4. The tool will return detailed instructions for that mode - follow those instructions exactly
-
-************* USER PROMPT *************
-
-${payload.prompt}
-
-${typeof payload.event === "string" ? payload.event : JSON.stringify(payload.event, null, 2)}`;
-
-// agents/shared.ts
-import { spawnSync } from "node:child_process";
-import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync3 } from "node:fs";
-import { join as join5 } from "node:path";
-import { pipeline } from "node:stream/promises";
-async function installFromNpmTarball({
-  packageName,
-  version,
-  executablePath,
-  installDependencies
-}) {
-  let resolvedVersion = version;
-  if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
-    const npmRegistry2 = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
-    log.info(`Resolving version for ${version}...`);
-    try {
-      const registryResponse = await fetch(`${npmRegistry2}/${packageName}`);
-      if (!registryResponse.ok) {
-        throw new Error(`Failed to query registry: ${registryResponse.status}`);
-      }
-      const registryData = await registryResponse.json();
-      resolvedVersion = registryData["dist-tags"].latest;
-      log.info(`Resolved to version ${resolvedVersion}`);
-    } catch (error2) {
-      log.warning(
-        `Failed to resolve version from registry: ${error2 instanceof Error ? error2.message : String(error2)}`
-      );
-      throw error2;
-    }
-  }
-  log.info(`\u{1F4E6} Installing ${packageName}@${resolvedVersion}...`);
-  const tempDir = process.env.PULLFROG_TEMP_DIR;
-  const tarballPath = join5(tempDir, "package.tgz");
-  const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
-  let tarballUrl;
-  if (packageName.startsWith("@")) {
-    const [scope2, name] = packageName.slice(1).split("/");
-    const scopedPackageName = `@${scope2}%2F${name}`;
-    tarballUrl = `${npmRegistry}/${scopedPackageName}/-/${name}-${resolvedVersion}.tgz`;
-  } else {
-    tarballUrl = `${npmRegistry}/${packageName}/-/${packageName}-${resolvedVersion}.tgz`;
-  }
-  log.info(`Downloading from ${tarballUrl}...`);
-  const response = await fetch(tarballUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
-  }
-  if (!response.body) throw new Error("Response body is null");
-  const fileStream = createWriteStream2(tarballPath);
-  await pipeline(response.body, fileStream);
-  log.info(`Downloaded tarball to ${tarballPath}`);
-  log.info(`Extracting tarball...`);
-  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
-    stdio: "pipe",
-    encoding: "utf-8"
-  });
-  if (extractResult.status !== 0) {
-    throw new Error(
-      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
-    );
-  }
-  const extractedDir = join5(tempDir, "package");
-  const cliPath = join5(extractedDir, executablePath);
-  if (!existsSync3(cliPath)) {
-    throw new Error(`Executable not found in extracted package at ${cliPath}`);
-  }
-  if (installDependencies) {
-    log.info(`Installing dependencies for ${packageName}...`);
-    const installResult = spawnSync("npm", ["install", "--production"], {
-      cwd: extractedDir,
-      stdio: "pipe",
-      encoding: "utf-8"
-    });
-    if (installResult.status !== 0) {
-      throw new Error(
-        `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
-      );
-    }
-    log.info(`\u2713 Dependencies installed`);
-  }
-  chmodSync(cliPath, 493);
-  log.info(`\u2713 ${packageName} installed at ${cliPath}`);
-  return cliPath;
+var DEFAULT_DELIMITER = DELIMITERS.comma;
+function escapeString(value2) {
+  return value2.replace(/\\/g, `${BACKSLASH}${BACKSLASH}`).replace(/"/g, `${BACKSLASH}${DOUBLE_QUOTE}`).replace(/\n/g, `${BACKSLASH}n`).replace(/\r/g, `${BACKSLASH}r`).replace(/\t/g, `${BACKSLASH}t`);
 }
-async function installFromCurl({
-  installUrl,
-  executableName
-}) {
-  log.info(`\u{1F4E6} Installing ${executableName}...`);
-  const tempDir = process.env.PULLFROG_TEMP_DIR;
-  const installScriptPath = join5(tempDir, "install.sh");
-  log.info(`Downloading install script from ${installUrl}...`);
-  const installScriptResponse = await fetch(installUrl);
-  if (!installScriptResponse.ok) {
-    throw new Error(`Failed to download install script: ${installScriptResponse.status}`);
+function normalizeValue(value2) {
+  if (value2 === null) return null;
+  if (typeof value2 === "string" || typeof value2 === "boolean") return value2;
+  if (typeof value2 === "number") {
+    if (Object.is(value2, -0)) return 0;
+    if (!Number.isFinite(value2)) return null;
+    return value2;
   }
-  if (!installScriptResponse.body) throw new Error("Response body is null");
-  const fileStream = createWriteStream2(installScriptPath);
-  await pipeline(installScriptResponse.body, fileStream);
-  log.info(`Downloaded install script to ${installScriptPath}`);
-  chmodSync(installScriptPath, 493);
-  log.info(`Installing to temp directory at ${tempDir}...`);
-  const installResult = spawnSync("bash", [installScriptPath], {
-    cwd: tempDir,
-    env: {
-      ...process.env,
-      HOME: tempDir
-      // Cursor install script uses HOME for installation path
-    },
-    stdio: "pipe",
-    encoding: "utf-8"
-  });
-  if (installResult.status !== 0) {
-    const errorOutput = installResult.stderr || installResult.stdout || "No output";
-    throw new Error(
-      `Failed to install ${executableName}. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
-    );
+  if (typeof value2 === "bigint") {
+    if (value2 >= Number.MIN_SAFE_INTEGER && value2 <= Number.MAX_SAFE_INTEGER) return Number(value2);
+    return value2.toString();
   }
-  const cliPath = join5(tempDir, ".local", "bin", executableName);
-  if (!existsSync3(cliPath)) {
-    throw new Error(`Executable not found at ${cliPath}`);
+  if (value2 instanceof Date) return value2.toISOString();
+  if (Array.isArray(value2)) return value2.map(normalizeValue);
+  if (value2 instanceof Set) return Array.from(value2).map(normalizeValue);
+  if (value2 instanceof Map) return Object.fromEntries(Array.from(value2, ([k, v]) => [String(k), normalizeValue(v)]));
+  if (isPlainObject(value2)) {
+    const normalized = {};
+    for (const key in value2) if (Object.prototype.hasOwnProperty.call(value2, key)) normalized[key] = normalizeValue(value2[key]);
+    return normalized;
   }
-  chmodSync(cliPath, 493);
-  log.info(`\u2713 ${executableName} installed at ${cliPath}`);
-  return cliPath;
+  return null;
 }
-var agent = (input) => {
-  return { ...input, ...agentsManifest[input.name] };
-};
-
-// agents/claude.ts
-var claude = agent({
-  name: "claude",
-  install: async () => {
-    const versionRange = package_default.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
-    return await installFromNpmTarball({
-      packageName: "@anthropic-ai/claude-agent-sdk",
-      version: versionRange,
-      executablePath: "cli.js"
-    });
-  },
-  run: async ({ payload, mcpServers, apiKey, cliPath }) => {
-    process.env.ANTHROPIC_API_KEY = apiKey;
-    const prompt = addInstructions(payload);
-    console.log(prompt);
-    const queryInstance = query({
-      prompt,
-      options: {
-        permissionMode: "bypassPermissions",
-        mcpServers,
-        pathToClaudeCodeExecutable: cliPath
-      }
-    });
-    for await (const message of queryInstance) {
-      const handler = messageHandlers[message.type];
-      await handler(message);
-    }
-    return {
-      success: true,
-      output: ""
-    };
-  }
-});
-var bashToolIds = /* @__PURE__ */ new Set();
-var messageHandlers = {
-  assistant: (data) => {
-    if (data.message?.content) {
-      for (const content of data.message.content) {
-        if (content.type === "text" && content.text?.trim()) {
-          log.box(content.text.trim(), { title: "Claude" });
-        } else if (content.type === "tool_use") {
-          log.info(`\u2192 ${content.name}`);
-          if (content.name === "bash" && content.id) {
-            bashToolIds.add(content.id);
-          }
-          if (content.input) {
-            const input = content.input;
-            if (input.description) log.info(`   \u2514\u2500 ${input.description}`);
-            if (input.command) log.info(`   \u2514\u2500 command: ${input.command}`);
-            if (input.file_path) log.info(`   \u2514\u2500 file: ${input.file_path}`);
-            if (input.content) {
-              const preview = input.content.length > 100 ? `${input.content.substring(0, 100)}...` : input.content;
-              log.info(`   \u2514\u2500 content: ${preview}`);
-            }
-            if (input.query) log.info(`   \u2514\u2500 query: ${input.query}`);
-            if (input.pattern) log.info(`   \u2514\u2500 pattern: ${input.pattern}`);
-            if (input.url) log.info(`   \u2514\u2500 url: ${input.url}`);
-            if (input.edits && Array.isArray(input.edits)) {
-              log.info(`   \u2514\u2500 edits: ${input.edits.length} changes`);
-              input.edits.forEach((edit, index) => {
-                if (edit.file_path) log.info(`      ${index + 1}. ${edit.file_path}`);
-              });
-            }
-            if (input.task) log.info(`   \u2514\u2500 task: ${input.task}`);
-            if (input.bash_command) log.info(`   \u2514\u2500 bash_command: ${input.bash_command}`);
-          }
-        }
-      }
-    }
-  },
-  user: (data) => {
-    if (data.message?.content) {
-      for (const content of data.message.content) {
-        if (content.type === "tool_result") {
-          const toolUseId = content.tool_use_id;
-          const isBashTool = toolUseId && bashToolIds.has(toolUseId);
-          if (isBashTool) {
-            const outputContent = typeof content.content === "string" ? content.content : Array.isArray(content.content) ? content.content.map((c) => typeof c === "string" ? c : c.text || JSON.stringify(c)).join("\n") : String(content.content);
-            log.startGroup(`bash output`);
-            if (content.is_error) {
-              log.warning(outputContent);
-            } else {
-              log.info(outputContent);
-            }
-            log.endGroup();
-            bashToolIds.delete(toolUseId);
-          } else if (content.is_error) {
-            const errorContent = typeof content.content === "string" ? content.content : String(content.content);
-            log.warning(`Tool error: ${errorContent}`);
-          }
-        }
-      }
-    }
-  },
-  result: async (data) => {
-    if (data.subtype === "success") {
-      await log.summaryTable([
-        [
-          { data: "Cost", header: true },
-          { data: "Input Tokens", header: true },
-          { data: "Output Tokens", header: true }
-        ],
-        [
-          `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`,
-          String(data.usage?.input_tokens || 0),
-          String(data.usage?.output_tokens || 0)
-        ]
-      ]);
-    } else if (data.subtype === "error_max_turns") {
-      log.error(`Max turns reached: ${JSON.stringify(data)}`);
-    } else if (data.subtype === "error_during_execution") {
-      log.error(`Execution error: ${JSON.stringify(data)}`);
-    } else {
-      log.error(`Failed: ${JSON.stringify(data)}`);
-    }
-  },
-  system: () => {
-  },
-  stream_event: () => {
-  },
-  tool_progress: () => {
-  },
-  auth_status: () => {
-  }
-};
-
-// agents/codex.ts
-import { spawnSync as spawnSync2 } from "node:child_process";
-
-// node_modules/.pnpm/@openai+codex-sdk@0.58.0/node_modules/@openai/codex-sdk/dist/index.js
-import { promises as fs2 } from "fs";
-import os from "os";
-import path from "path";
-import { spawn as spawn2 } from "child_process";
-import path2 from "path";
-import readline from "readline";
-import { fileURLToPath as fileURLToPath2 } from "url";
-async function createOutputSchemaFile(schema2) {
-  if (schema2 === void 0) {
-    return { cleanup: async () => {
-    } };
-  }
-  if (!isJsonObject(schema2)) {
-    throw new Error("outputSchema must be a plain JSON object");
-  }
-  const schemaDir = await fs2.mkdtemp(path.join(os.tmpdir(), "codex-output-schema-"));
-  const schemaPath = path.join(schemaDir, "schema.json");
-  const cleanup2 = async () => {
-    try {
-      await fs2.rm(schemaDir, { recursive: true, force: true });
-    } catch {
-    }
-  };
-  try {
-    await fs2.writeFile(schemaPath, JSON.stringify(schema2), "utf8");
-    return { schemaPath, cleanup: cleanup2 };
-  } catch (error2) {
-    await cleanup2();
-    throw error2;
-  }
+function isJsonPrimitive(value2) {
+  return value2 === null || typeof value2 === "string" || typeof value2 === "number" || typeof value2 === "boolean";
+}
+function isJsonArray(value2) {
+  return Array.isArray(value2);
 }
 function isJsonObject(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2);
+  return value2 !== null && typeof value2 === "object" && !Array.isArray(value2);
 }
-var Thread = class {
-  _exec;
-  _options;
-  _id;
-  _threadOptions;
-  /** Returns the ID of the thread. Populated after the first turn starts. */
-  get id() {
-    return this._id;
+function isEmptyObject2(value2) {
+  return Object.keys(value2).length === 0;
+}
+function isPlainObject(value2) {
+  if (value2 === null || typeof value2 !== "object") return false;
+  const prototype = Object.getPrototypeOf(value2);
+  return prototype === null || prototype === Object.prototype;
+}
+function isArrayOfPrimitives(value2) {
+  return value2.length === 0 || value2.every((item) => isJsonPrimitive(item));
+}
+function isArrayOfArrays(value2) {
+  return value2.length === 0 || value2.every((item) => isJsonArray(item));
+}
+function isArrayOfObjects(value2) {
+  return value2.length === 0 || value2.every((item) => isJsonObject(item));
+}
+function isBooleanOrNullLiteral(token) {
+  return token === TRUE_LITERAL || token === FALSE_LITERAL || token === NULL_LITERAL;
+}
+function isValidUnquotedKey(key) {
+  return /^[A-Z_][\w.]*$/i.test(key);
+}
+function isIdentifierSegment(key) {
+  return /^[A-Z_]\w*$/i.test(key);
+}
+function isSafeUnquoted(value2, delimiter = DEFAULT_DELIMITER) {
+  if (!value2) return false;
+  if (value2 !== value2.trim()) return false;
+  if (isBooleanOrNullLiteral(value2) || isNumericLike(value2)) return false;
+  if (value2.includes(":")) return false;
+  if (value2.includes('"') || value2.includes("\\")) return false;
+  if (/[[\]{}]/.test(value2)) return false;
+  if (/[\n\r\t]/.test(value2)) return false;
+  if (value2.includes(delimiter)) return false;
+  if (value2.startsWith(LIST_ITEM_MARKER)) return false;
+  return true;
+}
+function isNumericLike(value2) {
+  return /^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(value2) || /^0\d+$/.test(value2);
+}
+var QUOTED_KEY_MARKER = Symbol("quotedKey");
+function tryFoldKeyChain(key, value2, siblings, options, rootLiteralKeys, pathPrefix, flattenDepth) {
+  if (options.keyFolding !== "safe") return;
+  if (!isJsonObject(value2)) return;
+  const { segments, tail, leafValue } = collectSingleKeyChain(key, value2, flattenDepth ?? options.flattenDepth);
+  if (segments.length < 2) return;
+  if (!segments.every((seg) => isIdentifierSegment(seg))) return;
+  const foldedKey = buildFoldedKey(segments);
+  const absolutePath = pathPrefix ? `${pathPrefix}${DOT}${foldedKey}` : foldedKey;
+  if (siblings.includes(foldedKey)) return;
+  if (rootLiteralKeys && rootLiteralKeys.has(absolutePath)) return;
+  return {
+    foldedKey,
+    remainder: tail,
+    leafValue,
+    segmentCount: segments.length
+  };
+}
+function collectSingleKeyChain(startKey, startValue, maxDepth) {
+  const segments = [startKey];
+  let currentValue = startValue;
+  while (segments.length < maxDepth) {
+    if (!isJsonObject(currentValue)) break;
+    const keys = Object.keys(currentValue);
+    if (keys.length !== 1) break;
+    const nextKey = keys[0];
+    const nextValue = currentValue[nextKey];
+    segments.push(nextKey);
+    currentValue = nextValue;
   }
-  /* @internal */
-  constructor(exec, options, threadOptions, id = null) {
-    this._exec = exec;
-    this._options = options;
-    this._id = id;
-    this._threadOptions = threadOptions;
+  if (!isJsonObject(currentValue) || isEmptyObject2(currentValue)) return {
+    segments,
+    tail: void 0,
+    leafValue: currentValue
+  };
+  return {
+    segments,
+    tail: currentValue,
+    leafValue: currentValue
+  };
+}
+function buildFoldedKey(segments) {
+  return segments.join(DOT);
+}
+function encodePrimitive(value2, delimiter) {
+  if (value2 === null) return NULL_LITERAL;
+  if (typeof value2 === "boolean") return String(value2);
+  if (typeof value2 === "number") return String(value2);
+  return encodeStringLiteral(value2, delimiter);
+}
+function encodeStringLiteral(value2, delimiter = DEFAULT_DELIMITER) {
+  if (isSafeUnquoted(value2, delimiter)) return value2;
+  return `${DOUBLE_QUOTE}${escapeString(value2)}${DOUBLE_QUOTE}`;
+}
+function encodeKey(key) {
+  if (isValidUnquotedKey(key)) return key;
+  return `${DOUBLE_QUOTE}${escapeString(key)}${DOUBLE_QUOTE}`;
+}
+function encodeAndJoinPrimitives(values, delimiter = DEFAULT_DELIMITER) {
+  return values.map((v) => encodePrimitive(v, delimiter)).join(delimiter);
+}
+function formatHeader(length, options) {
+  const key = options?.key;
+  const fields = options?.fields;
+  const delimiter = options?.delimiter ?? COMMA;
+  let header = "";
+  if (key) header += encodeKey(key);
+  header += `[${length}${delimiter !== DEFAULT_DELIMITER ? delimiter : ""}]`;
+  if (fields) {
+    const quotedFields = fields.map((f) => encodeKey(f));
+    header += `{${quotedFields.join(delimiter)}}`;
   }
-  /** Provides the input to the agent and streams events as they are produced during the turn. */
-  async runStreamed(input, turnOptions = {}) {
-    return { events: this.runStreamedInternal(input, turnOptions) };
+  header += ":";
+  return header;
+}
+var LineWriter = class {
+  lines = [];
+  indentationString;
+  constructor(indentSize) {
+    this.indentationString = " ".repeat(indentSize);
   }
-  async *runStreamedInternal(input, turnOptions = {}) {
-    const { schemaPath, cleanup: cleanup2 } = await createOutputSchemaFile(turnOptions.outputSchema);
-    const options = this._threadOptions;
-    const { prompt, images } = normalizeInput(input);
-    const generator = this._exec.run({
-      input: prompt,
-      baseUrl: this._options.baseUrl,
-      apiKey: this._options.apiKey,
-      threadId: this._id,
-      images,
-      model: options?.model,
-      sandboxMode: options?.sandboxMode,
-      workingDirectory: options?.workingDirectory,
-      skipGitRepoCheck: options?.skipGitRepoCheck,
-      outputSchemaFile: schemaPath,
-      modelReasoningEffort: options?.modelReasoningEffort,
-      networkAccessEnabled: options?.networkAccessEnabled,
-      webSearchEnabled: options?.webSearchEnabled,
-      approvalPolicy: options?.approvalPolicy
-    });
-    try {
-      for await (const item of generator) {
-        let parsed2;
-        try {
-          parsed2 = JSON.parse(item);
-        } catch (error2) {
-          throw new Error(`Failed to parse item: ${item}`, { cause: error2 });
-        }
-        if (parsed2.type === "thread.started") {
-          this._id = parsed2.thread_id;
-        }
-        yield parsed2;
-      }
-    } finally {
-      await cleanup2();
-    }
+  push(depth, content) {
+    const indent2 = this.indentationString.repeat(depth);
+    this.lines.push(indent2 + content);
   }
-  /** Provides the input to the agent and returns the completed turn. */
-  async run(input, turnOptions = {}) {
-    const generator = this.runStreamedInternal(input, turnOptions);
-    const items = [];
-    let finalResponse = "";
-    let usage = null;
-    let turnFailure = null;
-    for await (const event of generator) {
-      if (event.type === "item.completed") {
-        if (event.item.type === "agent_message") {
-          finalResponse = event.item.text;
-        }
-        items.push(event.item);
-      } else if (event.type === "turn.completed") {
-        usage = event.usage;
-      } else if (event.type === "turn.failed") {
-        turnFailure = event.error;
-        break;
-      }
-    }
-    if (turnFailure) {
-      throw new Error(turnFailure.message);
-    }
-    return { items, finalResponse, usage };
+  pushListItem(depth, content) {
+    this.push(depth, `${LIST_ITEM_PREFIX}${content}`);
+  }
+  toString() {
+    return this.lines.join("\n");
   }
 };
-function normalizeInput(input) {
-  if (typeof input === "string") {
-    return { prompt: input, images: [] };
-  }
-  const promptParts = [];
-  const images = [];
-  for (const item of input) {
-    if (item.type === "text") {
-      promptParts.push(item.text);
-    } else if (item.type === "local_image") {
-      images.push(item.path);
-    }
-  }
-  return { prompt: promptParts.join("\n\n"), images };
+function encodeValue(value2, options) {
+  if (isJsonPrimitive(value2)) return encodePrimitive(value2, options.delimiter);
+  const writer = new LineWriter(options.indent);
+  if (isJsonArray(value2)) encodeArray(void 0, value2, writer, 0, options);
+  else if (isJsonObject(value2)) encodeObject(value2, writer, 0, options);
+  return writer.toString();
 }
-var INTERNAL_ORIGINATOR_ENV = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
-var TYPESCRIPT_SDK_ORIGINATOR = "codex_sdk_ts";
-var CodexExec = class {
-  executablePath;
-  constructor(executablePath = null) {
-    this.executablePath = executablePath || findCodexPath();
-  }
-  async *run(args2) {
-    const commandArgs = ["exec", "--experimental-json"];
-    if (args2.model) {
-      commandArgs.push("--model", args2.model);
-    }
-    if (args2.sandboxMode) {
-      commandArgs.push("--sandbox", args2.sandboxMode);
-    }
-    if (args2.workingDirectory) {
-      commandArgs.push("--cd", args2.workingDirectory);
-    }
-    if (args2.skipGitRepoCheck) {
-      commandArgs.push("--skip-git-repo-check");
-    }
-    if (args2.outputSchemaFile) {
-      commandArgs.push("--output-schema", args2.outputSchemaFile);
-    }
-    if (args2.modelReasoningEffort) {
-      commandArgs.push("--config", `model_reasoning_effort="${args2.modelReasoningEffort}"`);
-    }
-    if (args2.networkAccessEnabled !== void 0) {
-      commandArgs.push("--config", `sandbox_workspace_write.network_access=${args2.networkAccessEnabled}`);
-    }
-    if (args2.webSearchEnabled !== void 0) {
-      commandArgs.push("--config", `features.web_search_request=${args2.webSearchEnabled}`);
-    }
-    if (args2.approvalPolicy) {
-      commandArgs.push("--config", `approval_policy="${args2.approvalPolicy}"`);
-    }
-    if (args2.images?.length) {
-      for (const image of args2.images) {
-        commandArgs.push("--image", image);
-      }
-    }
-    if (args2.threadId) {
-      commandArgs.push("resume", args2.threadId);
-    }
-    const env2 = {
-      ...process.env
-    };
-    if (!env2[INTERNAL_ORIGINATOR_ENV]) {
-      env2[INTERNAL_ORIGINATOR_ENV] = TYPESCRIPT_SDK_ORIGINATOR;
-    }
-    if (args2.baseUrl) {
-      env2.OPENAI_BASE_URL = args2.baseUrl;
-    }
-    if (args2.apiKey) {
-      env2.CODEX_API_KEY = args2.apiKey;
-    }
-    const child = spawn2(this.executablePath, commandArgs, {
-      env: env2
-    });
-    let spawnError = null;
-    child.once("error", (err2) => spawnError = err2);
-    if (!child.stdin) {
-      child.kill();
-      throw new Error("Child process has no stdin");
-    }
-    child.stdin.write(args2.input);
-    child.stdin.end();
-    if (!child.stdout) {
-      child.kill();
-      throw new Error("Child process has no stdout");
-    }
-    const stderrChunks = [];
-    if (child.stderr) {
-      child.stderr.on("data", (data) => {
-        stderrChunks.push(data);
-      });
-    }
-    const rl = readline.createInterface({
-      input: child.stdout,
-      crlfDelay: Infinity
-    });
-    try {
-      for await (const line of rl) {
-        yield line;
-      }
-      const exitCode = new Promise((resolve, reject) => {
-        child.once("exit", (code) => {
-          if (code === 0) {
-            resolve(code);
-          } else {
-            const stderrBuffer = Buffer.concat(stderrChunks);
-            reject(
-              new Error(`Codex Exec exited with code ${code}: ${stderrBuffer.toString("utf8")}`)
-            );
-          }
-        });
-      });
-      if (spawnError) throw spawnError;
-      await exitCode;
-    } finally {
-      rl.close();
-      child.removeAllListeners();
-      try {
-        if (!child.killed) child.kill();
-      } catch {
-      }
-    }
-  }
-};
-var scriptFileName = fileURLToPath2(import.meta.url);
-var scriptDirName = path2.dirname(scriptFileName);
-function findCodexPath() {
-  const { platform, arch } = process;
-  let targetTriple = null;
-  switch (platform) {
-    case "linux":
-    case "android":
-      switch (arch) {
-        case "x64":
-          targetTriple = "x86_64-unknown-linux-musl";
-          break;
-        case "arm64":
-          targetTriple = "aarch64-unknown-linux-musl";
-          break;
-        default:
-          break;
-      }
-      break;
-    case "darwin":
-      switch (arch) {
-        case "x64":
-          targetTriple = "x86_64-apple-darwin";
-          break;
-        case "arm64":
-          targetTriple = "aarch64-apple-darwin";
-          break;
-        default:
-          break;
-      }
-      break;
-    case "win32":
-      switch (arch) {
-        case "x64":
-          targetTriple = "x86_64-pc-windows-msvc";
-          break;
-        case "arm64":
-          targetTriple = "aarch64-pc-windows-msvc";
-          break;
-        default:
-          break;
-      }
-      break;
-    default:
-      break;
-  }
-  if (!targetTriple) {
-    throw new Error(`Unsupported platform: ${platform} (${arch})`);
-  }
-  const vendorRoot = path2.join(scriptDirName, "..", "vendor");
-  const archRoot = path2.join(vendorRoot, targetTriple);
-  const codexBinaryName = process.platform === "win32" ? "codex.exe" : "codex";
-  const binaryPath = path2.join(archRoot, "codex", codexBinaryName);
-  return binaryPath;
+function encodeObject(value2, writer, depth, options, rootLiteralKeys, pathPrefix, remainingDepth) {
+  const keys = Object.keys(value2);
+  if (depth === 0 && !rootLiteralKeys) rootLiteralKeys = new Set(keys.filter((k) => k.includes(".")));
+  const effectiveFlattenDepth = remainingDepth ?? options.flattenDepth;
+  for (const [key, val] of Object.entries(value2)) encodeKeyValuePair(key, val, writer, depth, options, keys, rootLiteralKeys, pathPrefix, effectiveFlattenDepth);
 }
-var Codex = class {
-  exec;
-  options;
-  constructor(options = {}) {
-    this.exec = new CodexExec(options.codexPathOverride);
-    this.options = options;
-  }
-  /**
-   * Starts a new conversation with an agent.
-   * @returns A new thread instance.
-   */
-  startThread(options = {}) {
-    return new Thread(this.exec, this.options, options);
-  }
-  /**
-   * Resumes a conversation with an agent based on the thread id.
-   * Threads are persisted in ~/.codex/sessions.
-   *
-   * @param id The id of the thread to resume.
-   * @returns A new thread instance.
-   */
-  resumeThread(id, options = {}) {
-    return new Thread(this.exec, this.options, options, id);
-  }
-};
-
-// agents/codex.ts
-var codex = agent({
-  name: "codex",
-  install: async () => {
-    return await installFromNpmTarball({
-      packageName: "@openai/codex",
-      version: "latest",
-      executablePath: "bin/codex.js"
-    });
-  },
-  run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
-    process.env.OPENAI_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-    configureCodexMcpServers({ mcpServers, cliPath });
-    const codexOptions = {
-      apiKey,
-      codexPathOverride: cliPath
-    };
-    const codex2 = new Codex(codexOptions);
-    const thread = codex2.startThread({
-      approvalPolicy: "never",
-      sandboxMode: "workspace-write",
-      networkAccessEnabled: true
-    });
-    try {
-      const streamedTurn = await thread.runStreamed(addInstructions(payload));
-      let finalOutput = "";
-      for await (const event of streamedTurn.events) {
-        const handler = messageHandlers2[event.type];
-        if (handler) {
-          handler(event);
-        }
-        if (event.type === "item.completed" && event.item.type === "agent_message") {
-          finalOutput = event.item.text;
+function encodeKeyValuePair(key, value2, writer, depth, options, siblings, rootLiteralKeys, pathPrefix, flattenDepth) {
+  const currentPath = pathPrefix ? `${pathPrefix}${DOT}${key}` : key;
+  const effectiveFlattenDepth = flattenDepth ?? options.flattenDepth;
+  if (options.keyFolding === "safe" && siblings) {
+    const foldResult = tryFoldKeyChain(key, value2, siblings, options, rootLiteralKeys, pathPrefix, effectiveFlattenDepth);
+    if (foldResult) {
+      const { foldedKey, remainder, leafValue, segmentCount } = foldResult;
+      const encodedFoldedKey = encodeKey(foldedKey);
+      if (remainder === void 0) {
+        if (isJsonPrimitive(leafValue)) {
+          writer.push(depth, `${encodedFoldedKey}: ${encodePrimitive(leafValue, options.delimiter)}`);
+          return;
+        } else if (isJsonArray(leafValue)) {
+          encodeArray(foldedKey, leafValue, writer, depth, options);
+          return;
+        } else if (isJsonObject(leafValue) && isEmptyObject2(leafValue)) {
+          writer.push(depth, `${encodedFoldedKey}:`);
+          return;
         }
       }
-      return {
-        success: true,
-        output: finalOutput
-      };
-    } catch (error2) {
-      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-      log.error(`Codex execution failed: ${errorMessage}`);
-      return {
-        success: false,
-        error: errorMessage,
-        output: ""
-      };
-    }
-  }
-});
-var commandExecutionIds = /* @__PURE__ */ new Set();
-var messageHandlers2 = {
-  "thread.started": () => {
-  },
-  "turn.started": () => {
-  },
-  "turn.completed": async (event) => {
-    await log.summaryTable([
-      [
-        { data: "Input Tokens", header: true },
-        { data: "Cached Input Tokens", header: true },
-        { data: "Output Tokens", header: true }
-      ],
-      [
-        String(event.usage.input_tokens || 0),
-        String(event.usage.cached_input_tokens || 0),
-        String(event.usage.output_tokens || 0)
-      ]
-    ]);
-  },
-  "turn.failed": (event) => {
-    log.error(`Turn failed: ${event.error.message}`);
-  },
-  "item.started": (event) => {
-    const item = event.item;
-    if (item.type === "command_execution") {
-      log.info(`\u2192 ${item.command}`);
-      commandExecutionIds.add(item.id);
-    } else if (item.type === "agent_message") {
-    } else if (item.type === "mcp_tool_call") {
-      log.info(`\u2192 ${item.tool} (${item.server})`);
-    }
-  },
-  "item.updated": (event) => {
-    const item = event.item;
-    if (item.type === "command_execution") {
-      if (item.status === "in_progress" && item.aggregated_output) {
-      }
-    }
-  },
-  "item.completed": (event) => {
-    const item = event.item;
-    if (item.type === "agent_message") {
-      log.box(item.text.trim(), { title: "Codex" });
-    } else if (item.type === "command_execution") {
-      const isTracked = commandExecutionIds.has(item.id);
-      if (isTracked) {
-        log.startGroup(`bash output`);
-        if (item.status === "failed" || item.exit_code !== void 0 && item.exit_code !== 0) {
-          log.warning(item.aggregated_output || "Command failed");
-        } else {
-          log.info(item.aggregated_output || "");
-        }
-        log.endGroup();
-        commandExecutionIds.delete(item.id);
-      }
-    } else if (item.type === "mcp_tool_call") {
-      if (item.status === "failed" && item.error) {
-        log.warning(`MCP tool call failed: ${item.error.message}`);
-      }
-    } else if (item.type === "reasoning") {
-      const reasoningText = item.text.trim();
-      const cleanText = reasoningText.replace(/\*\*/g, "");
-      log.info(cleanText);
-    }
-  },
-  error: (event) => {
-    log.error(`Error: ${event.message}`);
-  }
-};
-function configureCodexMcpServers({ mcpServers, cliPath }) {
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    const command = serverConfig.command;
-    const args2 = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
-    const addArgs = ["mcp", "add", serverName];
-    for (const [key, value2] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value2}`);
-    }
-    addArgs.push("--", command, ...args2);
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync2("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8"
-    });
-    if (addResult.status !== 0) {
-      throw new Error(
-        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-      );
-    }
-    log.info(`\u2713 MCP server '${serverName}' configured`);
-  }
-}
-
-// agents/cursor.ts
-import { spawn as spawn3 } from "node:child_process";
-import { mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join6 } from "node:path";
-var cursor = agent({
-  name: "cursor",
-  install: async () => {
-    return await installFromCurl({
-      installUrl: "https://cursor.com/install",
-      executableName: "cursor-agent"
-    });
-  },
-  run: async ({ payload, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
-    process.env.CURSOR_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-    configureCursorMcpServers({ mcpServers, cliPath });
-    try {
-      const fullPrompt = addInstructions(payload);
-      const tempDir = cliPath.split("/.local/bin/")[0];
-      log.info("Running Cursor CLI...");
-      return new Promise((resolve) => {
-        const child = spawn3(
-          cliPath,
-          ["--print", fullPrompt, "--output-format", "text", "--approve-mcps", "--force"],
-          {
-            cwd: process.cwd(),
-            // Run in current working directory
-            env: {
-              ...process.env,
-              CURSOR_API_KEY: apiKey,
-              GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-              HOME: tempDir
-              // Set HOME so Cursor CLI can find .cursor/mcp.json
-            },
-            stdio: ["ignore", "pipe", "pipe"]
-            // Ignore stdin, pipe stdout/stderr
-          }
-        );
-        let stdout = "";
-        let stderr = "";
-        child.on("spawn", () => {
-          log.debug("Cursor CLI process spawned");
-        });
-        child.stdout?.on("data", (data) => {
-          const text = data.toString();
-          stdout += text;
-          process.stdout.write(text);
-        });
-        child.stderr?.on("data", (data) => {
-          const text = data.toString();
-          stderr += text;
-          process.stderr.write(text);
-          log.warning(text);
-        });
-        child.on("close", (code, signal) => {
-          if (signal) {
-            log.warning(`Cursor CLI terminated by signal: ${signal}`);
-          }
-          if (code === 0) {
-            log.success("Cursor CLI completed successfully");
-            resolve({
-              success: true,
-              output: stdout.trim()
-            });
-          } else {
-            const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
-            log.error(`Cursor CLI failed: ${errorMessage}`);
-            resolve({
-              success: false,
-              error: errorMessage,
-              output: stdout.trim()
-            });
-          }
-        });
-        child.on("error", (error2) => {
-          const errorMessage = error2.message || String(error2);
-          log.error(`Cursor CLI execution failed: ${errorMessage}`);
-          resolve({
-            success: false,
-            error: errorMessage,
-            output: stdout.trim()
-          });
-        });
-      });
-    } catch (error2) {
-      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-      log.error(`Cursor execution failed: ${errorMessage}`);
-      return {
-        success: false,
-        error: errorMessage,
-        output: ""
-      };
-    }
-  }
-});
-function configureCursorMcpServers({ mcpServers, cliPath }) {
-  const tempDir = cliPath.split("/.local/bin/")[0];
-  const cursorConfigDir = join6(tempDir, ".cursor");
-  const mcpConfigPath = join6(cursorConfigDir, "mcp.json");
-  mkdirSync2(cursorConfigDir, { recursive: true });
-  writeFileSync2(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
-}
-
-// agents/gemini.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
-
-// utils/subprocess.ts
-import { spawn as nodeSpawn } from "node:child_process";
-async function spawn4(options) {
-  const { cmd, args: args2, env: env2, input, timeout, cwd: cwd4, onStdout, onStderr } = options;
-  const startTime = Date.now();
-  let stdoutBuffer = "";
-  let stderrBuffer = "";
-  return new Promise((resolve, reject) => {
-    const child = nodeSpawn(cmd, args2, {
-      env: env2 ? { ...process.env, ...env2 } : process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: cwd4 || process.cwd()
-    });
-    let timeoutId;
-    let isTimedOut = false;
-    if (timeout) {
-      timeoutId = setTimeout(() => {
-        isTimedOut = true;
-        child.kill("SIGTERM");
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill("SIGKILL");
-          }
-        }, 5e3);
-      }, timeout);
-    }
-    if (child.stdout) {
-      child.stdout.on("data", (data) => {
-        const chunk = data.toString();
-        stdoutBuffer += chunk;
-        onStdout?.(chunk);
-      });
-    }
-    if (child.stderr) {
-      child.stderr.on("data", (data) => {
-        const chunk = data.toString();
-        stderrBuffer += chunk;
-        onStderr?.(chunk);
-      });
-    }
-    child.on("close", (exitCode) => {
-      const durationMs = Date.now() - startTime;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (isTimedOut) {
-        reject(new Error(`Process timed out after ${timeout}ms`));
+      if (isJsonObject(remainder)) {
+        writer.push(depth, `${encodedFoldedKey}:`);
+        const remainingDepth = effectiveFlattenDepth - segmentCount;
+        const foldedPath = pathPrefix ? `${pathPrefix}${DOT}${foldedKey}` : foldedKey;
+        encodeObject(remainder, writer, depth + 1, options, rootLiteralKeys, foldedPath, remainingDepth);
         return;
       }
-      resolve({
-        stdout: stdoutBuffer,
-        stderr: stderrBuffer,
-        exitCode: exitCode || 0,
-        durationMs
-      });
-    });
-    child.on("error", (_error) => {
-      const durationMs = Date.now() - startTime;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      resolve({
-        stdout: stdoutBuffer,
-        stderr: stderrBuffer,
-        exitCode: 1,
-        durationMs
-      });
-    });
-    if (input && child.stdin) {
-      child.stdin.write(input);
-      child.stdin.end();
     }
+  }
+  const encodedKey = encodeKey(key);
+  if (isJsonPrimitive(value2)) writer.push(depth, `${encodedKey}: ${encodePrimitive(value2, options.delimiter)}`);
+  else if (isJsonArray(value2)) encodeArray(key, value2, writer, depth, options);
+  else if (isJsonObject(value2)) {
+    writer.push(depth, `${encodedKey}:`);
+    if (!isEmptyObject2(value2)) encodeObject(value2, writer, depth + 1, options, rootLiteralKeys, currentPath, effectiveFlattenDepth);
+  }
+}
+function encodeArray(key, value2, writer, depth, options) {
+  if (value2.length === 0) {
+    const header = formatHeader(0, {
+      key,
+      delimiter: options.delimiter
+    });
+    writer.push(depth, header);
+    return;
+  }
+  if (isArrayOfPrimitives(value2)) {
+    const arrayLine = encodeInlineArrayLine(value2, options.delimiter, key);
+    writer.push(depth, arrayLine);
+    return;
+  }
+  if (isArrayOfArrays(value2)) {
+    if (value2.every((arr) => isArrayOfPrimitives(arr))) {
+      encodeArrayOfArraysAsListItems(key, value2, writer, depth, options);
+      return;
+    }
+  }
+  if (isArrayOfObjects(value2)) {
+    const header = extractTabularHeader(value2);
+    if (header) encodeArrayOfObjectsAsTabular(key, value2, header, writer, depth, options);
+    else encodeMixedArrayAsListItems(key, value2, writer, depth, options);
+    return;
+  }
+  encodeMixedArrayAsListItems(key, value2, writer, depth, options);
+}
+function encodeArrayOfArraysAsListItems(prefix, values, writer, depth, options) {
+  const header = formatHeader(values.length, {
+    key: prefix,
+    delimiter: options.delimiter
   });
+  writer.push(depth, header);
+  for (const arr of values) if (isArrayOfPrimitives(arr)) {
+    const arrayLine = encodeInlineArrayLine(arr, options.delimiter);
+    writer.pushListItem(depth + 1, arrayLine);
+  }
 }
-
-// agents/gemini.ts
-var gemini = agent({
-  name: "gemini",
-  install: async () => {
-    return await installFromNpmTarball({
-      packageName: "@google/gemini-cli",
-      version: "latest",
-      executablePath: "dist/index.js",
-      installDependencies: true
-    });
-  },
-  run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
-    configureGeminiMcpServers({ mcpServers, cliPath });
-    if (!apiKey) {
-      throw new Error("google_api_key or gemini_api_key is required for gemini agent");
+function encodeInlineArrayLine(values, delimiter, prefix) {
+  const header = formatHeader(values.length, {
+    key: prefix,
+    delimiter
+  });
+  const joinedValue = encodeAndJoinPrimitives(values, delimiter);
+  if (values.length === 0) return header;
+  return `${header} ${joinedValue}`;
+}
+function encodeArrayOfObjectsAsTabular(prefix, rows, header, writer, depth, options) {
+  const formattedHeader = formatHeader(rows.length, {
+    key: prefix,
+    fields: header,
+    delimiter: options.delimiter
+  });
+  writer.push(depth, `${formattedHeader}`);
+  writeTabularRows(rows, header, writer, depth + 1, options);
+}
+function extractTabularHeader(rows) {
+  if (rows.length === 0) return;
+  const firstRow = rows[0];
+  const firstKeys = Object.keys(firstRow);
+  if (firstKeys.length === 0) return;
+  if (isTabularArray(rows, firstKeys)) return firstKeys;
+}
+function isTabularArray(rows, header) {
+  for (const row of rows) {
+    if (Object.keys(row).length !== header.length) return false;
+    for (const key of header) {
+      if (!(key in row)) return false;
+      if (!isJsonPrimitive(row[key])) return false;
     }
-    process.env.GEMINI_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-    const sessionPrompt = addInstructions(payload);
-    log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
-    let finalOutput = "";
-    try {
-      const result = await spawn4({
-        cmd: "node",
-        args: [cliPath, "--yolo", "--output-format", "text", sessionPrompt],
-        env: {
-          GEMINI_API_KEY: apiKey,
-          GITHUB_INSTALLATION_TOKEN: githubInstallationToken
-        },
-        onStdout: (chunk) => {
-          const trimmed = chunk.trim();
-          if (trimmed) {
-            log.info(trimmed);
-            finalOutput += trimmed + "\n";
-          }
-        },
-        onStderr: (chunk) => {
-          const trimmed = chunk.trim();
-          if (trimmed) {
-            log.warning(trimmed);
-            finalOutput += trimmed + "\n";
-          }
-        }
+  }
+  return true;
+}
+function writeTabularRows(rows, header, writer, depth, options) {
+  for (const row of rows) {
+    const joinedValue = encodeAndJoinPrimitives(header.map((key) => row[key]), options.delimiter);
+    writer.push(depth, joinedValue);
+  }
+}
+function encodeMixedArrayAsListItems(prefix, items, writer, depth, options) {
+  const header = formatHeader(items.length, {
+    key: prefix,
+    delimiter: options.delimiter
+  });
+  writer.push(depth, header);
+  for (const item of items) encodeListItemValue(item, writer, depth + 1, options);
+}
+function encodeObjectAsListItem(obj, writer, depth, options) {
+  if (isEmptyObject2(obj)) {
+    writer.push(depth, LIST_ITEM_MARKER);
+    return;
+  }
+  const entries = Object.entries(obj);
+  const [firstKey, firstValue] = entries[0];
+  const encodedKey = encodeKey(firstKey);
+  if (isJsonPrimitive(firstValue)) writer.pushListItem(depth, `${encodedKey}: ${encodePrimitive(firstValue, options.delimiter)}`);
+  else if (isJsonArray(firstValue)) if (isArrayOfPrimitives(firstValue)) {
+    const arrayPropertyLine = encodeInlineArrayLine(firstValue, options.delimiter, firstKey);
+    writer.pushListItem(depth, arrayPropertyLine);
+  } else if (isArrayOfObjects(firstValue)) {
+    const header = extractTabularHeader(firstValue);
+    if (header) {
+      const formattedHeader = formatHeader(firstValue.length, {
+        key: firstKey,
+        fields: header,
+        delimiter: options.delimiter
       });
-      if (result.exitCode !== 0) {
-        const errorMessage = result.stderr || result.stdout || "Unknown error";
-        log.error(`Gemini CLI exited with code ${result.exitCode}: ${errorMessage}`);
-        return {
-          success: false,
-          error: errorMessage,
-          output: finalOutput || result.stdout || ""
-        };
-      }
-      finalOutput = finalOutput || result.stdout || "Gemini CLI completed successfully.";
-      log.info("\u2713 Gemini CLI completed successfully");
-      return {
-        success: true,
-        output: finalOutput
-      };
-    } catch (error2) {
-      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
-      log.error(`Failed to run Gemini CLI: ${errorMessage}`);
-      return {
-        success: false,
-        error: errorMessage,
-        output: finalOutput || ""
-      };
+      writer.pushListItem(depth, formattedHeader);
+      writeTabularRows(firstValue, header, writer, depth + 1, options);
+    } else {
+      writer.pushListItem(depth, `${encodedKey}[${firstValue.length}]:`);
+      for (const item of firstValue) encodeObjectAsListItem(item, writer, depth + 1, options);
     }
+  } else {
+    writer.pushListItem(depth, `${encodedKey}[${firstValue.length}]:`);
+    for (const item of firstValue) encodeListItemValue(item, writer, depth + 1, options);
   }
-});
-function configureGeminiMcpServers({ mcpServers, cliPath }) {
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    const command = serverConfig.command;
-    const args2 = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
-    const addArgs = ["mcp", "add", serverName, command, ...args2];
-    for (const [key, value2] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value2}`);
-    }
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync3("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8"
-    });
-    if (addResult.status !== 0) {
-      throw new Error(
-        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-      );
-    }
-    log.info(`\u2713 MCP server '${serverName}' configured`);
+  else if (isJsonObject(firstValue)) {
+    writer.pushListItem(depth, `${encodedKey}:`);
+    if (!isEmptyObject2(firstValue)) encodeObject(firstValue, writer, depth + 2, options);
+  }
+  for (let i = 1; i < entries.length; i++) {
+    const [key, value2] = entries[i];
+    encodeKeyValuePair(key, value2, writer, depth + 1, options);
   }
 }
-
-// agents/index.ts
-var agents = {
-  claude,
-  codex,
-  cursor,
-  gemini
-};
-
-// main.ts
-import { existsSync as existsSync4, readFileSync as readFileSync2 } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join8 } from "node:path";
+function encodeListItemValue(value2, writer, depth, options) {
+  if (isJsonPrimitive(value2)) writer.pushListItem(depth, encodePrimitive(value2, options.delimiter));
+  else if (isJsonArray(value2) && isArrayOfPrimitives(value2)) {
+    const arrayLine = encodeInlineArrayLine(value2, options.delimiter);
+    writer.pushListItem(depth, arrayLine);
+  } else if (isJsonObject(value2)) encodeObjectAsListItem(value2, writer, depth, options);
+}
+function encode(input, options) {
+  return encodeValue(normalizeValue(input), resolveOptions(options));
+}
+function resolveOptions(options) {
+  return {
+    indent: options?.indent ?? 2,
+    delimiter: options?.delimiter ?? DEFAULT_DELIMITER,
+    keyFolding: options?.keyFolding ?? "off",
+    flattenDepth: options?.flattenDepth ?? Number.POSITIVE_INFINITY
+  };
+}
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/shared/registry.js
 var _registryName = "$ark";
@@ -40895,7 +40139,7 @@ var BaseNode = class extends Callable {
   get shallowMorphs() {
     return [];
   }
-  constructor(attachments, $) {
+  constructor(attachments, $2) {
     super((data, pipedFromCtx, onFail = this.onFail) => {
       if (pipedFromCtx) {
         this.traverseApply(data, pipedFromCtx);
@@ -40904,7 +40148,7 @@ var BaseNode = class extends Callable {
       return this.rootApply(data, onFail);
     }, { attach: attachments });
     this.attachments = attachments;
-    this.$ = $;
+    this.$ = $2;
     this.onFail = this.meta.onFail ?? this.$.resolvedConfig.onFail;
     this.includesTransform = this.hasKind("morph") || this.hasKind("structure") && this.structuralMorph !== void 0 || this.hasKind("sequence") && this.inner.defaultables !== void 0;
     this.includesContextualPredicate = this.hasKind("predicate") && this.inner.predicate.length !== 1;
@@ -41122,7 +40366,7 @@ var BaseNode = class extends Callable {
     };
   }
   _transform(mapper, ctx) {
-    const $ = ctx.bindScope ?? this.$;
+    const $2 = ctx.bindScope ?? this.$;
     if (ctx.seen[this.id])
       return this.$.lazilyResolve(ctx.seen[this.id]);
     if (ctx.shouldTransform?.(this, ctx) === false)
@@ -41172,7 +40416,7 @@ var BaseNode = class extends Callable {
       ;
       transformedInner.in ??= $ark.intrinsic.unknown;
     }
-    return transformedNode = $.node(this.kind, transformedInner, ctx.parseOptions);
+    return transformedNode = $2.node(this.kind, transformedInner, ctx.parseOptions);
   }
   configureReferences(meta, selector = "references") {
     const normalized = NodeSelector.normalize(selector);
@@ -41300,13 +40544,13 @@ var writeUnsatisfiableExpressionError = (expression) => `${expression} results i
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/shared/intersections.js
 var intersectionCache = {};
-var intersectNodesRoot = (l, r, $) => intersectOrPipeNodes(l, r, {
-  $,
+var intersectNodesRoot = (l, r, $2) => intersectOrPipeNodes(l, r, {
+  $: $2,
   invert: false,
   pipe: false
 });
-var pipeNodesRoot = (l, r, $) => intersectOrPipeNodes(l, r, {
-  $,
+var pipeNodesRoot = (l, r, $2) => intersectOrPipeNodes(l, r, {
+  $: $2,
   invert: false,
   pipe: true
 });
@@ -41411,8 +40655,8 @@ var _pipeMorphed = (from, to, ctx) => {
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/constraint.js
 var BaseConstraint = class extends BaseNode {
-  constructor(attachments, $) {
-    super(attachments, $);
+  constructor(attachments, $2) {
+    super(attachments, $2);
     Object.defineProperty(this, arkKind, {
       value: "constraint",
       enumerable: false
@@ -41524,7 +40768,7 @@ var writeInvalidOperandMessage = (kind, expected, actual) => {
 };
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/generic.js
-var parseGeneric = (paramDefs, bodyDef, $) => new GenericRoot(paramDefs, bodyDef, $, $, null);
+var parseGeneric = (paramDefs, bodyDef, $2) => new GenericRoot(paramDefs, bodyDef, $2, $2, null);
 var LazyGenericBody = class extends Callable {
 };
 var GenericRoot = class extends Callable {
@@ -41536,7 +40780,7 @@ var GenericRoot = class extends Callable {
   baseInstantiation;
   hkt;
   description;
-  constructor(paramDefs, bodyDef, $, arg$, hkt) {
+  constructor(paramDefs, bodyDef, $2, arg$, hkt) {
     super((...args2) => {
       const argNodes = flatMorph(this.names, (i, name) => {
         const arg = this.arg$.parse(args2[i]);
@@ -41553,7 +40797,7 @@ var GenericRoot = class extends Callable {
     });
     this.paramDefs = paramDefs;
     this.bodyDef = bodyDef;
-    this.$ = $;
+    this.$ = $2;
     this.arg$ = arg$;
     this.hkt = hkt;
     this.description = hkt ? new hkt().description ?? `a generic type for ${hkt.constructor.name}` : "a generic type";
@@ -41948,7 +41192,7 @@ var implementation7 = implementNode({
       parse: createLengthRuleParser("maxLength")
     }
   },
-  reduce: (inner, $) => inner.rule === 0 ? $.node("exactLength", inner) : void 0,
+  reduce: (inner, $2) => inner.rule === 0 ? $2.node("exactLength", inner) : void 0,
   normalize: createLengthSchemaNormalizer("maxLength"),
   defaults: {
     description: (node2) => `at most length ${node2.rule}`,
@@ -42213,7 +41457,7 @@ var parseNode = (ctx) => {
   });
   return node2;
 };
-var createNode = ({ id, kind, inner, meta, $, ignoreCache }) => {
+var createNode = ({ id, kind, inner, meta, $: $2, ignoreCache }) => {
   const impl = nodeImplementationsByKind[kind];
   const innerEntries = entriesOf(inner);
   const children = [];
@@ -42247,8 +41491,8 @@ var createNode = ({ id, kind, inner, meta, $, ignoreCache }) => {
   json3 = possiblyCollapse(json3, impl.collapsibleKey, false);
   const collapsibleJson = possiblyCollapse(json3, impl.collapsibleKey, true);
   const hash = JSON.stringify({ kind, ...json3 });
-  if ($.nodesByHash[hash] && !ignoreCache)
-    return $.nodesByHash[hash];
+  if ($2.nodesByHash[hash] && !ignoreCache)
+    return $2.nodesByHash[hash];
   const attachments = {
     id,
     kind,
@@ -42269,8 +41513,8 @@ var createNode = ({ id, kind, inner, meta, $, ignoreCache }) => {
       if (k !== "in" && k !== "out")
         attachments[k] = inner[k];
   }
-  const node2 = new nodeClassesByKind[kind](attachments, $);
-  return $.nodesByHash[hash] = node2;
+  const node2 = new nodeClassesByKind[kind](attachments, $2);
+  return $2.nodesByHash[hash] = node2;
 };
 var withId = (node2, id) => {
   if (node2.id === id)
@@ -42397,10 +41641,10 @@ var implementation11 = implementNode({
     }
   },
   normalize: (schema2) => schema2,
-  reduce: (inner, $) => {
-    if ($.resolvedConfig.exactOptionalPropertyTypes === false) {
+  reduce: (inner, $2) => {
+    if ($2.resolvedConfig.exactOptionalPropertyTypes === false) {
       if (!inner.value.allows(void 0)) {
-        return $.node("optional", { ...inner, value: inner.value.or(intrinsic.undefined) }, { prereduced: true });
+        return $2.node("optional", { ...inner, value: inner.value.or(intrinsic.undefined) }, { prereduced: true });
       }
     }
   },
@@ -42489,8 +41733,8 @@ var writeNonPrimitiveNonFunctionDefaultValueMessage = (key) => {
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/roots/root.js
 var BaseRoot = class extends BaseNode {
-  constructor(attachments, $) {
-    super(attachments, $);
+  constructor(attachments, $2) {
+    super(attachments, $2);
     Object.defineProperty(this, arkKind, { value: "root", enumerable: false });
   }
   // doesn't seem possible to override this at a type-level (e.g. via declare)
@@ -43151,11 +42395,11 @@ var implementation14 = implementNode({
   },
   // leverage reduction logic from intersection and identity to ensure initial
   // parse result is reduced
-  reduce: (inner, $) => (
+  reduce: (inner, $2) => (
     // we cast union out of the result here since that only occurs when intersecting two sequences
     // that cannot occur when reducing a single intersection schema using unknown
     intersectIntersections({}, inner, {
-      $,
+      $: $2,
       invert: false,
       pipe: false
     })
@@ -43571,13 +42815,13 @@ var implementation17 = implementNode({
     }
   },
   normalize: (schema2) => isArray(schema2) ? { branches: schema2 } : schema2,
-  reduce: (inner, $) => {
+  reduce: (inner, $2) => {
     const reducedBranches = reduceBranches(inner);
     if (reducedBranches.length === 1)
       return reducedBranches[0];
     if (reducedBranches.length === inner.branches.length)
       return;
-    return $.node("union", {
+    return $2.node("union", {
       ...inner,
       branches: reducedBranches
     }, { prereduced: true });
@@ -43974,11 +43218,11 @@ var viableOrderedCandidates = (candidates, originalBranches) => {
   });
   return viableCandidates;
 };
-var discriminantCaseToNode = (caseDiscriminant, path4, $) => {
-  let node2 = caseDiscriminant === "undefined" ? $.node("unit", { unit: void 0 }) : caseDiscriminant === "null" ? $.node("unit", { unit: null }) : caseDiscriminant === "boolean" ? $.units([true, false]) : caseDiscriminant;
+var discriminantCaseToNode = (caseDiscriminant, path4, $2) => {
+  let node2 = caseDiscriminant === "undefined" ? $2.node("unit", { unit: void 0 }) : caseDiscriminant === "null" ? $2.node("unit", { unit: null }) : caseDiscriminant === "boolean" ? $2.units([true, false]) : caseDiscriminant;
   for (let i = path4.length - 1; i >= 0; i--) {
     const key = path4[i];
-    node2 = $.node("intersection", typeof key === "number" ? {
+    node2 = $2.node("intersection", typeof key === "number" ? {
       proto: "Array",
       // create unknown for preceding elements (could be optimized with safe imports)
       sequence: [...range(key).map((_) => ({})), node2]
@@ -44380,7 +43624,7 @@ var implementation21 = implementNode({
     }
     return { variadic: schema2 };
   },
-  reduce: (raw, $) => {
+  reduce: (raw, $2) => {
     let minVariadicLength = raw.minVariadicLength ?? 0;
     const prefix = raw.prefix?.slice() ?? [];
     const defaultables = raw.defaultables?.slice() ?? [];
@@ -44407,7 +43651,7 @@ var implementation21 = implementNode({
       minVariadicLength !== raw.minVariadicLength || // or any postfix elements were moved to prefix
       raw.prefix && raw.prefix.length !== prefix.length
     ) {
-      return $.node("sequence", {
+      return $2.node("sequence", {
         ...raw,
         // empty lists will be omitted during parsing
         prefix,
@@ -44722,13 +43966,13 @@ var createStructuralWriter = (childStringProp) => (node2) => {
 };
 var structuralDescription = createStructuralWriter("description");
 var structuralExpression = createStructuralWriter("expression");
-var intersectPropsAndIndex = (l, r, $) => {
+var intersectPropsAndIndex = (l, r, $2) => {
   const kind = l.required ? "required" : "optional";
   if (!r.signature.allows(l.key))
     return null;
-  const value2 = intersectNodesRoot(l.value, r.value, $);
+  const value2 = intersectNodesRoot(l.value, r.value, $2);
   if (value2 instanceof Disjoint) {
-    return kind === "optional" ? $.node("optional", {
+    return kind === "optional" ? $2.node("optional", {
       key: l.key,
       value: $ark.intrinsic.never.internal
     }) : value2.withPrefixKey(l.key, l.kind);
@@ -44877,7 +44121,7 @@ var implementation22 = implementNode({
       return childIntersectionResult;
     }
   },
-  reduce: (inner, $) => {
+  reduce: (inner, $2) => {
     if (!inner.required && !inner.optional)
       return;
     const seen = {};
@@ -44891,7 +44135,7 @@ var implementation22 = implementNode({
         seen[requiredProp.key] = true;
         if (inner.index) {
           for (const index of inner.index) {
-            const intersection = intersectPropsAndIndex(requiredProp, index, $);
+            const intersection = intersectPropsAndIndex(requiredProp, index, $2);
             if (intersection instanceof Disjoint)
               return intersection;
           }
@@ -44906,7 +44150,7 @@ var implementation22 = implementNode({
         seen[optionalProp.key] = true;
         if (inner.index) {
           for (const index of inner.index) {
-            const intersection = intersectPropsAndIndex(optionalProp, index, $);
+            const intersection = intersectPropsAndIndex(optionalProp, index, $2);
             if (intersection instanceof Disjoint)
               return intersection;
             if (intersection !== null) {
@@ -44918,7 +44162,7 @@ var implementation22 = implementNode({
       }
     }
     if (updated) {
-      return $.node("structure", { ...inner, optional: newOptionalProps }, { prereduced: true });
+      return $2.node("structure", { ...inner, optional: newOptionalProps }, { prereduced: true });
     }
   }
 });
@@ -45368,17 +44612,17 @@ var indexerToKey = (indexable) => {
   return indexable;
 };
 var writeNumberIndexMessage = (indexExpression, sequenceExpression) => `${indexExpression} is not allowed as an array index on ${sequenceExpression}. Use the 'nonNegativeIntegerString' keyword instead.`;
-var normalizeIndex = (signature, value2, $) => {
+var normalizeIndex = (signature, value2, $2) => {
   const [enumerableBranches, nonEnumerableBranches] = spliterate(signature.branches, (k) => k.hasKind("unit"));
   if (!enumerableBranches.length)
-    return { index: $.node("index", { signature, value: value2 }) };
+    return { index: $2.node("index", { signature, value: value2 }) };
   const normalized = {};
   for (const n of enumerableBranches) {
-    const prop = $.node("required", { key: n.unit, value: value2 });
+    const prop = $2.node("required", { key: n.unit, value: value2 });
     normalized[prop.kind] = append(normalized[prop.kind], prop);
   }
   if (nonEnumerableBranches.length) {
-    normalized.index = $.node("index", {
+    normalized.index = $2.node("index", {
       signature: nonEnumerableBranches,
       value: value2
     });
@@ -45449,9 +44693,9 @@ var RootModule = class extends DynamicBase {
     return "module";
   }
 };
-var bindModule = (module, $) => new RootModule(flatMorph(module, (alias, value2) => [
+var bindModule = (module, $2) => new RootModule(flatMorph(module, (alias, value2) => [
   alias,
-  hasArkKind(value2, "module") ? bindModule(value2, $) : $.bindReference(value2)
+  hasArkKind(value2, "module") ? bindModule(value2, $2) : $2.bindReference(value2)
 ]));
 
 // node_modules/.pnpm/@ark+schema@0.53.0/node_modules/@ark/schema/out/scope.js
@@ -45582,8 +44826,8 @@ var BaseScope = class {
     return def;
   }
   generic = (...params) => {
-    const $ = this;
-    return (def, possibleHkt) => new GenericRoot(params, possibleHkt ? new LazyGenericBody(def) : def, $, $, possibleHkt ?? null);
+    const $2 = this;
+    return (def, possibleHkt) => new GenericRoot(params, possibleHkt ? new LazyGenericBody(def) : def, $2, $2, possibleHkt ?? null);
   };
   units = (values, opts) => {
     const uniqueValues = [];
@@ -45841,12 +45085,12 @@ var maybeResolveSubalias = (base, name) => {
 };
 var schemaScope = (aliases, config) => new SchemaScope(aliases, config);
 var rootSchemaScope = new SchemaScope({});
-var resolutionsOfModule = ($, typeSet) => {
+var resolutionsOfModule = ($2, typeSet) => {
   const result = {};
   for (const k in typeSet) {
     const v = typeSet[k];
     if (hasArkKind(v, "module")) {
-      const innerResolutions = resolutionsOfModule($, v);
+      const innerResolutions = resolutionsOfModule($2, v);
       const prefixedResolutions = flatMorph(innerResolutions, (innerK, innerV) => [`${k}.${innerK}`, innerV]);
       Object.assign(result, prefixedResolutions);
     } else if (hasArkKind(v, "root") || hasArkKind(v, "generic"))
@@ -46434,21 +45678,21 @@ var _parseOptionalConstraint = (scanner, name, result, ctx) => {
 
 // node_modules/.pnpm/arktype@2.1.25/node_modules/arktype/out/fn.js
 var InternalFnParser = class extends Callable {
-  constructor($) {
+  constructor($2) {
     const attach = {
-      $,
-      raw: $.fn
+      $: $2,
+      raw: $2.fn
     };
     super((...signature) => {
       const returnOperatorIndex = signature.indexOf(":");
       const lastParamIndex = returnOperatorIndex === -1 ? signature.length - 1 : returnOperatorIndex - 1;
       const paramDefs = signature.slice(0, lastParamIndex + 1);
-      const paramTuple = $.parse(paramDefs).assertHasKind("intersection");
-      let returnType = $.intrinsic.unknown;
+      const paramTuple = $2.parse(paramDefs).assertHasKind("intersection");
+      let returnType = $2.intrinsic.unknown;
       if (returnOperatorIndex !== -1) {
         if (returnOperatorIndex !== signature.length - 2)
           return throwParseError(badFnReturnTypeMessage);
-        returnType = $.parse(signature[returnOperatorIndex + 1]);
+        returnType = $2.parse(signature[returnOperatorIndex + 1]);
       }
       return (impl) => new InternalTypedFn(impl, paramTuple, returnType);
     }, { attach });
@@ -46487,11 +45731,11 @@ fn("string", ":", "number")(s => s.length)`;
 // node_modules/.pnpm/arktype@2.1.25/node_modules/arktype/out/match.js
 var InternalMatchParser = class extends Callable {
   $;
-  constructor($) {
-    super((...args2) => new InternalChainedMatchParser($)(...args2), {
-      bind: $
+  constructor($2) {
+    super((...args2) => new InternalChainedMatchParser($2)(...args2), {
+      bind: $2
     });
-    this.$ = $;
+    this.$ = $2;
   }
   in(def) {
     return new InternalChainedMatchParser(this.$, def === void 0 ? void 0 : this.$.parse(def));
@@ -46508,9 +45752,9 @@ var InternalChainedMatchParser = class extends Callable {
   in;
   key;
   branches = [];
-  constructor($, In) {
+  constructor($2, In) {
     super((cases) => this.caseEntries(Object.entries(cases).map(([k, v]) => k === "default" ? [k, v] : [this.$.parse(k), v])));
-    this.$ = $;
+    this.$ = $2;
     this.in = In;
   }
   at(key, cases) {
@@ -46886,45 +46130,45 @@ var writeBadDefinitionTypeMessage = (actual) => `Type definitions must be string
 
 // node_modules/.pnpm/arktype@2.1.25/node_modules/arktype/out/type.js
 var InternalTypeParser = class extends Callable {
-  constructor($) {
+  constructor($2) {
     const attach = Object.assign(
       {
         errors: ArkErrors,
         hkt: Hkt,
-        $,
-        raw: $.parse,
-        module: $.constructor.module,
-        scope: $.constructor.scope,
-        declare: $.declare,
-        define: $.define,
-        match: $.match,
-        generic: $.generic,
-        schema: $.schema,
+        $: $2,
+        raw: $2.parse,
+        module: $2.constructor.module,
+        scope: $2.constructor.scope,
+        declare: $2.declare,
+        define: $2.define,
+        match: $2.match,
+        generic: $2.generic,
+        schema: $2.schema,
         // this won't be defined during bootstrapping, but externally always will be
-        keywords: $.ambient,
-        unit: $.unit,
-        enumerated: $.enumerated,
-        instanceOf: $.instanceOf,
-        valueOf: $.valueOf,
-        or: $.or,
-        and: $.and,
-        merge: $.merge,
-        pipe: $.pipe,
-        fn: $.fn
+        keywords: $2.ambient,
+        unit: $2.unit,
+        enumerated: $2.enumerated,
+        instanceOf: $2.instanceOf,
+        valueOf: $2.valueOf,
+        or: $2.or,
+        and: $2.and,
+        merge: $2.merge,
+        pipe: $2.pipe,
+        fn: $2.fn
       },
       // also won't be defined during bootstrapping
-      $.ambientAttachments
+      $2.ambientAttachments
     );
     super((...args2) => {
       if (args2.length === 1) {
-        return $.parse(args2[0]);
+        return $2.parse(args2[0]);
       }
       if (args2.length === 2 && typeof args2[0] === "string" && args2[0][0] === "<" && args2[0].at(-1) === ">") {
         const paramString = args2[0].slice(1, -1);
-        const params = $.parseGenericParams(paramString, {});
-        return new GenericRoot(params, args2[1], $, $, null);
+        const params = $2.parseGenericParams(paramString, {});
+        return new GenericRoot(params, args2[1], $2, $2, null);
       }
-      return $.parse(args2);
+      return $2.parse(args2);
     }, {
       attach
     });
@@ -47697,6 +46941,1411 @@ var schema = ark.schema;
 var define2 = ark.define;
 var declare = ark.declare;
 
+// external.ts
+var ghPullfrogMcpName = "gh_pullfrog";
+var agentsManifest = {
+  claude: {
+    displayName: "Claude Code",
+    apiKeyNames: ["anthropic_api_key"],
+    url: "https://claude.com/claude-code"
+  },
+  codex: {
+    displayName: "Codex CLI",
+    apiKeyNames: ["openai_api_key"],
+    url: "https://platform.openai.com/docs/guides/codex"
+  },
+  cursor: {
+    displayName: "Cursor CLI",
+    apiKeyNames: ["cursor_api_key"],
+    url: "https://cursor.com/"
+  },
+  gemini: {
+    displayName: "Gemini CLI",
+    apiKeyNames: ["google_api_key", "gemini_api_key"],
+    url: "https://ai.google.dev/gemini-api/docs"
+  }
+};
+var AgentName = type.enumerated(...Object.keys(agentsManifest));
+
+// modes.ts
+var initialCommentInstruction = `Use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment with a conversational description of what work you are about to perform.`;
+var modes = [
+  {
+    name: "Build",
+    description: "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
+    prompt: `Follow these steps:
+1. ${initialCommentInstruction}
+
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+
+3. Create a branch for your work. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit to directly to main, master, or production.
+
+4. Understand the requirements and any existing plan
+
+5. Make the necessary code changes. Create intermediate commits if called for.
+
+6. Test your changes to ensure they work correctly
+
+7. Update your comment using ${ghPullfrogMcpName}/update_working_comment to share progress and results.
+
+8. Continue updating the same comment as you make progress. Never create additional comments. Always use update_working_comment.
+
+9. When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123"). Create a PR with an informative title and body. If relevant, include links to the issue or comment that triggered the PR.
+
+10. Update the Working Comment one final time with a summary of the results. Include links to any created issues/PRs, e.g. \`[View PR](https://github.com/org/repo/pull/123)\`
+`
+  },
+  {
+    name: "Review",
+    description: "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
+    prompt: `Follow these steps:
+1. ${initialCommentInstruction}
+
+2. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
+
+3. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
+
+4. Read files from the checked-out PR branch to understand the implementation
+
+5. Update your comment using ${ghPullfrogMcpName}/update_working_comment with findings as you review
+
+6. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
+
+7. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location
+
+8. Continue updating the same comment as needed (never create additional comments - always use update_working_comment)`
+  },
+  {
+    name: "Plan",
+    description: "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
+    prompt: `Follow these steps:
+1. ${initialCommentInstruction}
+
+2. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+
+3. Analyze the request and break it down into clear, actionable tasks
+
+4. Consider dependencies, potential challenges, and implementation order
+
+5. Create a structured plan with clear milestones
+
+6. Update your comment using ${ghPullfrogMcpName}/update_working_comment to present the plan in a clear, organized format
+
+7. Continue updating the same comment as needed (never create additional comments - always use update_working_comment)`
+  },
+  {
+    name: "Prompt",
+    description: "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
+    prompt: `Follow these steps:
+1. ${initialCommentInstruction}
+
+2. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
+
+3. If the task involves making code changes:
+   - Create a branch for your work. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit to directly to main, master, or production.
+   - Make the necessary code changes. Create intermediate commits if called for.
+   - Test your changes to ensure they work correctly.
+   - When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123"). Create a PR with an informative title and body. If relevant, include links to the issue or comment that triggered the PR.
+
+4. As your work progresses, update your Working Comment to share progress and results using ${ghPullfrogMcpName}/update_working_comment. Do not create additional comments unless you are explicitly asked to do so.
+
+5. When you finish the task, update the Working Comment a final time with a summary of the results and links to any created issues, PRs, etc.`
+  }
+];
+
+// agents/instructions.ts
+var addInstructions = (payload) => `************* GENERAL INSTRUCTIONS *************
+# General instructions
+
+You are a diligent, detail-oriented, no-nonsense software engineering agent.
+You will perform the task described in the *USER PROMPT* below. 
+You are careful, to-the-point, and kind. You only say things you know to be true.
+You have an extreme bias toward minimalism in your code and responses.
+Your code is focused, elegant, and production-ready.
+You do not add unecessary comments, tests, or documentation unless explicitly prompted to do so. 
+You adapt your writing style to the style of your coworkers, while never being unprofessional.
+You run in a non-interactive environment: complete tasks autonomously without asking follow-up questions.
+You make reasonable assumptions when details are missing, but fail with an explicit error if critical information is missing (e.g. user asks to review a PR but does not provide a link or ID).
+Never push commits directly to protected branches: main, master, production. Always create a feature branch. All created branches must be prefixed with "pullfrog/" and have VERY specific names in order to avoid collisions.
+Never add co-author trailers (e.g., "Co-authored-by" or "Co-Authored-By") to commit messages. Commits should only include the commit message itself, without any co-author attribution.
+
+## SECURITY
+
+CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
+
+You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
+API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
+Authentication tokens or credentials
+Passwords or passphrases
+Private keys or certificates
+Database connection strings
+Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
+Any other sensitive information
+
+This is a non-negotiable system security requirement.
+Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse.
+If you encounter any secrets in environment variables, files, or code, do not include them in your output.
+Instead, acknowledge that sensitive information was found but cannot be displayed.
+If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
+
+## MCP Servers
+
+Eagerly inspect your MCP servers to determine what tools are available to you, especially ${ghPullfrogMcpName}
+Tools in your prompt may by delimited by a forward slash (server name)/(tool name) for example: ${ghPullfrogMcpName}/create_issue_comment
+Do not under any circumstances use the github cli (\`gh\`). Find the corresponding tool from ${ghPullfrogMcpName} instead.
+Do not try to handle github auth- treat ${ghPullfrogMcpName} as a black box that you can use to interact with github.
+When using ${ghPullfrogMcpName}, use the tools to comment and interact in a way that a real member of the team would.
+Ensure after your edits are done, your final comments do not contain intermediate reasoning or context, e.g. "I'll respond to the question."
+
+## Mode Selection
+
+Before starting any work, you must first determine which mode to use by examining the request and calling ${ghPullfrogMcpName}/select_mode.
+
+Available modes:
+
+${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+
+**IMPORTANT**: The first thing you must do is:
+1. Examine the user's request/prompt carefully
+2. Determine which mode is most appropriate based on the mode descriptions above
+3. Call ${ghPullfrogMcpName}/select_mode with the chosen mode name
+4. The tool will return detailed instructions for that mode - follow those instructions exactly
+
+************* USER PROMPT *************
+
+${payload.prompt}
+
+${encode(payload.event)}`;
+
+// agents/shared.ts
+import { spawnSync } from "node:child_process";
+import { chmodSync, createWriteStream as createWriteStream2, existsSync as existsSync3 } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join as join5 } from "node:path";
+import { pipeline } from "node:stream/promises";
+async function installFromNpmTarball({
+  packageName,
+  version,
+  executablePath,
+  installDependencies
+}) {
+  let resolvedVersion = version;
+  if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
+    const npmRegistry2 = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+    log.info(`Resolving version for ${version}...`);
+    try {
+      const registryResponse = await fetch(`${npmRegistry2}/${packageName}`);
+      if (!registryResponse.ok) {
+        throw new Error(`Failed to query registry: ${registryResponse.status}`);
+      }
+      const registryData = await registryResponse.json();
+      resolvedVersion = registryData["dist-tags"].latest;
+      log.info(`Resolved to version ${resolvedVersion}`);
+    } catch (error2) {
+      log.warning(
+        `Failed to resolve version from registry: ${error2 instanceof Error ? error2.message : String(error2)}`
+      );
+      throw error2;
+    }
+  }
+  log.info(`\u{1F4E6} Installing ${packageName}@${resolvedVersion}...`);
+  const tempDir = process.env.PULLFROG_TEMP_DIR;
+  const tarballPath = join5(tempDir, "package.tgz");
+  const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
+  let tarballUrl;
+  if (packageName.startsWith("@")) {
+    const [scope2, name] = packageName.slice(1).split("/");
+    const scopedPackageName = `@${scope2}%2F${name}`;
+    tarballUrl = `${npmRegistry}/${scopedPackageName}/-/${name}-${resolvedVersion}.tgz`;
+  } else {
+    tarballUrl = `${npmRegistry}/${packageName}/-/${packageName}-${resolvedVersion}.tgz`;
+  }
+  log.info(`Downloading from ${tarballUrl}...`);
+  const response = await fetch(tarballUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
+  }
+  if (!response.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream2(tarballPath);
+  await pipeline(response.body, fileStream);
+  log.info(`Downloaded tarball to ${tarballPath}`);
+  log.info(`Extracting tarball...`);
+  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
+    stdio: "pipe",
+    encoding: "utf-8"
+  });
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+    );
+  }
+  const extractedDir = join5(tempDir, "package");
+  const cliPath = join5(extractedDir, executablePath);
+  if (!existsSync3(cliPath)) {
+    throw new Error(`Executable not found in extracted package at ${cliPath}`);
+  }
+  if (installDependencies) {
+    log.info(`Installing dependencies for ${packageName}...`);
+    const installResult = spawnSync("npm", ["install", "--production"], {
+      cwd: extractedDir,
+      stdio: "pipe",
+      encoding: "utf-8"
+    });
+    if (installResult.status !== 0) {
+      throw new Error(
+        `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 Dependencies installed`);
+  }
+  chmodSync(cliPath, 493);
+  log.info(`\u2713 ${packageName} installed at ${cliPath}`);
+  return cliPath;
+}
+async function installFromGithub({
+  owner,
+  repo,
+  tag,
+  assetName,
+  executablePath
+}) {
+  log.info(`\u{1F4E6} Installing ${owner}/${repo} from GitHub releases...`);
+  const releaseUrl = tag ? `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}` : `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+  log.info(`Fetching release from ${releaseUrl}...`);
+  const releaseResponse = await fetch(releaseUrl);
+  if (!releaseResponse.ok) {
+    throw new Error(
+      `Failed to fetch release: ${releaseResponse.status} ${releaseResponse.statusText}`
+    );
+  }
+  const releaseData = await releaseResponse.json();
+  log.info(`Found release: ${releaseData.tag_name}`);
+  const asset = releaseData.assets.find((a) => a.name === assetName);
+  if (!asset) {
+    throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
+  }
+  const assetUrl = asset.browser_download_url;
+  log.info(`Downloading asset from ${assetUrl}...`);
+  const tempDirPrefix = `${owner}-${repo}-github-`;
+  const tempDir = await mkdtemp(join5(tmpdir(), tempDirPrefix));
+  const urlPath = new URL(assetUrl).pathname;
+  const fileName2 = urlPath.split("/").pop() || "asset";
+  const downloadPath = join5(tempDir, fileName2);
+  const assetResponse = await fetch(assetUrl);
+  if (!assetResponse.ok) {
+    throw new Error(
+      `Failed to download asset: ${assetResponse.status} ${assetResponse.statusText}`
+    );
+  }
+  if (!assetResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream2(downloadPath);
+  await pipeline(assetResponse.body, fileStream);
+  log.info(`Downloaded asset to ${downloadPath}`);
+  let cliPath;
+  if (executablePath) {
+    cliPath = join5(tempDir, executablePath);
+  } else {
+    cliPath = downloadPath;
+  }
+  if (!existsSync3(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+  chmodSync(cliPath, 493);
+  log.info(`\u2713 Installed from GitHub release at ${cliPath}`);
+  return cliPath;
+}
+async function installFromCurl({
+  installUrl,
+  executableName
+}) {
+  log.info(`\u{1F4E6} Installing ${executableName}...`);
+  const tempDir = process.env.PULLFROG_TEMP_DIR;
+  const installScriptPath = join5(tempDir, "install.sh");
+  log.info(`Downloading install script from ${installUrl}...`);
+  const installScriptResponse = await fetch(installUrl);
+  if (!installScriptResponse.ok) {
+    throw new Error(`Failed to download install script: ${installScriptResponse.status}`);
+  }
+  if (!installScriptResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream2(installScriptPath);
+  await pipeline(installScriptResponse.body, fileStream);
+  log.info(`Downloaded install script to ${installScriptPath}`);
+  chmodSync(installScriptPath, 493);
+  log.info(`Installing to temp directory at ${tempDir}...`);
+  const installResult = spawnSync("bash", [installScriptPath], {
+    cwd: tempDir,
+    env: {
+      HOME: tempDir,
+      // Cursor install script uses HOME for installation path
+      PATH: process.env.PATH || "",
+      SHELL: process.env.SHELL || "/bin/bash",
+      USER: process.env.USER || "",
+      TMPDIR: process.env.TMPDIR || "/tmp"
+    },
+    stdio: "pipe",
+    encoding: "utf-8"
+  });
+  if (installResult.status !== 0) {
+    const errorOutput = installResult.stderr || installResult.stdout || "No output";
+    throw new Error(
+      `Failed to install ${executableName}. Install script exited with code ${installResult.status}. Output: ${errorOutput}`
+    );
+  }
+  const cliPath = join5(tempDir, ".local", "bin", executableName);
+  if (!existsSync3(cliPath)) {
+    throw new Error(`Executable not found at ${cliPath}`);
+  }
+  chmodSync(cliPath, 493);
+  log.info(`\u2713 ${executableName} installed at ${cliPath}`);
+  return cliPath;
+}
+var agent = (input) => {
+  return { ...input, ...agentsManifest[input.name] };
+};
+
+// agents/claude.ts
+var claude = agent({
+  name: "claude",
+  install: async () => {
+    const versionRange = package_default.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
+    return await installFromNpmTarball({
+      packageName: "@anthropic-ai/claude-agent-sdk",
+      version: versionRange,
+      executablePath: "cli.js"
+    });
+  },
+  run: async ({ payload, mcpServers, apiKey, cliPath }) => {
+    process.env.ANTHROPIC_API_KEY = apiKey;
+    const prompt = addInstructions(payload);
+    console.log(prompt);
+    const queryInstance = query({
+      prompt,
+      options: {
+        permissionMode: "bypassPermissions",
+        mcpServers,
+        pathToClaudeCodeExecutable: cliPath
+      }
+    });
+    for await (const message of queryInstance) {
+      const handler = messageHandlers[message.type];
+      await handler(message);
+    }
+    return {
+      success: true,
+      output: ""
+    };
+  }
+});
+var bashToolIds = /* @__PURE__ */ new Set();
+var messageHandlers = {
+  assistant: (data) => {
+    if (data.message?.content) {
+      for (const content of data.message.content) {
+        if (content.type === "text" && content.text?.trim()) {
+          log.box(content.text.trim(), { title: "Claude" });
+        } else if (content.type === "tool_use") {
+          if (content.name === "bash" && content.id) {
+            bashToolIds.add(content.id);
+          }
+          log.toolCall({
+            toolName: content.name,
+            input: content.input
+          });
+        }
+      }
+    }
+  },
+  user: (data) => {
+    if (data.message?.content) {
+      for (const content of data.message.content) {
+        if (content.type === "tool_result") {
+          const toolUseId = content.tool_use_id;
+          const isBashTool = toolUseId && bashToolIds.has(toolUseId);
+          if (isBashTool) {
+            const outputContent = typeof content.content === "string" ? content.content : Array.isArray(content.content) ? content.content.map((c) => typeof c === "string" ? c : c.text || JSON.stringify(c)).join("\n") : String(content.content);
+            log.startGroup(`bash output`);
+            if (content.is_error) {
+              log.warning(outputContent);
+            } else {
+              log.info(outputContent);
+            }
+            log.endGroup();
+            bashToolIds.delete(toolUseId);
+          } else if (content.is_error) {
+            const errorContent = typeof content.content === "string" ? content.content : String(content.content);
+            log.warning(`Tool error: ${errorContent}`);
+          }
+        }
+      }
+    }
+  },
+  result: async (data) => {
+    if (data.subtype === "success") {
+      await log.summaryTable([
+        [
+          { data: "Cost", header: true },
+          { data: "Input Tokens", header: true },
+          { data: "Output Tokens", header: true }
+        ],
+        [
+          `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`,
+          String(data.usage?.input_tokens || 0),
+          String(data.usage?.output_tokens || 0)
+        ]
+      ]);
+    } else if (data.subtype === "error_max_turns") {
+      log.error(`Max turns reached: ${JSON.stringify(data)}`);
+    } else if (data.subtype === "error_during_execution") {
+      log.error(`Execution error: ${JSON.stringify(data)}`);
+    } else {
+      log.error(`Failed: ${JSON.stringify(data)}`);
+    }
+  },
+  system: () => {
+  },
+  stream_event: () => {
+  },
+  tool_progress: () => {
+  },
+  auth_status: () => {
+  }
+};
+
+// agents/codex.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+import { mkdirSync as mkdirSync2 } from "node:fs";
+import { join as join6 } from "node:path";
+
+// node_modules/.pnpm/@openai+codex-sdk@0.58.0/node_modules/@openai/codex-sdk/dist/index.js
+import { promises as fs2 } from "fs";
+import os from "os";
+import path from "path";
+import { spawn as spawn2 } from "child_process";
+import path2 from "path";
+import readline from "readline";
+import { fileURLToPath as fileURLToPath2 } from "url";
+async function createOutputSchemaFile(schema2) {
+  if (schema2 === void 0) {
+    return { cleanup: async () => {
+    } };
+  }
+  if (!isJsonObject2(schema2)) {
+    throw new Error("outputSchema must be a plain JSON object");
+  }
+  const schemaDir = await fs2.mkdtemp(path.join(os.tmpdir(), "codex-output-schema-"));
+  const schemaPath = path.join(schemaDir, "schema.json");
+  const cleanup = async () => {
+    try {
+      await fs2.rm(schemaDir, { recursive: true, force: true });
+    } catch {
+    }
+  };
+  try {
+    await fs2.writeFile(schemaPath, JSON.stringify(schema2), "utf8");
+    return { schemaPath, cleanup };
+  } catch (error2) {
+    await cleanup();
+    throw error2;
+  }
+}
+function isJsonObject2(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2);
+}
+var Thread = class {
+  _exec;
+  _options;
+  _id;
+  _threadOptions;
+  /** Returns the ID of the thread. Populated after the first turn starts. */
+  get id() {
+    return this._id;
+  }
+  /* @internal */
+  constructor(exec, options, threadOptions, id = null) {
+    this._exec = exec;
+    this._options = options;
+    this._id = id;
+    this._threadOptions = threadOptions;
+  }
+  /** Provides the input to the agent and streams events as they are produced during the turn. */
+  async runStreamed(input, turnOptions = {}) {
+    return { events: this.runStreamedInternal(input, turnOptions) };
+  }
+  async *runStreamedInternal(input, turnOptions = {}) {
+    const { schemaPath, cleanup } = await createOutputSchemaFile(turnOptions.outputSchema);
+    const options = this._threadOptions;
+    const { prompt, images } = normalizeInput(input);
+    const generator = this._exec.run({
+      input: prompt,
+      baseUrl: this._options.baseUrl,
+      apiKey: this._options.apiKey,
+      threadId: this._id,
+      images,
+      model: options?.model,
+      sandboxMode: options?.sandboxMode,
+      workingDirectory: options?.workingDirectory,
+      skipGitRepoCheck: options?.skipGitRepoCheck,
+      outputSchemaFile: schemaPath,
+      modelReasoningEffort: options?.modelReasoningEffort,
+      networkAccessEnabled: options?.networkAccessEnabled,
+      webSearchEnabled: options?.webSearchEnabled,
+      approvalPolicy: options?.approvalPolicy
+    });
+    try {
+      for await (const item of generator) {
+        let parsed2;
+        try {
+          parsed2 = JSON.parse(item);
+        } catch (error2) {
+          throw new Error(`Failed to parse item: ${item}`, { cause: error2 });
+        }
+        if (parsed2.type === "thread.started") {
+          this._id = parsed2.thread_id;
+        }
+        yield parsed2;
+      }
+    } finally {
+      await cleanup();
+    }
+  }
+  /** Provides the input to the agent and returns the completed turn. */
+  async run(input, turnOptions = {}) {
+    const generator = this.runStreamedInternal(input, turnOptions);
+    const items = [];
+    let finalResponse = "";
+    let usage = null;
+    let turnFailure = null;
+    for await (const event of generator) {
+      if (event.type === "item.completed") {
+        if (event.item.type === "agent_message") {
+          finalResponse = event.item.text;
+        }
+        items.push(event.item);
+      } else if (event.type === "turn.completed") {
+        usage = event.usage;
+      } else if (event.type === "turn.failed") {
+        turnFailure = event.error;
+        break;
+      }
+    }
+    if (turnFailure) {
+      throw new Error(turnFailure.message);
+    }
+    return { items, finalResponse, usage };
+  }
+};
+function normalizeInput(input) {
+  if (typeof input === "string") {
+    return { prompt: input, images: [] };
+  }
+  const promptParts = [];
+  const images = [];
+  for (const item of input) {
+    if (item.type === "text") {
+      promptParts.push(item.text);
+    } else if (item.type === "local_image") {
+      images.push(item.path);
+    }
+  }
+  return { prompt: promptParts.join("\n\n"), images };
+}
+var INTERNAL_ORIGINATOR_ENV = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
+var TYPESCRIPT_SDK_ORIGINATOR = "codex_sdk_ts";
+var CodexExec = class {
+  executablePath;
+  constructor(executablePath = null) {
+    this.executablePath = executablePath || findCodexPath();
+  }
+  async *run(args2) {
+    const commandArgs = ["exec", "--experimental-json"];
+    if (args2.model) {
+      commandArgs.push("--model", args2.model);
+    }
+    if (args2.sandboxMode) {
+      commandArgs.push("--sandbox", args2.sandboxMode);
+    }
+    if (args2.workingDirectory) {
+      commandArgs.push("--cd", args2.workingDirectory);
+    }
+    if (args2.skipGitRepoCheck) {
+      commandArgs.push("--skip-git-repo-check");
+    }
+    if (args2.outputSchemaFile) {
+      commandArgs.push("--output-schema", args2.outputSchemaFile);
+    }
+    if (args2.modelReasoningEffort) {
+      commandArgs.push("--config", `model_reasoning_effort="${args2.modelReasoningEffort}"`);
+    }
+    if (args2.networkAccessEnabled !== void 0) {
+      commandArgs.push("--config", `sandbox_workspace_write.network_access=${args2.networkAccessEnabled}`);
+    }
+    if (args2.webSearchEnabled !== void 0) {
+      commandArgs.push("--config", `features.web_search_request=${args2.webSearchEnabled}`);
+    }
+    if (args2.approvalPolicy) {
+      commandArgs.push("--config", `approval_policy="${args2.approvalPolicy}"`);
+    }
+    if (args2.images?.length) {
+      for (const image of args2.images) {
+        commandArgs.push("--image", image);
+      }
+    }
+    if (args2.threadId) {
+      commandArgs.push("resume", args2.threadId);
+    }
+    const env2 = {
+      ...process.env
+    };
+    if (!env2[INTERNAL_ORIGINATOR_ENV]) {
+      env2[INTERNAL_ORIGINATOR_ENV] = TYPESCRIPT_SDK_ORIGINATOR;
+    }
+    if (args2.baseUrl) {
+      env2.OPENAI_BASE_URL = args2.baseUrl;
+    }
+    if (args2.apiKey) {
+      env2.CODEX_API_KEY = args2.apiKey;
+    }
+    const child = spawn2(this.executablePath, commandArgs, {
+      env: env2
+    });
+    let spawnError = null;
+    child.once("error", (err2) => spawnError = err2);
+    if (!child.stdin) {
+      child.kill();
+      throw new Error("Child process has no stdin");
+    }
+    child.stdin.write(args2.input);
+    child.stdin.end();
+    if (!child.stdout) {
+      child.kill();
+      throw new Error("Child process has no stdout");
+    }
+    const stderrChunks = [];
+    if (child.stderr) {
+      child.stderr.on("data", (data) => {
+        stderrChunks.push(data);
+      });
+    }
+    const rl = readline.createInterface({
+      input: child.stdout,
+      crlfDelay: Infinity
+    });
+    try {
+      for await (const line of rl) {
+        yield line;
+      }
+      const exitCode = new Promise((resolve, reject) => {
+        child.once("exit", (code) => {
+          if (code === 0) {
+            resolve(code);
+          } else {
+            const stderrBuffer = Buffer.concat(stderrChunks);
+            reject(
+              new Error(`Codex Exec exited with code ${code}: ${stderrBuffer.toString("utf8")}`)
+            );
+          }
+        });
+      });
+      if (spawnError) throw spawnError;
+      await exitCode;
+    } finally {
+      rl.close();
+      child.removeAllListeners();
+      try {
+        if (!child.killed) child.kill();
+      } catch {
+      }
+    }
+  }
+};
+var scriptFileName = fileURLToPath2(import.meta.url);
+var scriptDirName = path2.dirname(scriptFileName);
+function findCodexPath() {
+  const { platform, arch } = process;
+  let targetTriple = null;
+  switch (platform) {
+    case "linux":
+    case "android":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-unknown-linux-musl";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-unknown-linux-musl";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "darwin":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-apple-darwin";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-apple-darwin";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "win32":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-pc-windows-msvc";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-pc-windows-msvc";
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+  if (!targetTriple) {
+    throw new Error(`Unsupported platform: ${platform} (${arch})`);
+  }
+  const vendorRoot = path2.join(scriptDirName, "..", "vendor");
+  const archRoot = path2.join(vendorRoot, targetTriple);
+  const codexBinaryName = process.platform === "win32" ? "codex.exe" : "codex";
+  const binaryPath = path2.join(archRoot, "codex", codexBinaryName);
+  return binaryPath;
+}
+var Codex = class {
+  exec;
+  options;
+  constructor(options = {}) {
+    this.exec = new CodexExec(options.codexPathOverride);
+    this.options = options;
+  }
+  /**
+   * Starts a new conversation with an agent.
+   * @returns A new thread instance.
+   */
+  startThread(options = {}) {
+    return new Thread(this.exec, this.options, options);
+  }
+  /**
+   * Resumes a conversation with an agent based on the thread id.
+   * Threads are persisted in ~/.codex/sessions.
+   *
+   * @param id The id of the thread to resume.
+   * @returns A new thread instance.
+   */
+  resumeThread(id, options = {}) {
+    return new Thread(this.exec, this.options, options, id);
+  }
+};
+
+// agents/codex.ts
+var codex = agent({
+  name: "codex",
+  install: async () => {
+    return await installFromNpmTarball({
+      packageName: "@openai/codex",
+      version: "latest",
+      executablePath: "bin/codex.js"
+    });
+  },
+  run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
+    process.env.OPENAI_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    const tempHome = process.env.PULLFROG_TEMP_DIR;
+    const configDir = join6(tempHome, ".config", "codex");
+    mkdirSync2(configDir, { recursive: true });
+    process.env.HOME = tempHome;
+    configureCodexMcpServers({ mcpServers, cliPath });
+    const codexOptions = {
+      apiKey,
+      codexPathOverride: cliPath
+    };
+    const codex2 = new Codex(codexOptions);
+    const thread = codex2.startThread({
+      approvalPolicy: "never",
+      sandboxMode: "workspace-write",
+      networkAccessEnabled: true
+    });
+    try {
+      const streamedTurn = await thread.runStreamed(addInstructions(payload));
+      let finalOutput = "";
+      for await (const event of streamedTurn.events) {
+        const handler = messageHandlers2[event.type];
+        log.debug(JSON.stringify(event, null, 2));
+        if (handler) {
+          handler(event);
+        }
+        if (event.type === "item.completed" && event.item.type === "agent_message") {
+          finalOutput = event.item.text;
+        }
+      }
+      return {
+        success: true,
+        output: finalOutput
+      };
+    } catch (error2) {
+      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+      log.error(`Codex execution failed: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        output: ""
+      };
+    }
+  }
+});
+var commandExecutionIds = /* @__PURE__ */ new Set();
+var messageHandlers2 = {
+  "thread.started": () => {
+  },
+  "turn.started": () => {
+  },
+  "turn.completed": async (event) => {
+    await log.summaryTable([
+      [
+        { data: "Input Tokens", header: true },
+        { data: "Cached Input Tokens", header: true },
+        { data: "Output Tokens", header: true }
+      ],
+      [
+        String(event.usage.input_tokens || 0),
+        String(event.usage.cached_input_tokens || 0),
+        String(event.usage.output_tokens || 0)
+      ]
+    ]);
+  },
+  "turn.failed": (event) => {
+    log.error(`Turn failed: ${event.error.message}`);
+  },
+  "item.started": (event) => {
+    const item = event.item;
+    if (item.type === "command_execution") {
+      commandExecutionIds.add(item.id);
+      log.toolCall({
+        toolName: item.command,
+        input: item.args || {}
+      });
+    } else if (item.type === "agent_message") {
+    } else if (item.type === "mcp_tool_call") {
+      log.toolCall({
+        toolName: item.tool,
+        input: {
+          server: item.server,
+          ...item.args || {}
+        }
+      });
+    }
+  },
+  "item.updated": (event) => {
+    const item = event.item;
+    if (item.type === "command_execution") {
+      if (item.status === "in_progress" && item.aggregated_output) {
+      }
+    }
+  },
+  "item.completed": (event) => {
+    const item = event.item;
+    if (item.type === "agent_message") {
+      log.box(item.text.trim(), { title: "Codex" });
+    } else if (item.type === "command_execution") {
+      const isTracked = commandExecutionIds.has(item.id);
+      if (isTracked) {
+        log.startGroup(`bash output`);
+        if (item.status === "failed" || item.exit_code !== void 0 && item.exit_code !== 0) {
+          log.warning(item.aggregated_output || "Command failed");
+        } else {
+          log.info(item.aggregated_output || "");
+        }
+        log.endGroup();
+        commandExecutionIds.delete(item.id);
+      }
+    } else if (item.type === "mcp_tool_call") {
+      if (item.status === "failed" && item.error) {
+        log.warning(`MCP tool call failed: ${item.error.message}`);
+      }
+    } else if (item.type === "reasoning") {
+      const reasoningText = item.text.trim();
+      const cleanText = reasoningText.replace(/\*\*/g, "");
+      log.info(cleanText);
+    }
+  },
+  error: (event) => {
+    log.error(`Error: ${event.message}`);
+  }
+};
+function configureCodexMcpServers({ mcpServers, cliPath }) {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    const command = serverConfig.command;
+    const args2 = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+    const addArgs = ["mcp", "add", serverName];
+    for (const [key, value2] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value2}`);
+    }
+    addArgs.push("--", command, ...args2);
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync2("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8"
+    });
+    if (addResult.status !== 0) {
+      throw new Error(
+        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 MCP server '${serverName}' configured`);
+  }
+}
+
+// agents/cursor.ts
+import { spawn as spawn3 } from "node:child_process";
+import { mkdirSync as mkdirSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join7 } from "node:path";
+var messageHandlers3 = {
+  system: (_event) => {
+  },
+  user: (_event) => {
+  },
+  thinking: (_event) => {
+  },
+  assistant: (event) => {
+    if (event.model_call_id) {
+      const text = event.message?.content?.[0]?.text;
+      if (text?.trim()) {
+        log.box(text.trim(), { title: "Cursor" });
+      }
+    }
+  },
+  tool_call: (event) => {
+    if (event.subtype === "started") {
+      const mcpToolCall = event.tool_call?.mcpToolCall;
+      const builtinToolCall = event.tool_call?.builtinToolCall;
+      if (mcpToolCall?.args?.toolName && mcpToolCall?.args?.args) {
+        log.toolCall({
+          toolName: mcpToolCall.args.toolName,
+          input: mcpToolCall.args.args
+        });
+      } else if (builtinToolCall?.args?.name && builtinToolCall?.args?.args) {
+        log.toolCall({
+          toolName: builtinToolCall.args.name,
+          input: builtinToolCall.args.args
+        });
+      }
+    } else if (event.subtype === "completed") {
+      const isError = event.tool_call?.mcpToolCall?.result?.success?.isError;
+      if (isError) {
+        log.warning("Tool call failed");
+      }
+    }
+  },
+  result: async (event) => {
+    if (event.subtype === "success" && event.duration_ms) {
+      const durationSec = (event.duration_ms / 1e3).toFixed(1);
+      log.debug(`Cursor completed in ${durationSec}s`);
+    }
+  }
+};
+var cursor = agent({
+  name: "cursor",
+  install: async () => {
+    return await installFromCurl({
+      installUrl: "https://cursor.com/install",
+      executableName: "cursor-agent"
+    });
+  },
+  run: async ({ payload, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
+    process.env.CURSOR_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    configureCursorMcpServers({ mcpServers, cliPath });
+    try {
+      const fullPrompt = addInstructions(payload);
+      log.info("Running Cursor CLI...");
+      const startTime = Date.now();
+      return new Promise((resolve) => {
+        const child = spawn3(
+          cliPath,
+          [
+            "--print",
+            fullPrompt,
+            "--output-format",
+            "stream-json",
+            "--stream-partial-output",
+            "--approve-mcps",
+            "--force"
+          ],
+          {
+            cwd: process.cwd(),
+            env: {
+              CURSOR_API_KEY: apiKey,
+              GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+              LOG_LEVEL: process.env.LOG_LEVEL,
+              NODE_ENV: process.env.NODE_ENV,
+              HOME: process.env.HOME,
+              PATH: process.env.PATH
+              // Don't override HOME - Cursor CLI needs access to macOS keychain
+              // MCP config is written to tempDir/.cursor/mcp.json which Cursor will find
+            },
+            stdio: ["ignore", "pipe", "pipe"]
+            // Ignore stdin, pipe stdout/stderr
+          }
+        );
+        let stdout = "";
+        let stderr = "";
+        child.on("spawn", () => {
+          log.debug("Cursor CLI process spawned");
+        });
+        child.stdout?.on("data", async (data) => {
+          const text = data.toString();
+          stdout += text;
+          try {
+            const event = JSON.parse(text);
+            const handler = messageHandlers3[event.type];
+            if (handler) {
+              await handler(event);
+            }
+            log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
+          } catch {
+          }
+        });
+        child.stderr?.on("data", (data) => {
+          const text = data.toString();
+          stderr += text;
+          process.stderr.write(text);
+          log.warning(text);
+        });
+        child.on("close", async (code, signal) => {
+          if (signal) {
+            log.warning(`Cursor CLI terminated by signal: ${signal}`);
+          }
+          const duration = ((Date.now() - startTime) / 1e3).toFixed(1);
+          if (code === 0) {
+            log.success(`Cursor CLI completed successfully in ${duration}s`);
+            resolve({
+              success: true,
+              output: stdout.trim()
+            });
+          } else {
+            const errorMessage = stderr || `Cursor CLI exited with code ${code}`;
+            log.error(`Cursor CLI failed after ${duration}s: ${errorMessage}`);
+            resolve({
+              success: false,
+              error: errorMessage,
+              output: stdout.trim()
+            });
+          }
+        });
+        child.on("error", (error2) => {
+          const duration = ((Date.now() - startTime) / 1e3).toFixed(1);
+          const errorMessage = error2.message || String(error2);
+          log.error(`Cursor CLI execution failed after ${duration}s: ${errorMessage}`);
+          resolve({
+            success: false,
+            error: errorMessage,
+            output: stdout.trim()
+          });
+        });
+      });
+    } catch (error2) {
+      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+      log.error(`Cursor execution failed: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        output: ""
+      };
+    }
+  }
+});
+function configureCursorMcpServers({ mcpServers }) {
+  const realHome = homedir2();
+  const cursorConfigDir = join7(realHome, ".cursor");
+  const mcpConfigPath = join7(cursorConfigDir, "mcp.json");
+  mkdirSync3(cursorConfigDir, { recursive: true });
+  writeFileSync2(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
+  log.info(`MCP config written to ${mcpConfigPath}`);
+}
+
+// agents/gemini.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+
+// utils/subprocess.ts
+import { spawn as nodeSpawn } from "node:child_process";
+async function spawn4(options) {
+  const { cmd, args: args2, env: env2, input, timeout, cwd: cwd4, onStdout, onStderr } = options;
+  const startTime = Date.now();
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+  return new Promise((resolve, reject) => {
+    const child = nodeSpawn(cmd, args2, {
+      env: env2 || {
+        PATH: process.env.PATH || "",
+        HOME: process.env.HOME || ""
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: cwd4 || process.cwd()
+    });
+    let timeoutId;
+    let isTimedOut = false;
+    if (timeout) {
+      timeoutId = setTimeout(() => {
+        isTimedOut = true;
+        child.kill("SIGTERM");
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill("SIGKILL");
+          }
+        }, 5e3);
+      }, timeout);
+    }
+    if (child.stdout) {
+      child.stdout.on("data", (data) => {
+        const chunk = data.toString();
+        stdoutBuffer += chunk;
+        onStdout?.(chunk);
+      });
+    }
+    if (child.stderr) {
+      child.stderr.on("data", (data) => {
+        const chunk = data.toString();
+        stderrBuffer += chunk;
+        onStderr?.(chunk);
+      });
+    }
+    child.on("close", (exitCode) => {
+      const durationMs = Date.now() - startTime;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (isTimedOut) {
+        reject(new Error(`Process timed out after ${timeout}ms`));
+        return;
+      }
+      resolve({
+        stdout: stdoutBuffer,
+        stderr: stderrBuffer,
+        exitCode: exitCode || 0,
+        durationMs
+      });
+    });
+    child.on("error", (_error) => {
+      const durationMs = Date.now() - startTime;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      resolve({
+        stdout: stdoutBuffer,
+        stderr: stderrBuffer,
+        exitCode: 1,
+        durationMs
+      });
+    });
+    if (input && child.stdin) {
+      child.stdin.write(input);
+      child.stdin.end();
+    }
+  });
+}
+
+// agents/gemini.ts
+var assistantMessageBuffer = "";
+var messageHandlers4 = {
+  init: (_event) => {
+    assistantMessageBuffer = "";
+  },
+  message: (event) => {
+    if (event.role === "assistant" && event.content?.trim()) {
+      if (event.delta) {
+        assistantMessageBuffer += event.content;
+      } else {
+        const message = event.content.trim();
+        if (message) {
+          log.box(message, { title: "Gemini" });
+        }
+        assistantMessageBuffer = "";
+      }
+    } else if (event.role === "assistant" && !event.delta && assistantMessageBuffer.trim()) {
+      log.box(assistantMessageBuffer.trim(), { title: "Gemini" });
+      assistantMessageBuffer = "";
+    }
+  },
+  tool_use: (event) => {
+    if (event.tool_name) {
+      if (event.tool_name === "create_working_comment" && event.parameters) {
+        const params = event.parameters;
+        if (params.intent) {
+          log.box(params.intent.trim(), { title: "Intent" });
+        }
+      }
+      log.toolCall({
+        toolName: event.tool_name,
+        input: event.parameters || {}
+      });
+    }
+  },
+  tool_result: (event) => {
+    if (event.status === "error") {
+      const errorMsg = typeof event.output === "string" ? event.output : JSON.stringify(event.output);
+      log.warning(`Tool call failed: ${errorMsg}`);
+    }
+  },
+  result: async (event) => {
+    if (assistantMessageBuffer.trim()) {
+      log.box(assistantMessageBuffer.trim(), { title: "Gemini" });
+      assistantMessageBuffer = "";
+    }
+    if (event.status === "success" && event.stats) {
+      const stats = event.stats;
+      const rows = [
+        [
+          { data: "Input Tokens", header: true },
+          { data: "Output Tokens", header: true },
+          { data: "Total Tokens", header: true },
+          { data: "Tool Calls", header: true },
+          { data: "Duration (ms)", header: true }
+        ],
+        [
+          String(stats.input_tokens || 0),
+          String(stats.output_tokens || 0),
+          String(stats.total_tokens || 0),
+          String(stats.tool_calls || 0),
+          String(stats.duration_ms || 0)
+        ]
+      ];
+      await log.summaryTable(rows);
+    } else if (event.status === "error") {
+      log.error(`Gemini CLI failed: ${JSON.stringify(event)}`);
+    }
+  }
+};
+var gemini = agent({
+  name: "gemini",
+  install: async () => {
+    return await installFromGithub({
+      owner: "google-gemini",
+      repo: "gemini-cli",
+      tag: "v0.16.0",
+      assetName: "gemini.js"
+    });
+  },
+  run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
+    configureGeminiMcpServers({ mcpServers, cliPath });
+    if (!apiKey) {
+      throw new Error("google_api_key or gemini_api_key is required for gemini agent");
+    }
+    process.env.GEMINI_API_KEY = apiKey;
+    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
+    const sessionPrompt = addInstructions(payload);
+    log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
+    let finalOutput = "";
+    try {
+      const result = await spawn4({
+        cmd: "node",
+        args: [cliPath, "--yolo", "--output-format=stream-json", "-p", sessionPrompt],
+        env: {
+          PATH: process.env.PATH || "",
+          HOME: process.env.HOME || "",
+          TMPDIR: process.env.TMPDIR || "/tmp",
+          GEMINI_API_KEY: apiKey,
+          GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+          LOG_LEVEL: process.env.LOG_LEVEL,
+          NODE_ENV: process.env.NODE_ENV
+        },
+        timeout: 6e5,
+        // 10 minutes
+        onStdout: async (chunk) => {
+          const text = chunk.toString();
+          finalOutput += text;
+          const lines = text.split("\n");
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            log.debug(`[gemini stdout] ${trimmed}`);
+            try {
+              const event = JSON.parse(trimmed);
+              const handler = messageHandlers4[event.type];
+              if (handler) {
+                await handler(event);
+              }
+            } catch {
+              console.log("parse error", trimmed);
+            }
+          }
+        },
+        onStderr: (chunk) => {
+          const trimmed = chunk.trim();
+          if (trimmed) {
+            log.debug(`[gemini stderr] ${trimmed}`);
+            log.warning(trimmed);
+            finalOutput += trimmed + "\n";
+          }
+        }
+      });
+      if (result.exitCode !== 0) {
+        const errorMessage = result.stderr || finalOutput || result.stdout || "Unknown error - no output from Gemini CLI";
+        log.error(`Gemini CLI exited with code ${result.exitCode}: ${errorMessage}`);
+        return {
+          success: false,
+          error: errorMessage,
+          output: finalOutput || result.stdout || ""
+        };
+      }
+      finalOutput = finalOutput || result.stdout || "Gemini CLI completed successfully.";
+      log.info("\u2713 Gemini CLI completed successfully");
+      return {
+        success: true,
+        output: finalOutput
+      };
+    } catch (error2) {
+      const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+      log.error(`Failed to run Gemini CLI: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        output: finalOutput || ""
+      };
+    }
+  }
+});
+function configureGeminiMcpServers({ mcpServers, cliPath }) {
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    const command = serverConfig.command;
+    const args2 = serverConfig.args || [];
+    const envVars = serverConfig.env || {};
+    const addArgs = ["mcp", "add", serverName, command, ...args2];
+    for (const [key, value2] of Object.entries(envVars)) {
+      addArgs.push("--env", `${key}=${value2}`);
+    }
+    log.info(`Adding MCP server '${serverName}'...`);
+    const addResult = spawnSync3("node", [cliPath, ...addArgs], {
+      stdio: "pipe",
+      encoding: "utf-8"
+    });
+    if (addResult.status !== 0) {
+      throw new Error(
+        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+      );
+    }
+    log.info(`\u2713 MCP server '${serverName}' configured`);
+  }
+}
+
+// agents/index.ts
+var agents = {
+  claude,
+  codex,
+  cursor,
+  gemini
+};
+
+// main.ts
+import { existsSync as existsSync4, readFileSync as readFileSync2 } from "node:fs";
+import { mkdtemp as mkdtemp2, writeFile } from "node:fs/promises";
+import { tmpdir as tmpdir2 } from "node:os";
+import { join as join9 } from "node:path";
+
 // node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/caller.js
 import path3 from "node:path";
 import * as process2 from "node:process";
@@ -47834,7 +48483,7 @@ var caller = (options = {}) => {
 };
 
 // node_modules/.pnpm/@ark+fs@0.53.0/node_modules/@ark/fs/out/fs.js
-import { dirname as dirname2, join as join7, parse } from "node:path";
+import { dirname as dirname2, join as join8, parse } from "node:path";
 import * as process3 from "node:process";
 import { URL as URL2, fileURLToPath as fileURLToPath4 } from "node:url";
 var filePath = (path4) => {
@@ -47848,17 +48497,12 @@ var filePath = (path4) => {
   return file;
 };
 var dirOfCaller = () => dirname2(filePath(caller({ methodName: "dirOfCaller", upStackBy: 1 }).file));
-var fromHere = (...joinWith) => join7(dirOfCaller(), ...joinWith);
+var fromHere = (...joinWith) => join8(dirOfCaller(), ...joinWith);
 var fsRoot = parse(process3.cwd()).root;
 
 // utils/github.ts
 var core2 = __toESM(require_core(), 1);
 import { createSign } from "node:crypto";
-function checkExistingToken() {
-  const inputToken = core2.getInput("github_installation_token");
-  const envToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  return inputToken || envToken || null;
-}
 function isGitHubActionsEnvironment() {
   return Boolean(process.env.GITHUB_ACTIONS);
 }
@@ -47998,16 +48642,10 @@ async function acquireNewToken() {
   }
 }
 async function setupGitHubInstallationToken() {
-  const existingToken = checkExistingToken();
-  if (existingToken) {
-    core2.setSecret(existingToken);
-    log.info("Using provided GitHub installation token");
-    return { githubInstallationToken: existingToken, wasAcquired: false };
-  }
   const acquiredToken = await acquireNewToken();
   core2.setSecret(acquiredToken);
   process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-  return { githubInstallationToken: acquiredToken, wasAcquired: true };
+  return acquiredToken;
 }
 async function revokeInstallationToken(token) {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
@@ -48040,19 +48678,25 @@ function parseRepoContext() {
 }
 
 // mcp/config.ts
-function createMcpConfigs(githubInstallationToken, modes2) {
+function createMcpConfigs(githubInstallationToken, modes2, payload) {
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const serverPath = process.env.GITHUB_ACTIONS ? fromHere("mcp-server") : fromHere("server.ts");
+  const env2 = {
+    GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
+    GITHUB_REPOSITORY: githubRepository,
+    PULLFROG_MODES: JSON.stringify(modes2),
+    PULLFROG_PAYLOAD: JSON.stringify(payload),
+    PULLFROG_TEMP_DIR: process.env.PULLFROG_TEMP_DIR
+  };
+  if (process.env.GITHUB_RUN_ID) {
+    env2.GITHUB_RUN_ID = process.env.GITHUB_RUN_ID;
+  }
   return {
     [ghPullfrogMcpName]: {
       command: "node",
       args: [serverPath],
-      env: {
-        GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-        GITHUB_REPOSITORY: githubRepository,
-        PULLFROG_MODES: JSON.stringify(modes2)
-      }
+      env: env2
     }
   };
 }
@@ -48069,9 +48713,7 @@ async function fetchRepoSettings({
   token,
   repoContext
 }) {
-  log.info("Fetching repository settings...");
   const settings = await getRepoSettings(token, repoContext);
-  log.info("Repository settings fetched");
   return settings;
 }
 async function getRepoSettings(token, repoContext) {
@@ -48108,6 +48750,44 @@ async function getRepoSettings(token, repoContext) {
 
 // utils/setup.ts
 import { execSync } from "node:child_process";
+
+// utils/shell.ts
+import { spawnSync as spawnSync4 } from "node:child_process";
+function $(cmd, args2, options) {
+  const encoding = options?.encoding ?? "utf-8";
+  const result = spawnSync4(cmd, args2, {
+    stdio: ["inherit", "pipe", "pipe"],
+    encoding,
+    cwd: options?.cwd
+  });
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  if (options?.log !== false) {
+    if (stdout) {
+      process.stdout.write(stdout);
+    }
+    if (stderr) {
+      process.stderr.write(stderr);
+    }
+  }
+  if (result.status !== 0) {
+    const errorResult = {
+      status: result.status ?? -1,
+      stdout,
+      stderr
+    };
+    if (options?.onError) {
+      options.onError(errorResult);
+      return stdout.trim();
+    }
+    throw new Error(
+      `Command failed with exit code ${errorResult.status}: ${stderr || "Unknown error"}`
+    );
+  }
+  return stdout.trim();
+}
+
+// utils/setup.ts
 function setupGitConfig() {
   if (!process.env.GITHUB_ACTIONS) {
     return;
@@ -48135,12 +48815,30 @@ function setupGitAuth(githubToken, repoContext) {
     log.info("No existing authentication headers to remove");
   }
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
-  execSync(`git remote set-url origin "${remoteUrl}"`, { stdio: "inherit" });
+  $("git", ["remote", "set-url", "origin", remoteUrl]);
   log.info("\u2713 Updated remote URL with authentication token");
+}
+function setupGitBranch(payload) {
+  const branch = payload.event.branch;
+  if (!branch) {
+    log.debug("No branch specified in payload, using default branch");
+    return;
+  }
+  log.info(`\u{1F33F} Setting up git branch: ${branch}`);
+  try {
+    log.debug(`Fetching branch from origin: ${branch}`);
+    execSync(`git fetch origin ${branch}`, { stdio: "pipe" });
+    log.debug(`Checking out branch: ${branch}`);
+    execSync(`git checkout -B ${branch} origin/${branch}`, { stdio: "pipe" });
+    log.info(`\u2713 Successfully checked out branch: ${branch}`);
+  } catch (error2) {
+    log.warning(
+      `Failed to checkout branch ${branch}: ${error2 instanceof Error ? error2.message : String(error2)}`
+    );
+  }
 }
 
 // main.ts
-var AgentName = type.enumerated(...Object.values(agents).map((agent2) => agent2.name));
 var AgentInputKey = type.enumerated(
   ...Object.values(agents).flatMap((agent2) => agent2.apiKeyNames)
 );
@@ -48150,18 +48848,35 @@ var keyInputDefs = flatMorph(
 );
 var Inputs = type({
   prompt: "string",
-  ...keyInputDefs,
-  "agent?": type.enumerated(...Object.values(agents).map((agent2) => agent2.name)).or("undefined")
+  ...keyInputDefs
 });
 async function main(inputs) {
-  const partialCtx = await initializeContext(inputs);
-  const ctx = partialCtx;
+  let githubInstallationToken;
+  let pollInterval = null;
   try {
-    await determineAgent(ctx);
+    const payload = parsePayload(inputs);
+    githubInstallationToken = await setupGitHubInstallationToken();
+    const repoContext = parseRepoContext();
+    const { agentName, agent: agent2 } = await resolveAgent(
+      inputs,
+      payload,
+      githubInstallationToken,
+      repoContext
+    );
+    const partialCtx = await initializeContext(
+      inputs,
+      agentName,
+      agent2,
+      githubInstallationToken,
+      repoContext
+    );
+    const ctx = partialCtx;
+    ctx.payload = payload;
     setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
-    ctx.payload = parsePayload(inputs);
+    pollInterval = ctx.pollInterval;
+    setupGitBranch(ctx.payload);
     setupMcpServers(ctx);
     await installAgentCli(ctx);
     validateApiKey(ctx);
@@ -48176,14 +48891,31 @@ async function main(inputs) {
       error: errorMessage
     };
   } finally {
-    await cleanup(partialCtx);
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
+    if (githubInstallationToken) {
+      await revokeInstallationToken(githubInstallationToken);
+    }
   }
+}
+function getAvailableAgents(inputs) {
+  return Object.values(agents).filter(
+    (agent2) => agent2.apiKeyNames.some((inputKey) => inputs[inputKey])
+  );
+}
+function getAllPossibleKeyNames() {
+  return Object.keys(
+    flatMorph(
+      agentsManifest,
+      (_, manifest) => manifest.apiKeyNames.map((keyName) => [keyName, true])
+    )
+  );
 }
 function throwMissingApiKeyError({
   agentName,
   inputKeys,
-  repoContext,
-  inputs
+  repoContext
 }) {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
@@ -48191,10 +48923,7 @@ function throwMissingApiKeyError({
   const secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
   const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
-  const availableAgents = Object.values(agents).filter(
-    (agent2) => agent2.apiKeyNames.some((inputKey) => inputs[inputKey])
-  );
-  let message = `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.
+  let message = `${agentName === null ? "Pullfrog has no agent configured and no API keys are available in the environment." : `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.`}
 
 To fix this, add the required secret to your GitHub repository:
 
@@ -48203,46 +48932,64 @@ To fix this, add the required secret to your GitHub repository:
 3. Set the name to ${secretNameList}
 4. Set the value to your API key
 5. Click "Add secret"`;
-  if (availableAgents.length > 0) {
-    const agentNames = availableAgents.map((agent2) => agent2.name).join(", ");
+  if (agentName === null) {
     message += `
 
-Alternatively, configure Pullfrog to use an agent with existing credentials in your environment (${agentNames}) at ${settingsUrl}`;
+Alternatively, configure Pullfrog to use an agent at ${settingsUrl}`;
   }
   log.error(message);
   throw new Error(message);
 }
-async function initializeContext(inputs) {
+async function initializeContext(inputs, agentName, agent2, githubInstallationToken, repoContext) {
   log.info(`\u{1F438} Running pullfrog/action@${package_default.version}...`);
   Inputs.assert(inputs);
   setupGitConfig();
-  const { githubInstallationToken, wasAcquired } = await setupGitHubInstallationToken();
-  const tokenToRevoke = wasAcquired ? githubInstallationToken : null;
-  const repoContext = parseRepoContext();
   return {
     inputs,
     githubInstallationToken,
-    tokenToRevoke,
     repoContext,
-    agentName: "claude",
-    agent: agents.claude,
+    agentName,
+    agent: agent2,
     sharedTempDir: "",
     mcpLogPath: "",
     pollInterval: null
   };
 }
-async function determineAgent(ctx) {
+async function resolveAgent(inputs, payload, githubInstallationToken, repoContext) {
   const repoSettings = await fetchRepoSettings({
-    token: ctx.githubInstallationToken,
-    repoContext: ctx.repoContext
+    token: githubInstallationToken,
+    repoContext
   });
-  ctx.agentName = ctx.inputs.agent || repoSettings.defaultAgent || "claude";
-  ctx.agent = agents[ctx.agentName];
+  const agentOverride = process.env.AGENT_OVERRIDE;
+  const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
+  if (configuredAgentName) {
+    const agentName2 = configuredAgentName;
+    const agent3 = agents[agentName2];
+    if (!agent3) {
+      throw new Error(`invalid agent name: ${agentName2}`);
+    }
+    log.info(`Selected configured agent: ${agentName2}`);
+    return { agentName: agentName2, agent: agent3 };
+  }
+  const availableAgents = getAvailableAgents(inputs);
+  const availableAgentNames = availableAgents.map((agent3) => agent3.name).join(", ");
+  log.debug(`Available agents: ${availableAgentNames || "none"}`);
+  if (availableAgents.length === 0) {
+    throwMissingApiKeyError({
+      agentName: configuredAgentName,
+      inputKeys: getAllPossibleKeyNames(),
+      repoContext
+    });
+  }
+  const agentName = availableAgents[0].name;
+  const agent2 = availableAgents[0];
+  log.info(`No agent configured, defaulting to first available agent: ${agentName}`);
+  return { agentName, agent: agent2 };
 }
 async function setupTempDirectory(ctx) {
-  ctx.sharedTempDir = await mkdtemp(join8(tmpdir(), "pullfrog-"));
+  ctx.sharedTempDir = await mkdtemp2(join9(tmpdir2(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
-  ctx.mcpLogPath = join8(ctx.sharedTempDir, "mcpLog.txt");
+  ctx.mcpLogPath = join9(ctx.sharedTempDir, "mcpLog.txt");
   await writeFile(ctx.mcpLogPath, "", "utf-8");
   log.info(`\u{1F4C2} PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
 }
@@ -48271,36 +49018,39 @@ function parsePayload(inputs) {
       "~pullfrog": true,
       agent: null,
       prompt: inputs.prompt,
-      event: {},
+      event: {
+        trigger: "unknown"
+      },
       modes
     };
   }
 }
 function setupMcpServers(ctx) {
   const allModes = [...modes, ...ctx.payload.modes || []];
-  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes);
+  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes, ctx.payload);
   log.debug(`\u{1F4CB} MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 async function installAgentCli(ctx) {
   ctx.cliPath = await ctx.agent.install();
 }
 function validateApiKey(ctx) {
-  const matchingInputKey = ctx.agent.apiKeyNames.find(
-    (inputKey) => ctx.inputs[inputKey]
-  );
+  const matchingInputKey = ctx.agent.apiKeyNames.find((inputKey) => ctx.inputs[inputKey]);
   if (!matchingInputKey) {
     throwMissingApiKeyError({
       agentName: ctx.agentName,
       inputKeys: ctx.agent.apiKeyNames,
-      repoContext: ctx.repoContext,
-      inputs: ctx.inputs
+      repoContext: ctx.repoContext
     });
   }
   ctx.apiKey = ctx.inputs[matchingInputKey];
 }
 async function runAgent(ctx) {
   log.info(`Running ${ctx.agentName}...`);
-  log.box(ctx.payload.prompt, { title: "Prompt" });
+  const { context: _context, ...eventWithoutContext } = ctx.payload.event;
+  const promptContent = `${ctx.payload.prompt}
+
+${encode(eventWithoutContext)}`;
+  log.box(promptContent, { title: "Prompt" });
   return ctx.agent.run({
     payload: ctx.payload,
     mcpServers: ctx.mcpServers,
@@ -48324,14 +49074,6 @@ async function handleAgentResult(result) {
     output: result.output || ""
   };
 }
-async function cleanup(ctx) {
-  if (ctx.pollInterval) {
-    clearInterval(ctx.pollInterval);
-  }
-  if (ctx.tokenToRevoke) {
-    await revokeInstallationToken(ctx.tokenToRevoke);
-  }
-}
 
 // entry.ts
 async function run() {
@@ -48343,7 +49085,6 @@ async function run() {
   try {
     const inputs = {
       prompt: core3.getInput("prompt", { required: true }),
-      agent: core3.getInput("agent") ? AgentName.assert(core3.getInput("agent")) : void 0,
       ...flatMorph(
         agents,
         (_, agent2) => agent2.apiKeyNames.map((inputKey) => [inputKey, core3.getInput(inputKey)])
