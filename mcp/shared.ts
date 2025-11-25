@@ -2,7 +2,6 @@ import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
 import type { Payload } from "../external.ts";
-import { log } from "../utils/cli.ts";
 import { parseRepoContext, type RepoContext } from "../utils/github.ts";
 
 export interface ToolResult {
@@ -48,42 +47,7 @@ export interface McpContext extends RepoContext {
   payload: Payload;
 }
 
-export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => {
-  // Wrap the execute function to add logging with the tool name
-  const toolName = toolDef.name;
-  const originalExecute = toolDef.execute;
-
-  toolDef.execute = async (args: params, context: any) => {
-    try {
-      const result = await originalExecute(args, context);
-
-      // TOOL CALL LOGGING DISABLED — now handled by each agent
-
-      // Check if result is a ToolResult with isError property
-      // const isError =
-      //   result && typeof result === "object" && "isError" in result && result.isError === true;
-      // const resultData =
-      //   result && typeof result === "object" && "content" in result
-      //     ? (result as ToolResult).content[0]?.text
-      //     : undefined;
-
-      // if (isError && resultData) {
-      //   log.toolCall({ toolName, request: args, error: resultData });
-      // } else if (resultData) {
-      //   log.toolCall({ toolName, request: args, result: resultData });
-      // } else {
-      //   log.toolCall({ toolName, request: args });
-      // }
-      return result;
-    } catch (error) {
-      // const errorMessage = error instanceof Error ? error.message : String(error);
-      // log.toolCall({ toolName, request: args, error: errorMessage });
-      throw error;
-    }
-  };
-
-  return toolDef;
-};
+export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
 export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
   for (const tool of tools) {
