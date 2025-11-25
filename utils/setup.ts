@@ -5,9 +5,6 @@ import { log } from "./cli.ts";
 import type { RepoContext } from "./github.ts";
 import { $ } from "./shell.ts";
 
-// Store original remote URL for cleanup (only thing we need to restore)
-let originalRemoteUrl: string | null = null;
-
 export interface SetupOptions {
   tempDir: string;
   repoUrl?: string;
@@ -78,18 +75,6 @@ export function setupGitConfig(): void {
 export function setupGitAuth(githubToken: string, repoContext: RepoContext): void {
   const repoDir = process.cwd();
 
-  // Store original remote URL for cleanup
-  try {
-    originalRemoteUrl =
-      execSync("git config --local --get remote.origin.url", {
-        cwd: repoDir,
-        stdio: "pipe",
-        encoding: "utf-8",
-      }).trim() || null;
-  } catch {
-    originalRemoteUrl = null;
-  }
-
   log.info("🔐 Setting up git authentication...");
 
   // Remove existing git auth headers that actions/checkout might have set
@@ -148,63 +133,5 @@ export function setupGitBranch(payload: Payload): void {
     log.warning(
       `Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`
     );
-  }
-}
-
-/**
- * Clean up local git configuration after action completes
- * Removes the --local config entries we added so the repo returns to its original state
- * Only runs in local development (not in GitHub Actions)
- */
-export function restoreGitConfig(): void {
-  if (process.env.GITHUB_ACTIONS) {
-    return;
-  }
-
-  const repoDir = process.cwd();
-  log.info("🔄 Cleaning up git configuration...");
-
-  try {
-    try {
-      execSync("git config --local --unset user.email", {
-        cwd: repoDir,
-        stdio: "pipe",
-      });
-      log.debug("✓ Removed local user.email");
-    } catch {
-      // Ignore if unset fails (config might not exist)
-    }
-
-    try {
-      execSync("git config --local --unset user.name", {
-        cwd: repoDir,
-        stdio: "pipe",
-      });
-      log.debug("✓ Removed local user.name");
-    } catch {
-      // Ignore if unset fails (config might not exist)
-    }
-
-    // Restore original remote URL if we stored it
-    if (originalRemoteUrl !== null) {
-      try {
-        $("git", ["remote", "set-url", "origin", originalRemoteUrl], { cwd: repoDir });
-        log.debug("✓ Restored original remote URL");
-      } catch (error) {
-        log.warning(
-          `Failed to restore remote URL: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    }
-
-    log.info("✓ Git configuration cleanup completed");
-  } catch (error) {
-    // Log warning but don't fail - this is cleanup
-    log.warning(
-      `Failed to clean up git config: ${error instanceof Error ? error.message : String(error)}`
-    );
-  } finally {
-    // Clear stored remote URL
-    originalRemoteUrl = null;
   }
 }
