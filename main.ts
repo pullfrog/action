@@ -20,7 +20,7 @@ import {
   revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
-import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
+import { restoreGitConfig, setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
 
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
@@ -96,6 +96,8 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       error: errorMessage,
     };
   } finally {
+    restoreGitConfig();
+
     if (pollInterval) {
       clearInterval(pollInterval);
     }
