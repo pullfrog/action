@@ -18,11 +18,9 @@
 
 Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
 
-<p align="center">
-  <a href="https://github.com/apps/pullfrog/installations/new">
-    <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" />
-  </a>
-</p>
+<a href="https://github.com/apps/pullfrog/installations/new">
+  <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" width="150" />
+</a>
 
 Once added, you can start triggering agent runs.
 
