@@ -15,7 +15,7 @@ function buildCommentFooter(payload: Payload): string {
   const agentDisplayName = agentInfo?.displayName || "Unknown Agent";
   const agentUrl = agentInfo?.url || "https://pullfrog.ai";
 
-  // build workflow run URL
+  // build workflow run URL: https://github.com/{owner}/{repo}/actions/runs/{runId}
   const workflowRunUrl = runId
     ? `https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId}`
     : `https://github.com/${repoContext.owner}/${repoContext.name}`;

@@ -8,5 +8,5 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
     pnpm build
 
     # Add the built files and lockfile to the commit
-    git add entry mcp-server pnpm-lock.yaml
+    git add entry pnpm-lock.yaml
 fi

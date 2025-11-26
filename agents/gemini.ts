@@ -249,31 +249,31 @@ export const gemini = agent({
 
 /**
  * Configure MCP servers for Gemini using the CLI.
- * Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --env KEY=value
+ * Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --transport <type>
+ * For HTTP-based servers, use: gemini mcp add <name> <url> --transport http
  */
 function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams): void {
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    const command = serverConfig.command;
-    const args = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
+    if (serverConfig.type === "http") {
+      // HTTP-based MCP server - use URL with --transport http flag
+      const addArgs = ["mcp", "add", serverName, serverConfig.url, "--transport", "http"];
 
-    const addArgs = ["mcp", "add", serverName, command, ...args];
+      log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
+      const addResult = spawnSync("node", [cliPath, ...addArgs], {
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
 
-    for (const [key, value] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value}`);
-    }
-
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
-
-    if (addResult.status !== 0) {
+      if (addResult.status !== 0) {
+        throw new Error(
+          `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+        );
+      }
+      log.info(`✓ MCP server '${serverName}' configured`);
+    } else {
       throw new Error(
-        `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+        `Unsupported MCP server type for Gemini: ${(serverConfig as any).type || "unknown"}`
       );
     }
-    log.info(`✓ MCP server '${serverName}' configured`);
   }
 }
