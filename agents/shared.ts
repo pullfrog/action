@@ -4,7 +4,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
-import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
+import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import type { show } from "@ark/util";
 import { type AgentManifest, type AgentName, agentsManifest, type Payload } from "../external.ts";
 import { log } from "../utils/cli.ts";
@@ -26,7 +26,7 @@ export interface AgentConfig {
   apiKey: string;
   githubInstallationToken: string;
   payload: Payload;
-  mcpServers: Record<string, McpStdioServerConfig>;
+  mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
 }
 
@@ -34,7 +34,7 @@ export interface AgentConfig {
  * Parameters for configuring MCP servers
  */
 export interface ConfigureMcpServersParams {
-  mcpServers: Record<string, McpStdioServerConfig>;
+  mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
 }
 

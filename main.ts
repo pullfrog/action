@@ -10,6 +10,7 @@ import type { AgentResult } from "./agents/shared.ts";
 import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
+import { startMcpHttpServer } from "./mcp/server.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { fetchRepoSettings } from "./utils/api.ts";
@@ -17,6 +18,7 @@ import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
   type RepoContext,
+  revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
@@ -48,6 +50,8 @@ export interface MainResult {
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   let pollInterval: NodeJS.Timeout | null = null;
+  let mcpServerClose: (() => Promise<void>) | undefined;
+  let githubInstallationToken: string | undefined;
 
   try {
     // parse payload early to extract agent
@@ -55,13 +59,19 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as MainContext;
+    githubInstallationToken = ctx.githubInstallationToken;
 
-    setupGitAuth(ctx);
+    setupGitAuth({
+      githubInstallationToken: ctx.githubInstallationToken,
+      repoContext: ctx.repoContext,
+    });
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
     pollInterval = ctx.pollInterval;
 
     setupGitBranch(ctx.payload);
+    await startMcpServer(ctx);
+    mcpServerClose = ctx.mcpServerClose;
     setupMcpServers(ctx);
     await installAgentCli(ctx);
     validateApiKey(ctx);
@@ -79,6 +89,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   } finally {
     if (pollInterval) {
       clearInterval(pollInterval);
+    }
+    if (mcpServerClose) {
+      await mcpServerClose();
+    }
+    if (githubInstallationToken) {
+      await revokeInstallationToken(githubInstallationToken);
     }
   }
 }
@@ -157,6 +173,8 @@ interface MainContext {
   mcpLogPath: string;
   pollInterval: NodeJS.Timeout | null;
   payload: Payload;
+  mcpServerUrl: string;
+  mcpServerClose: () => Promise<void>;
   mcpServers: ReturnType<typeof createMcpConfigs>;
   cliPath: string;
   apiKey: string;
@@ -165,7 +183,9 @@ interface MainContext {
 async function initializeContext(
   inputs: Inputs,
   payload: Payload
-): Promise<Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">> {
+): Promise<
+  Omit<MainContext, "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey">
+> {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
   Inputs.assert(inputs);
   setupGitConfig();
@@ -281,9 +301,27 @@ function parsePayload(inputs: Inputs): Payload {
   }
 }
 
-function setupMcpServers(ctx: MainContext): void {
+async function startMcpServer(ctx: MainContext): Promise<void> {
+  // Set environment variables for MCP server tools
+  const repoContext = parseRepoContext();
+  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const allModes = [...modes, ...(ctx.payload.modes || [])];
-  ctx.mcpServers = createMcpConfigs(ctx.githubInstallationToken, allModes, ctx.payload);
+
+  process.env.GITHUB_INSTALLATION_TOKEN = ctx.githubInstallationToken;
+  process.env.GITHUB_REPOSITORY = githubRepository;
+  process.env.PULLFROG_MODES = JSON.stringify(allModes);
+  process.env.PULLFROG_PAYLOAD = JSON.stringify(ctx.payload);
+
+  // GITHUB_RUN_ID is already set in GitHub Actions, no need to set it here
+
+  const { url, close } = await startMcpHttpServer();
+  ctx.mcpServerUrl = url;
+  ctx.mcpServerClose = close;
+  log.info(`🚀 MCP server started at ${url}`);
+}
+
+function setupMcpServers(ctx: MainContext): void {
+  ctx.mcpServers = createMcpConfigs(ctx.mcpServerUrl);
   log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 

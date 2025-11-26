@@ -177,34 +177,30 @@ const messageHandlers: {
 
 /**
  * Configure MCP servers for Codex using the CLI.
- * Codex CLI syntax: codex mcp add <name> --env KEY=value -- <command> [args...]
+ * For HTTP-based servers, use: codex mcp add <name> --url <url>
  */
 function configureCodexMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams): void {
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    const command = serverConfig.command;
-    const args = serverConfig.args || [];
-    const envVars = serverConfig.env || {};
+    if (serverConfig.type === "http") {
+      // HTTP-based MCP server - use --url flag
+      const addArgs = ["mcp", "add", serverName, "--url", serverConfig.url];
 
-    const addArgs = ["mcp", "add", serverName];
+      log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
+      const addResult = spawnSync("node", [cliPath, ...addArgs], {
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
 
-    // Add environment variables as --env flags first
-    for (const [key, value] of Object.entries(envVars)) {
-      addArgs.push("--env", `${key}=${value}`);
-    }
-
-    addArgs.push("--", command, ...args);
-
-    log.info(`Adding MCP server '${serverName}'...`);
-    const addResult = spawnSync("node", [cliPath, ...addArgs], {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
-
-    if (addResult.status !== 0) {
+      if (addResult.status !== 0) {
+        throw new Error(
+          `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+        );
+      }
+      log.info(`✓ MCP server '${serverName}' configured`);
+    } else {
       throw new Error(
-        `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
+        `Unsupported MCP server type for Codex: ${(serverConfig as any).type || "unknown"}`
       );
     }
-    log.info(`✓ MCP server '${serverName}' configured`);
   }
 }

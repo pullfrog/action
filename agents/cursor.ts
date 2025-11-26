@@ -269,6 +269,22 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
   const cursorConfigDir = join(realHome, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");
   mkdirSync(cursorConfigDir, { recursive: true });
-  writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
+
+  // Convert to Cursor's expected format (HTTP config)
+  const cursorMcpServers: Record<string, { type: string; url: string }> = {};
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    if (serverConfig.type !== "http") {
+      throw new Error(
+        `Unsupported MCP server type for Cursor: ${(serverConfig as any).type || "unknown"}`
+      );
+    }
+
+    cursorMcpServers[serverName] = {
+      type: "http",
+      url: serverConfig.url,
+    };
+  }
+
+  writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: cursorMcpServers }, null, 2), "utf-8");
   log.info(`MCP config written to ${mcpConfigPath}`);
 }

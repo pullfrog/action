@@ -59,19 +59,11 @@ const sharedConfig = {
   drop: [],
 };
 
-// Build the main entry bundle (without MCP)
+// Build the main entry bundle
 await build({
   ...sharedConfig,
   entryPoints: ["./entry.ts"],
   outfile: "./entry",
-  plugins: [stripShebangPlugin],
-});
-
-// Build the MCP server bundle
-await build({
-  ...sharedConfig,
-  entryPoints: ["./mcp/server.ts"],
-  outfile: "./mcp-server",
   plugins: [stripShebangPlugin],
 });
 
