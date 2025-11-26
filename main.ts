@@ -300,7 +300,12 @@ function setupMcpServers(ctx: MainContext): void {
 }
 
 async function installAgentCli(ctx: MainContext): Promise<void> {
-  ctx.cliPath = await ctx.agent.install();
+  // gemini is the only agent that needs githubInstallationToken for install
+  if (ctx.agentName === "gemini") {
+    ctx.cliPath = await ctx.agent.install(ctx.githubInstallationToken);
+  } else {
+    ctx.cliPath = await ctx.agent.install();
+  }
 }
 
 function validateApiKey(ctx: MainContext): void {

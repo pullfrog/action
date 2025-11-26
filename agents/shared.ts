@@ -62,9 +62,9 @@ export interface InstallFromCurlParams {
 export interface InstallFromGithubParams {
   owner: string;
   repo: string;
-  tag?: string;
   assetName?: string;
   executablePath?: string;
+  githubInstallationToken?: string;
 }
 
 /**
@@ -181,6 +181,36 @@ export async function installFromNpmTarball({
 }
 
 /**
+ * Fetch with retry logic if Retry-After header is present
+ */
+async function fetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  errorMessage: string
+): Promise<Response> {
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const retryAfter = response.headers.get("Retry-After") || response.headers.get("retry-after");
+    if (retryAfter) {
+      const waitSeconds = parseInt(retryAfter, 10);
+      if (!Number.isNaN(waitSeconds) && waitSeconds > 0) {
+        log.info(`Rate limited, waiting ${waitSeconds} seconds before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+        const retryResponse = await fetch(url, { headers });
+        if (!retryResponse.ok) {
+          throw new Error(
+            `${errorMessage}: ${retryResponse.status} ${retryResponse.statusText} (retry failed)`
+          );
+        }
+        return retryResponse;
+      }
+    }
+    throw new Error(`${errorMessage}: ${response.status} ${response.statusText}`);
+  }
+  return response;
+}
+
+/**
  * Install a CLI tool from GitHub releases
  * Downloads the latest release asset from GitHub and returns the path to the executable
  * The temp directory will be cleaned up by the OS automatically
@@ -188,23 +218,22 @@ export async function installFromNpmTarball({
 export async function installFromGithub({
   owner,
   repo,
-  tag,
   assetName,
   executablePath,
+  githubInstallationToken,
 }: InstallFromGithubParams): Promise<string> {
   log.info(`📦 Installing ${owner}/${repo} from GitHub releases...`);
 
-  // fetch release from GitHub API (specific tag or latest)
-  const releaseUrl = tag
-    ? `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`
-    : `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+  // fetch release from GitHub API (latest)
+  const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
   log.info(`Fetching release from ${releaseUrl}...`);
-  const releaseResponse = await fetch(releaseUrl);
-  if (!releaseResponse.ok) {
-    throw new Error(
-      `Failed to fetch release: ${releaseResponse.status} ${releaseResponse.statusText}`
-    );
+
+  const headers: Record<string, string> = {};
+  if (githubInstallationToken) {
+    headers.Authorization = `Bearer ${githubInstallationToken}`;
   }
+
+  const releaseResponse = await fetchWithRetry(releaseUrl, headers, "Failed to fetch release");
 
   const releaseData = (await releaseResponse.json()) as {
     tag_name: string;
@@ -234,12 +263,7 @@ export async function installFromGithub({
   const downloadPath = join(tempDir, fileName);
 
   // download the asset
-  const assetResponse = await fetch(assetUrl);
-  if (!assetResponse.ok) {
-    throw new Error(
-      `Failed to download asset: ${assetResponse.status} ${assetResponse.statusText}`
-    );
-  }
+  const assetResponse = await fetchWithRetry(assetUrl, headers, "Failed to download asset");
 
   if (!assetResponse.body) throw new Error("Response body is null");
   const fileStream = createWriteStream(downloadPath);

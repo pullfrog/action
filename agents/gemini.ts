@@ -144,12 +144,12 @@ const messageHandlers = {
 
 export const gemini = agent({
   name: "gemini",
-  install: async () => {
+  install: async (githubInstallationToken?: string) => {
     return await installFromGithub({
       owner: "google-gemini",
       repo: "gemini-cli",
-      tag: "v0.16.0",
       assetName: "gemini.js",
+      ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
   run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
