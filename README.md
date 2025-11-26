@@ -22,7 +22,7 @@ Pullfrog is a GitHub bot that brings the full power of your favorite coding agen
   <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" width="150px" />
 </a>
 
-<br />
+<br /><br />
 
 Once added, you can start triggering agent runs.
 
