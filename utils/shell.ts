@@ -29,8 +29,11 @@ interface ShellOptions {
  */
 export function $(cmd: string, args: string[], options?: ShellOptions): string {
   const encoding = options?.encoding ?? "utf-8";
+
+  // CRITICAL: use "ignore" for stdin instead of "inherit" to avoid breaking MCP transport
+  // when running inside an MCP server, stdin is used for JSON-RPC protocol
   const result = spawnSync(cmd, args, {
-    stdio: ["inherit", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
     encoding,
     cwd: options?.cwd,
   });
@@ -39,10 +42,19 @@ export function $(cmd: string, args: string[], options?: ShellOptions): string {
   const stderr = result.stderr ?? "";
 
   // Write output to process streams so it behaves like stdio: "inherit"
+  // CRITICAL: when running inside an MCP server, stdout is used for JSON-RPC protocol
+  // so we must write to stderr instead to avoid corrupting the protocol
   // Only log if log option is not explicitly set to false
   if (options?.log !== false) {
+    // if stdout is a TTY, it's safe to write to it; otherwise it's likely a pipe used for JSON-RPC
+    const canWriteToStdout = process.stdout.isTTY === true;
     if (stdout) {
-      process.stdout.write(stdout);
+      if (canWriteToStdout) {
+        process.stdout.write(stdout);
+      } else {
+        // stdout is a pipe (MCP context) - write to stderr instead
+        process.stderr.write(stdout);
+      }
     }
     if (stderr) {
       process.stderr.write(stderr);

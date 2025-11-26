@@ -141,6 +141,8 @@ Examples:
     if (!result.success) {
       process.exit(1);
     }
+
+    process.exit(0);
   } catch (err) {
     log.error((err as Error).message);
     process.exit(1);

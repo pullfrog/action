@@ -6,7 +6,7 @@ export interface Mode {
   prompt: string;
 }
 
-const initialCommentInstruction = `Use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment with a conversational description of what work you are about to perform.`;
+const initialCommentInstruction = `When the task is associated with an issue/PR, use ${ghPullfrogMcpName}/create_working_comment to create an initial Working Comment with a conversational description of what work you are about to perform.`;
 
 export const modes: Mode[] = [
   {

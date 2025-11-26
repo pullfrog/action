@@ -128,7 +128,7 @@ const messageHandlers: {
         toolName: item.tool,
         input: {
           server: item.server,
-          ...((item as any).args || {}),
+          ...((item as any).arguments || {}),
         },
       });
     }
@@ -167,7 +167,7 @@ const messageHandlers: {
       const reasoningText = item.text.trim();
       // Remove markdown bold markers if present for cleaner output
       const cleanText = reasoningText.replace(/\*\*/g, "");
-      log.info(cleanText);
+      log.box(cleanText, { title: "Codex" });
     }
   },
   error: (event) => {

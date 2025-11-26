@@ -9,6 +9,7 @@ import {
   EditCommentTool,
   UpdateWorkingCommentTool,
 } from "./comment.ts";
+import { DebugShellCommandTool } from "./debug.ts";
 import { IssueTool } from "./issue.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
@@ -35,6 +36,7 @@ addTools(server, [
   GetReviewCommentsTool,
   ListPullRequestReviewsTool,
   GetCheckSuiteLogsTool,
+  DebugShellCommandTool,
 ]);
 
 server.start();

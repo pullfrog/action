@@ -1,1 +1,1 @@
-write a comment to https://github.com/pullfrogai/scratch/pull/29 that tells a joke
+use debug_shell_command tool to run 'git status' and explain the result
