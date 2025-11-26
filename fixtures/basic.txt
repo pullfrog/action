@@ -1,1 +1,1 @@
-use debug_shell_command tool to run 'git status' and explain the result
+summarize https://github.com/pullfrogai/scratch/issues/56, its status, and pertinent discussion on the issue
