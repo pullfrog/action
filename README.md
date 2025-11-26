@@ -8,7 +8,7 @@
     Pullfrog
   </h1>
   <p align="center">
-    GitHub Action for running AI agents via Pullfrog to automate development workflows
+    Bring your favorite coding agent into GitHub
   </p>
 </p>
 
