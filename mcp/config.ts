@@ -34,6 +34,7 @@ export function createMcpConfigs(
   };
 
   // pass through GITHUB_RUN_ID if available (automatically set in GitHub Actions)
+  // this is used to build the "View workflow run" link in comments
   if (process.env.GITHUB_RUN_ID) {
     env.GITHUB_RUN_ID = process.env.GITHUB_RUN_ID;
   }

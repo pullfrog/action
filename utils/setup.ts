@@ -72,7 +72,10 @@ export function setupGitConfig(): void {
  * Setup git authentication using GitHub installation token
  * Always uses the installation token, scoped to the current repo only
  */
-export function setupGitAuth(githubToken: string, repoContext: RepoContext): void {
+export function setupGitAuth(ctx: {
+  githubInstallationToken: string;
+  repoContext: RepoContext;
+}): void {
   const repoDir = process.cwd();
 
   log.info("🔐 Setting up git authentication...");
@@ -91,7 +94,7 @@ export function setupGitAuth(githubToken: string, repoContext: RepoContext): voi
 
   // Update remote URL to embed the token
   // This is scoped to the repo's .git/config, not the user's global config
-  const remoteUrl = `https://x-access-token:${githubToken}@github.com/${repoContext.owner}/${repoContext.name}.git`;
+  const remoteUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.repoContext.owner}/${ctx.repoContext.name}.git`;
   $("git", ["remote", "set-url", "origin", remoteUrl], { cwd: repoDir });
   log.info("✓ Updated remote URL with authentication token (scoped to repo)");
 }

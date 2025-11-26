@@ -17,7 +17,6 @@ import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
   type RepoContext,
-  revokeInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
@@ -48,34 +47,16 @@ export interface MainResult {
 }
 
 export async function main(inputs: Inputs): Promise<MainResult> {
-  let githubInstallationToken: string | undefined;
   let pollInterval: NodeJS.Timeout | null = null;
 
   try {
     // parse payload early to extract agent
     const payload = parsePayload(inputs);
 
-    // resolve agent before initializing context
-    githubInstallationToken = await setupGitHubInstallationToken();
-    const repoContext = parseRepoContext();
-    const { agentName, agent } = await resolveAgent(
-      inputs,
-      payload,
-      githubInstallationToken,
-      repoContext
-    );
-
-    const partialCtx = await initializeContext(
-      inputs,
-      agentName,
-      agent,
-      githubInstallationToken,
-      repoContext
-    );
+    const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as MainContext;
-    ctx.payload = payload;
 
-    setupGitAuth(ctx.githubInstallationToken, ctx.repoContext);
+    setupGitAuth(ctx);
     await setupTempDirectory(ctx);
     setupMcpLogPolling(ctx);
     pollInterval = ctx.pollInterval;
@@ -98,9 +79,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   } finally {
     if (pollInterval) {
       clearInterval(pollInterval);
-    }
-    if (githubInstallationToken) {
-      await revokeInstallationToken(githubInstallationToken);
     }
   }
 }
@@ -186,14 +164,23 @@ interface MainContext {
 
 async function initializeContext(
   inputs: Inputs,
-  agentName: AgentNameType,
-  agent: (typeof agents)[AgentNameType],
-  githubInstallationToken: string,
-  repoContext: RepoContext
-): Promise<Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">> {
+  payload: Payload
+): Promise<Omit<MainContext, "mcpServers" | "cliPath" | "apiKey">> {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
   Inputs.assert(inputs);
   setupGitConfig();
+
+  const githubInstallationToken = await setupGitHubInstallationToken();
+  const repoContext = parseRepoContext();
+
+  // resolve agent and update payload with resolved agent name
+  const { agentName, agent } = await resolveAgent(
+    inputs,
+    payload,
+    githubInstallationToken,
+    repoContext
+  );
+  const resolvedPayload = { ...payload, agent: agentName };
 
   return {
     inputs,
@@ -201,6 +188,7 @@ async function initializeContext(
     repoContext,
     agentName,
     agent,
+    payload: resolvedPayload,
     sharedTempDir: "",
     mcpLogPath: "",
     pollInterval: null,
