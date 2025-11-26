@@ -1,13 +1,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/frog-white-200px.png">
-    <img src="https://pullfrog.ai/frog-200px.png" width="200px" align="center" alt="Pullfrog logo" />
+    <img src="https://pullfrog.ai/frog-200px.png" width="40px" align="center" alt="Pullfrog logo" />
   </picture>
   <h1 align="center">Pullfrog</h1>
   <p align="center">
     GitHub Action for running AI agents via Pullfrog to automate development workflows
-    <br/>
-    by <a href="https://pullfrog.ai">Pullfrog</a>
   </p>
 </p>
 
