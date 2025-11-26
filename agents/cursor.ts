@@ -4,7 +4,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, type ConfigureMcpServersParams, installFromCurl } from "./shared.ts";
+import {
+  agent,
+  type ConfigureMcpServersParams,
+  createAgentEnv,
+  installFromCurl,
+} from "./shared.ts";
 
 // cursor cli event types inferred from stream-json output
 interface CursorSystemEvent {
@@ -138,10 +143,7 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, githubInstallationToken, mcpServers }) => {
-    process.env.CURSOR_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-
+  run: async ({ payload, apiKey, cliPath, mcpServers }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
 
     try {
@@ -165,16 +167,9 @@ export const cursor = agent({
           ],
           {
             cwd: process.cwd(),
-            env: {
+            env: createAgentEnv({
               CURSOR_API_KEY: apiKey,
-              GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-              LOG_LEVEL: process.env.LOG_LEVEL,
-              NODE_ENV: process.env.NODE_ENV,
-              HOME: process.env.HOME,
-              PATH: process.env.PATH,
-              // Don't override HOME - Cursor CLI needs access to macOS keychain
-              // MCP config is written to tempDir/.cursor/mcp.json which Cursor will find
-            },
+            }),
             stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
           }
         );

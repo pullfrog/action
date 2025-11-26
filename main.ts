@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
@@ -18,7 +17,7 @@ import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
   type RepoContext,
-  revokeInstallationToken,
+  revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
@@ -49,9 +48,7 @@ export interface MainResult {
 }
 
 export async function main(inputs: Inputs): Promise<MainResult> {
-  let pollInterval: NodeJS.Timeout | null = null;
   let mcpServerClose: (() => Promise<void>) | undefined;
-  let githubInstallationToken: string | undefined;
 
   try {
     // parse payload early to extract agent
@@ -59,15 +56,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as MainContext;
-    githubInstallationToken = ctx.githubInstallationToken;
 
     setupGitAuth({
       githubInstallationToken: ctx.githubInstallationToken,
       repoContext: ctx.repoContext,
     });
     await setupTempDirectory(ctx);
-    setupMcpLogPolling(ctx);
-    pollInterval = ctx.pollInterval;
 
     setupGitBranch(ctx.payload);
     await startMcpServer(ctx);
@@ -87,15 +81,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       error: errorMessage,
     };
   } finally {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-    }
     if (mcpServerClose) {
       await mcpServerClose();
     }
-    if (githubInstallationToken) {
-      await revokeInstallationToken(githubInstallationToken);
-    }
+    await revokeGitHubInstallationToken();
   }
 }
 
@@ -170,8 +159,6 @@ interface MainContext {
   agentName: AgentNameType;
   agent: (typeof agents)[AgentNameType];
   sharedTempDir: string;
-  mcpLogPath: string;
-  pollInterval: NodeJS.Timeout | null;
   payload: Payload;
   mcpServerUrl: string;
   mcpServerClose: () => Promise<void>;
@@ -210,8 +197,6 @@ async function initializeContext(
     agent,
     payload: resolvedPayload,
     sharedTempDir: "",
-    mcpLogPath: "",
-    pollInterval: null,
   };
 }
 
@@ -262,23 +247,7 @@ async function setupTempDirectory(
 ): Promise<void> {
   ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
-  ctx.mcpLogPath = join(ctx.sharedTempDir, "mcpLog.txt");
-  await writeFile(ctx.mcpLogPath, "", "utf-8");
   log.info(`📂 PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
-}
-
-function setupMcpLogPolling(ctx: MainContext): void {
-  let lastSize = 0;
-  ctx.pollInterval = setInterval(() => {
-    if (existsSync(ctx.mcpLogPath)) {
-      const content = readFileSync(ctx.mcpLogPath, "utf-8");
-      if (content.length > lastSize) {
-        const newContent = content.slice(lastSize);
-        process.stdout.write(newContent);
-        lastSize = content.length;
-      }
-    }
-  }, 100);
 }
 
 function parsePayload(inputs: Inputs): Payload {
@@ -307,7 +276,6 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const allModes = [...modes, ...(ctx.payload.modes || [])];
 
-  process.env.GITHUB_INSTALLATION_TOKEN = ctx.githubInstallationToken;
   process.env.GITHUB_REPOSITORY = githubRepository;
   process.env.PULLFROG_MODES = JSON.stringify(allModes);
   process.env.PULLFROG_PAYLOAD = JSON.stringify(ctx.payload);
@@ -352,7 +320,6 @@ async function runAgent(ctx: MainContext): Promise<AgentResult> {
   return ctx.agent.run({
     payload: ctx.payload,
     mcpServers: ctx.mcpServers,
-    githubInstallationToken: ctx.githubInstallationToken,
     apiKey: ctx.apiKey,
     cliPath: ctx.cliPath,
   });

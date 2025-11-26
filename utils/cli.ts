@@ -3,8 +3,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import * as core from "@actions/core";
 import { table } from "table";
 
@@ -325,40 +324,7 @@ export const log = {
 
     log.info(output.trimEnd());
   },
-
-  /**
-   * Log MCP tool call information to mcpLog.txt in the temp directory
-   */
-  toolCallToFile: ({
-    toolName,
-    request,
-    result,
-    error,
-  }: {
-    toolName: string;
-    request: unknown;
-    result?: string;
-    error?: string;
-  }): void => {
-    const logPath = getMcpLogPath();
-    const params: Parameters<typeof formatToolCall>[0] = { toolName, request };
-    if (error) {
-      params.error = error;
-    } else if (result) {
-      params.result = result;
-    }
-    const logEntry = formatToolCall(params);
-    appendFileSync(logPath, logEntry, "utf-8");
-  },
 };
-
-/**
- * Get the path to the MCP log file in the temp directory
- */
-function getMcpLogPath(): string {
-  const tempDir = process.env.PULLFROG_TEMP_DIR!;
-  return join(tempDir, "mcpLog.txt");
-}
 
 /**
  * Format a value as JSON, using compact format for simple values and pretty-printed for complex ones
@@ -383,59 +349,6 @@ export function formatIndentedField(label: string, content: string): string {
     formatted += `    ${lines[i]}\n`;
   }
   return formatted;
-}
-
-/**
- * Format the input field for a tool call
- */
-function formatToolInput(request: unknown): string {
-  const requestFormatted = formatJsonValue(request);
-  if (requestFormatted === "{}") {
-    return "";
-  }
-  return formatIndentedField("input", requestFormatted);
-}
-
-/**
- * Format the result field for a tool call, parsing JSON if possible
- */
-function formatToolResult(result: string): string {
-  try {
-    const parsed = JSON.parse(result);
-    const formatted = formatJsonValue(parsed);
-    return formatIndentedField("result", formatted);
-  } catch {
-    // Not JSON, display as-is
-    return formatIndentedField("result", result);
-  }
-}
-
-/**
- * Format a complete tool call entry with tool name, input, result, and error
- */
-function formatToolCall({
-  toolName,
-  request,
-  result,
-  error,
-}: {
-  toolName: string;
-  request: unknown;
-  result?: string;
-  error?: string;
-}): string {
-  let logEntry = `→ ${toolName}\n`;
-
-  logEntry += formatToolInput(request);
-
-  if (error) {
-    logEntry += formatIndentedField("error", error);
-  } else if (result) {
-    logEntry += formatToolResult(result);
-  }
-
-  logEntry += "\n";
-  return logEntry;
 }
 
 /**

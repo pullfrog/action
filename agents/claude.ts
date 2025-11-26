@@ -2,7 +2,7 @@ import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromNpmTarball } from "./shared.ts";
+import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
@@ -15,7 +15,7 @@ export const claude = agent({
     });
   },
   run: async ({ payload, mcpServers, apiKey, cliPath }) => {
-    process.env.ANTHROPIC_API_KEY = apiKey;
+    setupProcessAgentEnv({ ANTHROPIC_API_KEY: apiKey });
 
     const prompt = addInstructions(payload);
     console.log(prompt);

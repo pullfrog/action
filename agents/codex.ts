@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, type ConfigureMcpServersParams, installFromNpmTarball } from "./shared.ts";
+import {
+  agent,
+  type ConfigureMcpServersParams,
+  installFromNpmTarball,
+  setupProcessAgentEnv,
+} from "./shared.ts";
 
 export const codex = agent({
   name: "codex",
@@ -15,16 +20,16 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, githubInstallationToken }) => {
-    process.env.OPENAI_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
-
+  run: async ({ payload, mcpServers, apiKey, cliPath }) => {
     // create config directory for codex before setting HOME
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "codex");
     mkdirSync(configDir, { recursive: true });
 
-    process.env.HOME = tempHome;
+    setupProcessAgentEnv({
+      OPENAI_API_KEY: apiKey,
+      HOME: tempHome,
+    });
 
     configureCodexMcpServers({ mcpServers, cliPath });
 
@@ -35,10 +40,6 @@ export const codex = agent({
     };
 
     const codex = new Codex(codexOptions);
-    // Configure thread options to match Claude's permissions (bypassPermissions)
-    // approvalPolicy: "never" = no approval needed (equivalent to bypassPermissions)
-    // sandboxMode: "workspace-write" = allow file writes
-    // networkAccessEnabled: true = allow network access (needed for GitHub API calls)
     const thread = codex.startThread({
       approvalPolicy: "never",
       sandboxMode: "workspace-write",
@@ -46,10 +47,8 @@ export const codex = agent({
     });
 
     try {
-      // Use runStreamed to get streaming events similar to claude.ts
       const streamedTurn = await thread.runStreamed(addInstructions(payload));
 
-      // Stream events and handle them
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
         const handler = messageHandlers[event.type];
@@ -58,7 +57,6 @@ export const codex = agent({
           handler(event as never);
         }
 
-        // Capture final response from agent messages
         if (event.type === "item.completed" && event.item.type === "agent_message") {
           finalOutput = event.item.text;
         }

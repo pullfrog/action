@@ -241,21 +241,37 @@ async function acquireNewToken(): Promise<string> {
   }
 }
 
+// Store token in memory instead of process.env
+let githubInstallationToken: string | undefined;
+
 /**
  * Setup GitHub installation token for the action
  */
 export async function setupGitHubInstallationToken(): Promise<string> {
   const acquiredToken = await acquireNewToken();
   core.setSecret(acquiredToken);
-  process.env.GITHUB_INSTALLATION_TOKEN = acquiredToken;
-
+  githubInstallationToken = acquiredToken;
   return acquiredToken;
 }
 
 /**
- * Revoke GitHub installation token
+ * Get the GitHub installation token from memory
  */
-export async function revokeInstallationToken(token: string): Promise<void> {
+export function getGitHubInstallationToken(): string {
+  if (!githubInstallationToken) {
+    throw new Error("GitHub installation token not set. Call setupGitHubInstallationToken first.");
+  }
+  return githubInstallationToken;
+}
+
+export async function revokeGitHubInstallationToken(): Promise<void> {
+  if (!githubInstallationToken) {
+    return;
+  }
+
+  const token = githubInstallationToken;
+  githubInstallationToken = undefined;
+
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
 
   try {
