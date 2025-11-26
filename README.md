@@ -22,6 +22,8 @@ Pullfrog is a GitHub bot that brings the full power of your favorite coding agen
   <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" width="150px" />
 </a>
 
+<br />
+
 Once added, you can start triggering agent runs.
 
 - **Tag `@pullfrog`** — Tag `@pullfrog` in a comment anywhere in your repo. It will pull in any relevant context using the action's internal MCP server and perform the appropriate task.
