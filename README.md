@@ -1,6 +1,17 @@
-# Pullfrog Action
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/frog-white-200px.png">
+    <img src="https://pullfrog.ai/frog-200px.png" width="200px" align="center" alt="Pullfrog logo" />
+  </picture>
+  <h1 align="center">Pullfrog</h1>
+  <p align="center">
+    GitHub Action for running AI agents via Pullfrog to automate development workflows
+    <br/>
+    by <a href="https://pullfrog.ai">Pullfrog</a>
+  </p>
+</p>
 
-GitHub Action for running AI agents via Pullfrog to automate development workflows.
+<br/>
 
 ## What is Pullfrog?
 
@@ -20,26 +31,24 @@ Once configured, you can start triggering agent runs.
 
 Pullfrog is the bridge between GitHub and your preferred coding agents and GitHub. Use it for:
  
-- **Coding tasks** — Tell `@pullfrog` to implement something and it'll spin up a PR. If CI fails, it'll read the logs and attempt a fix automatically. It'll automatically address any PR reviews too.
-- **PR review** — Coding agents are great at reviewing PRs. Using the "PR created" trigger, you can configure Pullfrog to auto-review new PRs.
-- **Auto-respond to issues** — Via the "issue created" trigger, Pullfrog can automatically respond to common questions, create implementation plans, and link to related issues/PRs. Or (if you're feeling lucky) you can prompt it to immediately attempt a PR addressing new issues.
-- **Documentation** — 
-- **Enforce best practices** — Want to have the agent automatically add docs to all new PRs? 
+- **🤖 Coding tasks** — Tell `@pullfrog` to implement something and it'll spin up a PR. If CI fails, it'll read the logs and attempt a fix automatically. It'll automatically address any PR reviews too.
+- **🔍 PR review** — Coding agents are great at reviewing PRs. Using the "PR created" trigger, you can configure Pullfrog to auto-review new PRs.
+- **🤙 Auto-respond to issues** — Via the "issue created" trigger, Pullfrog can automatically respond to common questions, create implementation plans, and link to related issues/PRs. Or (if you're feeling lucky) you can prompt it to immediately attempt a PR addressing new issues.
+- **Literally whatever** — Want to have the agent automatically add docs to all new PRs? Cut a new release with agent-written notes on every commit to `main`? Pullfrog lets you do it.
 
-Features
+<!-- Features
 - **Agent-agnostic** — Switch between agents with the click of a radio button.
-- **
+- ** -->
 
 ## Get started
 
-
 Install the Pullfrog GitHub App on your personal or organization account. During installation you can choose to limit access to a specific repo or repos. After installation, you'll be redirected to the Pullfrog dashboard where you'll see an onboarding flow. This flow will create your `pullfrog.yml` workflow and prompt you to set up API keys. Once you finish those steps (2 minutes) you're ready to rock 🐸
 
-[Add to GitHub ➜]([https://](https://github.com/apps/pullfrog/installations/new))
+[Add to GitHub ➜](https://github.com/apps/pullfrog/installations/new)
 
 
 <details>
-<summary><strong>Manual Setup</strong></summary>
+<summary><strong>Manual setup instructions</strong></summary>
 
 You can also use the `pullfrog/action` Action without a GitHub App installation. This is more time-consuming to set up, and it places limitations on the actions your Agent will be capable of performing.
 
