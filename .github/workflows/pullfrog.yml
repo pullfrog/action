@@ -23,6 +23,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      # optionally, setup your repo here
+      # the agent can figure this out itself, but pre-setup is more efficient
+      # - uses: actions/setup-node@v6
+
       - name: Run agent
         uses: pullfrog/action@v0
         with:
