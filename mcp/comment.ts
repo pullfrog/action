@@ -168,3 +168,35 @@ export const UpdateWorkingCommentTool = tool({
     };
   }),
 });
+
+export const ReplyToReviewComment = type({
+  pull_number: type.number.describe("the pull request number"),
+  comment_id: type.number.describe("the ID of the review comment to reply to"),
+  body: type.string.describe("the reply text explaining how the feedback was addressed"),
+});
+
+export const ReplyToReviewCommentTool = tool({
+  name: "reply_to_review_comment",
+  description:
+    "Reply to a PR review comment thread explaining how the feedback was addressed. Use this after addressing each review comment to provide specific context about the changes made.",
+  parameters: ReplyToReviewComment,
+  execute: contextualize(async ({ pull_number, comment_id, body }, ctx) => {
+    const bodyWithFooter = addFooter(body, ctx.payload);
+
+    const result = await ctx.octokit.rest.pulls.createReplyForReviewComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      pull_number,
+      comment_id,
+      body: bodyWithFooter,
+    });
+
+    return {
+      success: true,
+      commentId: result.data.id,
+      url: result.data.html_url,
+      body: result.data.body,
+      in_reply_to_id: result.data.in_reply_to_id,
+    };
+  }),
+});

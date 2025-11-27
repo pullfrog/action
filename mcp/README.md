@@ -74,6 +74,31 @@ await mcp.call("gh_pullfrog/list_pull_request_reviews", {
 });
 ```
 
+#### `reply_to_review_comment`
+reply to a PR review comment thread explaining how the feedback was addressed.
+
+**parameters:**
+- `pull_number` (number): the pull request number
+- `comment_id` (number): the ID of the review comment to reply to
+- `body` (string): the reply text explaining how the feedback was addressed
+
+**replaces:** `gh api repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies`
+
+**returns:**
+the created reply comment including:
+- comment id, body, html_url
+- in_reply_to_id showing it's a reply to the specified comment
+
+**example:**
+```typescript
+// after addressing a review comment
+await mcp.call("gh_pullfrog/reply_to_review_comment", {
+  pull_number: 47,
+  comment_id: 2567334961,
+  body: "removed the function as requested"
+});
+```
+
 ### other tools
 
 see individual files for documentation on other tools:

@@ -8,6 +8,7 @@ import {
   CreateCommentTool,
   CreateWorkingCommentTool,
   EditCommentTool,
+  ReplyToReviewCommentTool,
   UpdateWorkingCommentTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
@@ -66,6 +67,7 @@ export async function startMcpHttpServer(): Promise<{ url: string; close: () => 
     EditCommentTool,
     CreateWorkingCommentTool,
     UpdateWorkingCommentTool,
+    ReplyToReviewCommentTool,
     IssueTool,
     IssueInfoTool,
     GetIssueCommentsTool,
