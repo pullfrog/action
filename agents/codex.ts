@@ -42,7 +42,8 @@ export const codex = agent({
     const codex = new Codex(codexOptions);
     const thread = codex.startThread({
       approvalPolicy: "never",
-      sandboxMode: "workspace-write",
+      // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
+      sandboxMode: "danger-full-access",
       networkAccessEnabled: true,
     });
 
