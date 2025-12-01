@@ -8,6 +8,7 @@ import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import type { show } from "@ark/util";
 import { type AgentManifest, type AgentName, agentsManifest, type Payload } from "../external.ts";
 import { log } from "../utils/cli.ts";
+import { getGitHubInstallationToken } from "../utils/github.ts";
 
 /**
  * Result returned by agent execution
@@ -24,7 +25,6 @@ export interface AgentResult {
  */
 export interface AgentConfig {
   apiKey: string;
-  githubInstallationToken: string;
   payload: Payload;
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
@@ -36,6 +36,35 @@ export interface AgentConfig {
 export interface ConfigureMcpServersParams {
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
+}
+
+/**
+ * Add agent-specific vars to a whitelisted environment object for agent subprocesses.
+ *
+ * @param agentSpecificVars - Object containing agent-specific environment variables to include
+ * @returns Whitelisted environment object safe for subprocess spawning
+ */
+export function createAgentEnv(agentSpecificVars: Record<string, string>): Record<string, string> {
+  return {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    LOG_LEVEL: process.env.LOG_LEVEL,
+    NODE_ENV: process.env.NODE_ENV,
+    GITHUB_TOKEN: getGitHubInstallationToken(),
+    ...agentSpecificVars,
+    // values could be undefined but will be ignored
+  } as never;
+}
+
+/**
+ * Set up whitelisted environment variables in the current process.
+ * Used for SDKs that run in the same process (e.g., Claude SDK, Codex SDK).
+ * Includes agent-agnostic vars (PATH, HOME, LOG_LEVEL, NODE_ENV) plus agent-specific vars.
+ *
+ * @param agentSpecificVars - Object containing agent-specific environment variables to include
+ */
+export function setupProcessAgentEnv(agentSpecificVars: Record<string, string>): void {
+  Object.assign(process.env, createAgentEnv(agentSpecificVars));
 }
 
 /**
@@ -320,17 +349,14 @@ export async function installFromCurl({
 
   log.info(`Installing to temp directory at ${tempDir}...`);
 
-  // Run the install script with HOME set to temp directory
-  // The Cursor install script installs to $HOME/.local/bin/{executableName}
-  // By setting HOME=tempDir, we ensure it installs to tempDir/.local/bin/{executableName}
   const installResult = spawnSync("bash", [installScriptPath], {
     cwd: tempDir,
     env: {
-      HOME: tempDir, // Cursor install script uses HOME for installation path
-      PATH: process.env.PATH || "",
-      SHELL: process.env.SHELL || "/bin/bash",
-      USER: process.env.USER || "",
-      TMPDIR: process.env.TMPDIR || "/tmp",
+      // Run the install script with HOME set to temp directory
+      // ensuring a fresh install for each run
+      HOME: tempDir,
+      SHELL: process.env.SHELL,
+      USER: process.env.USER,
     },
     stdio: "pipe",
     encoding: "utf-8",

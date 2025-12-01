@@ -1,11 +1,14 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/frog-white-200px.png">
-    <img src="https://pullfrog.ai/frog-200px.png" width="40px" align="center" alt="Pullfrog logo" />
-  </picture>
-  <h1 align="center">Pullfrog</h1>
+  
+  <h1 align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/frog-white-200px.png">
+      <img src="https://pullfrog.ai/frog-green-200px.png" width="25px" align="center" alt="Pullfrog logo" />
+    </picture><br />
+    Pullfrog
+  </h1>
   <p align="center">
-    GitHub Action for running AI agents via Pullfrog to automate development workflows
+    Bring your favorite coding agent into GitHub
   </p>
 </p>
 
@@ -15,7 +18,13 @@
 
 Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
 
-Once configured, you can start triggering agent runs.
+<a href="https://github.com/apps/pullfrog/installations/new">
+  <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" width="150px" />
+</a>
+
+<br />
+
+Once added, you can start triggering agent runs.
 
 - **Tag `@pullfrog`** — Tag `@pullfrog` in a comment anywhere in your repo. It will pull in any relevant context using the action's internal MCP server and perform the appropriate task.
 - **Prompt from the web** — Trigger arbitrary tasks from the Pullfrog dashboard
@@ -43,7 +52,6 @@ Pullfrog is the bridge between GitHub and your preferred coding agents and GitHu
 Install the Pullfrog GitHub App on your personal or organization account. During installation you can choose to limit access to a specific repo or repos. After installation, you'll be redirected to the Pullfrog dashboard where you'll see an onboarding flow. This flow will create your `pullfrog.yml` workflow and prompt you to set up API keys. Once you finish those steps (2 minutes) you're ready to rock 🐸
 
 [Add to GitHub ➜](https://github.com/apps/pullfrog/installations/new)
-
 
 <details>
 <summary><strong>Manual setup instructions</strong></summary>

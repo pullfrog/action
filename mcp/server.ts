@@ -8,10 +8,14 @@ import {
   CreateCommentTool,
   CreateWorkingCommentTool,
   EditCommentTool,
+  ReplyToReviewCommentTool,
   UpdateWorkingCommentTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
 import { IssueTool } from "./issue.ts";
+import { GetIssueCommentsTool } from "./issueComments.ts";
+import { GetIssueEventsTool } from "./issueEvents.ts";
+import { IssueInfoTool } from "./issueInfo.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
@@ -63,7 +67,11 @@ export async function startMcpHttpServer(): Promise<{ url: string; close: () => 
     EditCommentTool,
     CreateWorkingCommentTool,
     UpdateWorkingCommentTool,
+    ReplyToReviewCommentTool,
     IssueTool,
+    IssueInfoTool,
+    GetIssueCommentsTool,
+    GetIssueEventsTool,
     PullRequestTool,
     ReviewTool,
     PullRequestInfoTool,

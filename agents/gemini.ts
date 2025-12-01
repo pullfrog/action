@@ -2,7 +2,12 @@ import { spawnSync } from "node:child_process";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, type ConfigureMcpServersParams, installFromGithub } from "./shared.ts";
+import {
+  agent,
+  type ConfigureMcpServersParams,
+  createAgentEnv,
+  installFromGithub,
+} from "./shared.ts";
 
 // gemini cli event types inferred from stream-json output (NDJSON format)
 interface GeminiInitEvent {
@@ -152,15 +157,11 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, githubInstallationToken, cliPath }) => {
+  run: async ({ payload, apiKey, mcpServers, cliPath }) => {
     configureGeminiMcpServers({ mcpServers, cliPath });
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
-
-    // Set environment variables for Gemini CLI and MCP servers
-    process.env.GEMINI_API_KEY = apiKey;
-    process.env.GITHUB_INSTALLATION_TOKEN = githubInstallationToken;
 
     const sessionPrompt = addInstructions(payload);
     log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
@@ -170,15 +171,9 @@ export const gemini = agent({
       const result = await spawn({
         cmd: "node",
         args: [cliPath, "--yolo", "--output-format=stream-json", "-p", sessionPrompt],
-        env: {
-          PATH: process.env.PATH || "",
-          HOME: process.env.HOME || "",
-          TMPDIR: process.env.TMPDIR || "/tmp",
+        env: createAgentEnv({
           GEMINI_API_KEY: apiKey,
-          GITHUB_INSTALLATION_TOKEN: githubInstallationToken,
-          LOG_LEVEL: process.env.LOG_LEVEL!,
-          NODE_ENV: process.env.NODE_ENV!,
-        },
+        }),
         timeout: 600000, // 10 minutes
         onStdout: async (chunk) => {
           const text = chunk.toString();

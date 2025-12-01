@@ -36,6 +36,32 @@ export const modes: Mode[] = [
 `,
   },
   {
+    name: "Address Reviews",
+    description:
+      "Address PR review feedback; respond to reviewer comments; make requested changes to an existing PR",
+    prompt: `Follow these steps:
+1. ${initialCommentInstruction}
+
+2. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically fetches and checks out the PR branch)
+
+3. Review the feedback provided. Understand each review comment and what changes are being requested.
+
+4. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists.
+
+5. Make the necessary code changes to address the feedback. Work through each review comment systematically.
+
+6. After addressing each review comment, use ${ghPullfrogMcpName}/reply_to_review_comment to reply directly to that comment thread explaining what change was made (keep replies concise, 1-2 sentences).
+
+7. Test your changes to ensure they work correctly.
+
+8. Update your working comment using ${ghPullfrogMcpName}/update_working_comment to share overall progress.
+
+9. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.
+
+10. Update the Working Comment one final time with a summary of all changes made.
+`,
+  },
+  {
     name: "Review",
     description:
       "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",

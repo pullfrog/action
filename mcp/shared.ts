@@ -2,7 +2,7 @@ import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
 import type { Payload } from "../external.ts";
-import { parseRepoContext, type RepoContext } from "../utils/github.ts";
+import { getGitHubInstallationToken, parseRepoContext, type RepoContext } from "../utils/github.ts";
 
 export interface ToolResult {
   content: {
@@ -28,15 +28,10 @@ export function getPayload(): Payload {
 }
 
 export function getMcpContext(): McpContext {
-  const githubInstallationToken = process.env.GITHUB_INSTALLATION_TOKEN;
-  if (!githubInstallationToken) {
-    throw new Error("GITHUB_INSTALLATION_TOKEN environment variable is required");
-  }
-
   return {
     ...parseRepoContext(),
     octokit: new Octokit({
-      auth: githubInstallationToken,
+      auth: getGitHubInstallationToken(),
     }),
     payload: getPayload(),
   };
@@ -56,9 +51,10 @@ export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
   return server;
 };
 
-export const contextualize =
-  <T>(executor: (params: T, ctx: McpContext) => Promise<Record<string, any>>) =>
-  async (params: T): Promise<ToolResult> => {
+export const contextualize = <T>(
+  executor: (params: T, ctx: McpContext) => Promise<Record<string, any>>
+) => {
+  return async (params: T): Promise<ToolResult> => {
     try {
       const ctx = getMcpContext();
       const result = await executor(params, ctx);
@@ -67,6 +63,7 @@ export const contextualize =
       return handleToolError(error);
     }
   };
+};
 
 const handleToolSuccess = (data: Record<string, any>): ToolResult => {
   return {
