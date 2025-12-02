@@ -6,10 +6,9 @@ import { ghPullfrogMcpName } from "../external.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
-  CreateWorkingCommentTool,
   EditCommentTool,
   ReplyToReviewCommentTool,
-  UpdateWorkingCommentTool,
+  ReportProgressTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
 import { IssueTool } from "./issue.ts";
@@ -63,10 +62,9 @@ export async function startMcpHttpServer(): Promise<{ url: string; close: () => 
 
   addTools(server, [
     SelectModeTool,
+    ReportProgressTool,
     CreateCommentTool,
     EditCommentTool,
-    CreateWorkingCommentTool,
-    UpdateWorkingCommentTool,
     ReplyToReviewCommentTool,
     IssueTool,
     IssueInfoTool,

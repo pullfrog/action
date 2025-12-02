@@ -12,7 +12,7 @@ import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { fetchRepoSettings } from "./utils/api.ts";
+import { fetchRepoSettings, fetchWorkflowRunInfo } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import {
   parseRepoContext,
@@ -271,7 +271,7 @@ function parsePayload(inputs: Inputs): Payload {
 }
 
 async function startMcpServer(ctx: MainContext): Promise<void> {
-  // Set environment variables for MCP server tools
+  // set environment variables for MCP server tools
   const repoContext = parseRepoContext();
   const githubRepository = `${repoContext.owner}/${repoContext.name}`;
   const allModes = [...modes, ...(ctx.payload.modes || [])];
@@ -282,6 +282,18 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
 
   // GITHUB_RUN_ID is already set in GitHub Actions, no need to set it here
 
+  // fetch the pre-created progress comment ID from the database
+  // this must be set BEFORE starting the MCP server so comment.ts can read it
+  const runId = process.env.GITHUB_RUN_ID;
+  if (runId) {
+    const workflowRunInfo = await fetchWorkflowRunInfo(runId);
+    if (workflowRunInfo.progressCommentId) {
+      process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+      log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+    }
+  }
+
+  // start MCP server after env vars are set (comment.ts reads PULLFROG_PROGRESS_COMMENT_ID at import time)
   const { url, close } = await startMcpHttpServer();
   ctx.mcpServerUrl = url;
   ctx.mcpServerClose = close;

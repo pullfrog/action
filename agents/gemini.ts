@@ -94,14 +94,6 @@ const messageHandlers = {
   },
   tool_use: (event: GeminiToolUseEvent) => {
     if (event.tool_name) {
-      // log intent for create_working_comment
-      if (event.tool_name === "create_working_comment" && event.parameters) {
-        const params = event.parameters as { intent?: string; [key: string]: unknown };
-        if (params.intent) {
-          log.box(params.intent.trim(), { title: "Intent" });
-        }
-      }
-
       log.toolCall({
         toolName: event.tool_name,
         input: event.parameters || {},
