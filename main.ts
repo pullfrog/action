@@ -271,17 +271,6 @@ function parsePayload(inputs: Inputs): Payload {
 }
 
 async function startMcpServer(ctx: MainContext): Promise<void> {
-  // set environment variables for MCP server tools
-  const repoContext = parseRepoContext();
-  const githubRepository = `${repoContext.owner}/${repoContext.name}`;
-  const allModes = [...modes, ...(ctx.payload.modes || [])];
-
-  process.env.GITHUB_REPOSITORY = githubRepository;
-  process.env.PULLFROG_MODES = JSON.stringify(allModes);
-  process.env.PULLFROG_PAYLOAD = JSON.stringify(ctx.payload);
-
-  // GITHUB_RUN_ID is already set in GitHub Actions, no need to set it here
-
   // fetch the pre-created progress comment ID from the database
   // this must be set BEFORE starting the MCP server so comment.ts can read it
   const runId = process.env.GITHUB_RUN_ID;
@@ -293,8 +282,8 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
     }
   }
 
-  // start MCP server after env vars are set (comment.ts reads PULLFROG_PROGRESS_COMMENT_ID at import time)
-  const { url, close } = await startMcpHttpServer();
+  const allModes = [...modes, ...(ctx.payload.modes || [])];
+  const { url, close } = await startMcpHttpServer({ payload: ctx.payload, modes: allModes });
   ctx.mcpServerUrl = url;
   ctx.mcpServerClose = close;
   log.info(`🚀 MCP server started at ${url}`);
