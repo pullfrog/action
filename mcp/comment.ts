@@ -12,19 +12,17 @@ function buildCommentFooter(payload: Payload): string {
 
   const agentName = payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
-  const agentDisplayName = agentInfo?.displayName || "Unknown Agent";
+  const agentDisplayName = agentInfo?.displayName || "Unknown agent";
   const agentUrl = agentInfo?.url || "https://pullfrog.ai";
 
   // build workflow run link or show unavailable message
   const workflowRunPart = runId
     ? `[View workflow run](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
-    : "(workflow link unavailable)";
+    : "View workflow run";
 
   return `
 ${PULLFROG_DIVIDER}
----
-
-<sup>🐸 Triggered by [Pullfrog](https://pullfrog.ai) | 🤖 [${agentDisplayName}](${agentUrl}) | ${workflowRunPart} | [𝕏](https://x.com/pullfrogai)</sup>`;
+<sup><a href="https://pullfrog.ai"><picture><source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/logos/frog-white-full-128px.png"><img src="https://pullfrog.ai/logos/frog-green-full-128px.png" width="9px" height="9px" style="vertical-align: middle; " alt="Pullfrog"></picture></a>&nbsp;&nbsp;｜ Triggered by [Pullfrog](https://pullfrog.ai) ｜ Using [${agentDisplayName}](${agentUrl}) ｜ ${workflowRunPart} ｜ [𝕏](https://x.com/pullfrogai)</sup>`;
 }
 
 function stripExistingFooter(body: string): string {
@@ -167,7 +165,10 @@ export const ReportProgressTool = tool({
     const issueNumber = ctx.payload.event.issue_number;
     if (issueNumber === undefined) {
       // fail silently
-      return { suggess: true };
+      return {
+        success: false,
+        message: "cannot create progress comment: no issue_number found in the payload event",
+      };
       // throw new Error(
       //   "cannot create progress comment: no issue_number found in the payload event"
       // );

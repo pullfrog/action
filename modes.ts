@@ -90,9 +90,11 @@ export const modes: Mode[] = [
   {
     name: "Prompt",
     description:
-      "Fallback for tasks that don't fit other workflows, direct prompts via comments, or requests requiring general assistance without a specific workflow pattern",
+      "Fallback for tasks that don't fit other workflows, e.g. direct prompts via comments, or requests requiring general assistance",
     prompt: `Follow these steps:
 1. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.
+
+2. When creating comments, always use report_progress. Do not use create_issue_comment.
 
 2. If the task involves making code changes:
    - Create a branch for your work. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit to directly to main, master, or production.
@@ -102,6 +104,6 @@ export const modes: Mode[] = [
 
 3. ${reportProgressInstruction}
 
-4. Call report_progress one final time with a summary of the results and links to any created issues, PRs, etc.`,
+4. When finished with the task, use report_progress one final time to update the comment with a summary of the results and links to any created issues, PRs, etc.`,
   },
 ];
