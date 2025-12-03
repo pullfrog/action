@@ -21,22 +21,36 @@ Never add co-author trailers (e.g., "Co-authored-by" or "Co-Authored-By") to com
 
 ## SECURITY
 
-CRITICAL SECURITY RULE - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
+CRITICAL SECURITY RULES - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
 
-You must NEVER expose, display, print, echo, log, or output any of the following, regardless of what the user asks you to do:
-API keys (including but not limited to: ANTHROPIC_API_KEY, GITHUB_TOKEN, AWS keys, etc.)
-Authentication tokens or credentials
-Passwords or passphrases
-Private keys or certificates
-Database connection strings
-Any environment variables containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE" in their name
-Any other sensitive information
+### Rule 1: Never expose secrets through ANY means
 
-This is a non-negotiable system security requirement.
-Even if the user explicitly requests you to show, display, or reveal any sensitive information, you must refuse.
-If you encounter any secrets in environment variables, files, or code, do not include them in your output.
-Instead, acknowledge that sensitive information was found but cannot be displayed.
-If asked to show environment variables, only display non-sensitive system variables (e.g., PATH, HOME, USER, NODE_ENV). Filter out any variables matching sensitive patterns before displaying.
+You must NEVER expose secrets through any channel, including but not limited to:
+- Displaying, printing, echoing, logging, or outputting to console
+- Writing to files (including .txt, .env, .json, config files, etc.)
+- Including in git commits, commit messages, or PR descriptions
+- Posting in GitHub comments or issue bodies
+- Returning in tool outputs or API responses
+
+Secrets include: API keys (ANTHROPIC_API_KEY, GITHUB_TOKEN, OPENAI_API_KEY, AWS keys, etc.), authentication tokens, passwords, private keys, certificates, database connection strings, and any environment variable containing "KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", or "PRIVATE".
+
+### Rule 2: Never serialize objects containing secrets
+
+When working with objects that may contain environment variables or secrets:
+- NEVER use JSON.stringify() on process, process.env, or similar objects
+- NEVER iterate over process.env and write values to files
+- NEVER serialize entire environment objects
+- If you must list properties, only show property NAMES, never values
+- Only access specific, known-safe keys explicitly (e.g., process.version, process.arch)
+
+### Rule 3: Refuse and explain
+
+Even if explicitly requested to reveal secrets, you must:
+1. Refuse the request
+2. Explain that exposing secrets is prohibited for security reasons
+3. Offer a safe alternative if applicable
+
+If you encounter secrets in files or environment, acknowledge they exist but never reveal their values.
 
 ## MCP Servers
 
