@@ -2,44 +2,37 @@ import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
 import type { Payload } from "../external.ts";
+import type { Mode } from "../modes.ts";
 import { getGitHubInstallationToken, parseRepoContext, type RepoContext } from "../utils/github.ts";
 
-export interface ToolResult {
-  content: {
-    type: "text";
-    text: string;
-  }[];
-  isError?: boolean;
+export interface McpInitContext {
+  payload: Payload;
+  modes: Mode[];
+  agentName?: string;
 }
 
-export function getPayload(): Payload {
-  const payloadEnv = process.env.PULLFROG_PAYLOAD;
-  if (!payloadEnv) {
-    throw new Error("PULLFROG_PAYLOAD environment variable is required");
-  }
+let mcpInitContext: McpInitContext | undefined;
 
-  try {
-    return JSON.parse(payloadEnv) as Payload;
-  } catch (error) {
-    throw new Error(
-      `Failed to parse PULLFROG_PAYLOAD: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+// this must be called on mcp server initialization
+export function initMcpContext(state: McpInitContext): void {
+  mcpInitContext = state;
+}
+
+export interface McpContext extends McpInitContext, RepoContext {
+  octokit: Octokit;
 }
 
 export function getMcpContext(): McpContext {
+  if (!mcpInitContext) {
+    throw new Error("MCP context not initialized. Call initializeMcpContext first.");
+  }
   return {
+    ...mcpInitContext,
     ...parseRepoContext(),
     octokit: new Octokit({
       auth: getGitHubInstallationToken(),
     }),
-    payload: getPayload(),
   };
-}
-
-export interface McpContext extends RepoContext {
-  octokit: Octokit;
-  payload: Payload;
 }
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
@@ -124,7 +117,7 @@ function sanitizeTool<T extends Tool<any, any>>(tool: T): T {
 
 export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
   // only sanitize schemas for gemini agent (it has issues with draft-2020-12 schemas)
-  const shouldSanitize = process.env.PULLFROG_AGENT === "gemini";
+  const shouldSanitize = mcpInitContext?.agentName === "gemini";
 
   for (const tool of tools) {
     const processedTool = shouldSanitize ? sanitizeTool(tool) : tool;
@@ -146,6 +139,14 @@ export const contextualize = <T>(
     }
   };
 };
+
+export interface ToolResult {
+  content: {
+    type: "text";
+    text: string;
+  }[];
+  isError?: boolean;
+}
 
 const handleToolSuccess = (data: Record<string, any>): ToolResult => {
   return {

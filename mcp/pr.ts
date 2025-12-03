@@ -1,5 +1,6 @@
 import { type } from "arktype";
 import { log } from "../utils/cli.ts";
+import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
 import { contextualize, tool } from "./shared.ts";
 
@@ -14,10 +15,25 @@ export const PullRequestTool = tool({
   description: "Create a pull request from the current branch",
   parameters: PullRequest,
   execute: contextualize(async ({ title, body, base }, ctx) => {
-    // Get the current branch name
     const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
-
     log.info(`Current branch: ${currentBranch}`);
+
+    // validate PR title and body for secrets
+    if (containsSecrets(title) || containsSecrets(body)) {
+      throw new Error(
+        "PR creation blocked: secrets detected in PR title or body. " +
+          "Please remove any sensitive information (API keys, tokens, passwords) before creating a PR."
+      );
+    }
+
+    // validate all changes that would be in the PR (from base to HEAD)
+    const diff = $("git", ["diff", `origin/${base}...HEAD`], { log: false });
+    if (containsSecrets(diff)) {
+      throw new Error(
+        "PR creation blocked: secrets detected in changes. " +
+          "Please remove any sensitive information (API keys, tokens, passwords) before creating a PR."
+      );
+    }
 
     const result = await ctx.octokit.rest.pulls.create({
       owner: ctx.owner,

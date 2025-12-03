@@ -6,10 +6,9 @@ import { ghPullfrogMcpName } from "../external.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
-  CreateWorkingCommentTool,
   EditCommentTool,
   ReplyToReviewCommentTool,
-  UpdateWorkingCommentTool,
+  ReportProgressTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
 import { IssueTool } from "./issue.ts";
@@ -21,7 +20,7 @@ import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
-import { addTools } from "./shared.ts";
+import { addTools, initMcpContext, type McpInitContext } from "./shared.ts";
 
 /**
  * Find an available port starting from the given port
@@ -55,7 +54,11 @@ async function findAvailablePort(startPort: number): Promise<number> {
 /**
  * Start the MCP HTTP server and return the URL and close function
  */
-export async function startMcpHttpServer(): Promise<{ url: string; close: () => Promise<void> }> {
+export async function startMcpHttpServer(
+  state: McpInitContext
+): Promise<{ url: string; close: () => Promise<void> }> {
+  initMcpContext(state);
+
   const server = new FastMCP({
     name: ghPullfrogMcpName,
     version: "0.0.1",
@@ -63,10 +66,9 @@ export async function startMcpHttpServer(): Promise<{ url: string; close: () => 
 
   addTools(server, [
     SelectModeTool,
+    ReportProgressTool,
     CreateCommentTool,
     EditCommentTool,
-    CreateWorkingCommentTool,
-    UpdateWorkingCommentTool,
     ReplyToReviewCommentTool,
     IssueTool,
     IssueInfoTool,

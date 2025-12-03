@@ -47,10 +47,11 @@ export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
 // discriminated union for payload event based on trigger
+// note: all events use issue_number for consistency (PRs are issues in GitHub's API)
 export type PayloadEvent =
   | {
       trigger: "pull_request_opened";
-      pr_number: number;
+      issue_number: number;
       pr_title: string;
       pr_body: string | null;
       branch: string;
@@ -58,7 +59,7 @@ export type PayloadEvent =
     }
   | {
       trigger: "pull_request_review_requested";
-      pr_number: number;
+      issue_number: number;
       pr_title: string;
       pr_body: string | null;
       branch: string;
@@ -66,7 +67,7 @@ export type PayloadEvent =
     }
   | {
       trigger: "pull_request_review_submitted";
-      pr_number: number;
+      issue_number: number;
       review_id: number;
       review_body: string | null;
       review_state: string;
@@ -77,7 +78,7 @@ export type PayloadEvent =
     }
   | {
       trigger: "pull_request_review_comment_created";
-      pr_number: number;
+      issue_number: number;
       pr_title: string;
       comment_id: number;
       comment_body: string;
@@ -116,7 +117,7 @@ export type PayloadEvent =
     }
   | {
       trigger: "check_suite_completed";
-      pr_number: number;
+      issue_number: number;
       pr_title: string;
       pr_body: string | null;
       pull_request: any;
@@ -129,6 +130,10 @@ export type PayloadEvent =
         conclusion: string | null;
         url: string;
       };
+      [key: string]: any;
+    }
+  | {
+      trigger: "workflow_dispatch";
       [key: string]: any;
     }
   | {

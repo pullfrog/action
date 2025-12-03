@@ -15,16 +15,16 @@ function buildCommentFooter(payload: Payload): string {
   const agentDisplayName = agentInfo?.displayName || "Unknown Agent";
   const agentUrl = agentInfo?.url || "https://pullfrog.ai";
 
-  // build workflow run URL: https://github.com/{owner}/{repo}/actions/runs/{runId}
-  const workflowRunUrl = runId
-    ? `https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId}`
-    : `https://github.com/${repoContext.owner}/${repoContext.name}`;
+  // build workflow run link or show unavailable message
+  const workflowRunPart = runId
+    ? `[View workflow run](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
+    : "(workflow link unavailable)";
 
   return `
 ${PULLFROG_DIVIDER}
 ---
 
-<sup>🐸 Triggered by [Pullfrog](https://pullfrog.ai) | 🤖 [${agentDisplayName}](${agentUrl}) | [View workflow run](${workflowRunUrl}) | [𝕏](https://x.com/pullfrogai)</sup>`;
+<sup>🐸 Triggered by [Pullfrog](https://pullfrog.ai) | 🤖 [${agentDisplayName}](${agentUrl}) | ${workflowRunPart} | [𝕏](https://x.com/pullfrogai)</sup>`;
 }
 
 function stripExistingFooter(body: string): string {
@@ -98,27 +98,80 @@ export const EditCommentTool = tool({
   }),
 });
 
-let workingCommentId: number | null = null;
+/**
+ * Get progress comment ID from environment variable.
+ * This allows the webhook handler to pre-create a "leaping into action" comment
+ * and pass the ID to the action for updates.
+ */
+function getProgressCommentIdFromEnv(): number | null {
+  const envCommentId = process.env.PULLFROG_PROGRESS_COMMENT_ID;
+  if (envCommentId) {
+    const parsed = parseInt(envCommentId, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
 
-export const WorkingComment = type({
-  issueNumber: type.number.describe("the issue number to comment on"),
-  intent: type("/^I'll .+$/").describe(
-    "the body of the initial comment expressing your intent to handle the request. must have the form 'I'll {summary of request}'"
-  ),
+// module-level variable to track the progress comment ID
+// initialized lazily on first use to allow env var to be set after module load
+let progressCommentId: number | null = null;
+let progressCommentIdInitialized = false;
+
+function getProgressCommentId(): number | null {
+  if (!progressCommentIdInitialized) {
+    progressCommentId = getProgressCommentIdFromEnv();
+    progressCommentIdInitialized = true;
+  }
+  return progressCommentId;
+}
+
+function setProgressCommentId(id: number): void {
+  progressCommentId = id;
+  progressCommentIdInitialized = true;
+}
+
+export const ReportProgress = type({
+  body: type.string.describe("the progress update content to share"),
 });
 
-export const CreateWorkingCommentTool = tool({
-  name: "create_working_comment",
+export const ReportProgressTool = tool({
+  name: "report_progress",
   description:
-    "Create an initial comment on a GitHub issue that will be updated as work progresses",
-  parameters: WorkingComment,
-  execute: contextualize(async ({ issueNumber, intent }, ctx) => {
-    if (workingCommentId) {
-      throw new Error("create_working_comment may not be called multiple times");
+    "Share progress on the associated GitHub issue/PR. Call this to post updates as you work. The first call creates a comment, subsequent calls update it. Use this throughout your work to keep stakeholders informed.",
+  parameters: ReportProgress,
+  execute: contextualize(async ({ body }, ctx) => {
+    const bodyWithFooter = addFooter(body, ctx.payload);
+    const existingCommentId = getProgressCommentId();
+
+    // if we already have a progress comment, update it
+    if (existingCommentId) {
+      const result = await ctx.octokit.rest.issues.updateComment({
+        owner: ctx.owner,
+        repo: ctx.name,
+        comment_id: existingCommentId,
+        body: bodyWithFooter,
+      });
+
+      return {
+        success: true,
+        commentId: result.data.id,
+        url: result.data.html_url,
+        body: result.data.body,
+        action: "updated",
+      };
     }
 
-    const body = `${intent} <img src="https://pullfrog.ai/party-parrot.gif" width="14px" height="14px" style="vertical-align: middle; margin-left: 4px;" />`;
-    const bodyWithFooter = addFooter(body, ctx.payload);
+    // no existing comment - create one
+    const issueNumber = ctx.payload.event.issue_number;
+    if (issueNumber === undefined) {
+      // fail silently
+      return { suggess: true };
+      // throw new Error(
+      //   "cannot create progress comment: no issue_number found in the payload event"
+      // );
+    }
 
     const result = await ctx.octokit.rest.issues.createComment({
       owner: ctx.owner,
@@ -127,44 +180,15 @@ export const CreateWorkingCommentTool = tool({
       body: bodyWithFooter,
     });
 
-    workingCommentId = result.data.id;
+    // store the comment ID for future updates
+    setProgressCommentId(result.data.id);
 
     return {
       success: true,
       commentId: result.data.id,
       url: result.data.html_url,
       body: result.data.body,
-    };
-  }),
-});
-
-export const WorkingCommentUpdate = type({
-  body: type.string.describe("the new comment body content"),
-});
-
-export const UpdateWorkingCommentTool = tool({
-  name: "update_working_comment",
-  description: "Update a working comment on a GitHub issue",
-  parameters: WorkingCommentUpdate,
-  execute: contextualize(async ({ body }, ctx) => {
-    if (!workingCommentId) {
-      throw new Error("create_working_comment must be called before update_working_comment");
-    }
-
-    const bodyWithFooter = addFooter(body, ctx.payload);
-
-    const result = await ctx.octokit.rest.issues.updateComment({
-      owner: ctx.owner,
-      repo: ctx.name,
-      comment_id: workingCommentId,
-      body: bodyWithFooter,
-    });
-
-    return {
-      success: true,
-      commentId: result.data.id,
-      url: result.data.html_url,
-      body: result.data.body,
+      action: "created",
     };
   }),
 });

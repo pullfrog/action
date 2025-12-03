@@ -2,7 +2,7 @@ import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
+import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
@@ -15,17 +15,21 @@ export const claude = agent({
     });
   },
   run: async ({ payload, mcpServers, apiKey, cliPath }) => {
-    setupProcessAgentEnv({ ANTHROPIC_API_KEY: apiKey });
+    // Ensure API key is NOT in process.env - only pass via SDK's env option
+    delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions(payload);
     console.log(prompt);
 
+    // Pass secrets via SDK's env option only (not process.env)
+    // This ensures secrets are only available to Claude Code subprocess, not user code
     const queryInstance = query({
       prompt,
       options: {
         permissionMode: "bypassPermissions",
         mcpServers,
         pathToClaudeCodeExecutable: cliPath,
+        env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
       },
     });
 
