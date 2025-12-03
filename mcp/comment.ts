@@ -166,9 +166,11 @@ export const ReportProgressTool = tool({
     // no existing comment - create one
     const issueNumber = ctx.payload.event.issue_number;
     if (issueNumber === undefined) {
-      throw new Error(
-        "cannot create progress comment: no issue_number found in the payload event"
-      );
+      // fail silently
+      return { suggess: true };
+      // throw new Error(
+      //   "cannot create progress comment: no issue_number found in the payload event"
+      // );
     }
 
     const result = await ctx.octokit.rest.issues.createComment({
