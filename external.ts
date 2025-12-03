@@ -133,7 +133,7 @@ export type PayloadEvent =
       [key: string]: any;
     }
   | {
-      trigger: "unknown";
+      trigger: "workflow_dispatch";
       [key: string]: any;
     };
 
