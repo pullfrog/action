@@ -1,1 +1,1 @@
-summarize https://github.com/pullfrogai/scratch/issues/56, its status, and pertinent discussion on the issue
+Use the debug_shell_command MCP tool to run git status and show me the output.

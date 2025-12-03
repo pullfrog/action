@@ -279,6 +279,7 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
   process.env.GITHUB_REPOSITORY = githubRepository;
   process.env.PULLFROG_MODES = JSON.stringify(allModes);
   process.env.PULLFROG_PAYLOAD = JSON.stringify(ctx.payload);
+  process.env.PULLFROG_AGENT = ctx.agentName;
 
   // GITHUB_RUN_ID is already set in GitHub Actions, no need to set it here
 

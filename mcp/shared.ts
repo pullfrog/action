@@ -44,9 +44,91 @@ export interface McpContext extends RepoContext {
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
+/**
+ * Sanitize JSON schema to remove problematic fields that Gemini CLI can't handle
+ * - Removes $schema field (causes "no schema with key or ref" errors)
+ * - Converts $defs to definitions (draft-07 compatibility)
+ * - Removes any draft-2020-12 specific features
+ */
+function sanitizeSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeSchema);
+  }
+
+  const sanitized: any = {};
+
+  for (const [key, value] of Object.entries(schema)) {
+    // skip $schema field entirely
+    if (key === "$schema") {
+      continue;
+    }
+
+    // convert $defs to definitions for draft-07 compatibility
+    if (key === "$defs") {
+      sanitized.definitions = sanitizeSchema(value);
+      continue;
+    }
+
+    // recursively sanitize nested objects
+    sanitized[key] = sanitizeSchema(value);
+  }
+
+  return sanitized;
+}
+
+/**
+ * Wrap a StandardSchemaV1 to intercept toJsonSchema() calls and sanitize the output
+ */
+function wrapSchema(schema: StandardSchemaV1<any>): StandardSchemaV1<any> {
+  const originalToJsonSchema = (schema as any).toJsonSchema?.bind(schema);
+
+  if (!originalToJsonSchema) {
+    return schema;
+  }
+
+  // create a proxy that intercepts toJsonSchema calls
+  return new Proxy(schema, {
+    get(target, prop) {
+      if (prop === "toJsonSchema") {
+        return () => {
+          const originalSchema = originalToJsonSchema();
+          return sanitizeSchema(originalSchema);
+        };
+      }
+      return (target as any)[prop];
+    },
+  }) as StandardSchemaV1<any>;
+}
+
+/**
+ * Transform tool to sanitize its parameter schema for Gemini CLI compatibility
+ */
+function sanitizeTool<T extends Tool<any, any>>(tool: T): T {
+  if (!tool.parameters) {
+    return tool;
+  }
+
+  // wrap the schema object to intercept toJsonSchema() calls
+  const wrappedSchema = wrapSchema(tool.parameters);
+
+  // create a new tool with wrapped schema
+  return {
+    ...tool,
+    parameters: wrappedSchema,
+  } as T;
+}
+
 export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
+  // only sanitize schemas for gemini agent (it has issues with draft-2020-12 schemas)
+  const shouldSanitize = process.env.PULLFROG_AGENT === "gemini";
+
   for (const tool of tools) {
-    server.addTool(tool);
+    const processedTool = shouldSanitize ? sanitizeTool(tool) : tool;
+    server.addTool(processedTool);
   }
   return server;
 };

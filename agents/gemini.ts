@@ -173,8 +173,9 @@ export const gemini = agent({
         args: [cliPath, "--yolo", "--output-format=stream-json", "-p", sessionPrompt],
         env: createAgentEnv({
           GEMINI_API_KEY: apiKey,
+          GEMINI_CLI_DISABLE_SCHEMA_VALIDATION:
+            process.env.GEMINI_CLI_DISABLE_SCHEMA_VALIDATION || "1",
         }),
-        timeout: 600000, // 10 minutes
         onStdout: async (chunk) => {
           const text = chunk.toString();
           finalOutput += text;
@@ -257,6 +258,11 @@ function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersP
       const addResult = spawnSync("node", [cliPath, ...addArgs], {
         stdio: "pipe",
         encoding: "utf-8",
+        env: {
+          ...process.env,
+          GEMINI_CLI_DISABLE_SCHEMA_VALIDATION:
+            process.env.GEMINI_CLI_DISABLE_SCHEMA_VALIDATION || "1",
+        },
       });
 
       if (addResult.status !== 0) {
