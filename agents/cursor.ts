@@ -94,11 +94,10 @@ export const cursor = agent({
   run: async ({ payload, apiKey, cliPath, mcpServers }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
 
-    // track logged messages to avoid duplicates
-    const loggedAssistantMessages = new Set<string>();
+    // track logged model_call_ids to avoid duplicates
+    // cursor emits each assistant message twice: once without model_call_id, then again with it
+    const loggedModelCallIds = new Set<string>();
 
-    // moved into `run` because it is stateful
-    // it tracks logged assistant messages to avoid duplicates
     const messageHandlers = {
       system: (_event: CursorSystemEvent) => {
         // system init events - no logging needed
@@ -111,8 +110,22 @@ export const cursor = agent({
       },
       assistant: (event: CursorAssistantEvent) => {
         const text = event.message?.content?.[0]?.text?.trim();
-        if (text && !loggedAssistantMessages.has(text)) {
-          loggedAssistantMessages.add(text);
+        if (!text) return;
+
+        if (event.model_call_id) {
+          // complete message with model_call_id - log it if we haven't seen this id before
+          // cursor emits each message twice: first without model_call_id, then with it
+          // we deduplicate by model_call_id to avoid logging the same message twice
+          if (!loggedModelCallIds.has(event.model_call_id)) {
+            loggedModelCallIds.add(event.model_call_id);
+            log.box(text, { title: "Cursor" });
+          }
+        } else {
+          // message without model_call_id - log it immediately
+          // this handles cases where:
+          // 1. the final summary message might only be emitted without model_call_id
+          // 2. messages that don't get re-emitted with model_call_id
+          // without this, the final comprehensive summary wouldn't print (as we discovered)
           log.box(text, { title: "Cursor" });
         }
       },
@@ -144,6 +157,9 @@ export const cursor = agent({
         if (event.subtype === "success" && event.duration_ms) {
           const durationSec = (event.duration_ms / 1000).toFixed(1);
           log.debug(`Cursor completed in ${durationSec}s`);
+          // note: we don't log event.result here because it contains the full conversation
+          // concatenated together, which would duplicate all the individual assistant
+          // messages we've already logged. the individual assistant events are sufficient.
         }
       },
     };
@@ -163,7 +179,7 @@ export const cursor = agent({
             fullPrompt,
             "--output-format",
             "stream-json",
-            "--stream-partial-output",
+            // "--stream-partial-output",
             "--approve-mcps",
             "--force",
           ],
@@ -190,7 +206,7 @@ export const cursor = agent({
           try {
             const event = JSON.parse(text) as CursorEvent;
 
-            // skip debug logging for empty thinking deltas
+            // skip empty thinking deltas
             if (event.type === "thinking" && event.subtype === "delta" && !event.text) {
               return;
             }
@@ -200,9 +216,6 @@ export const cursor = agent({
             if (handler) {
               await handler(event as never);
             }
-
-            // debug: log all events
-            log.debug(`[cursor event] ${JSON.stringify(event, null, 2)}`);
           } catch {
             // ignore parse errors - might be formatted tool call logs from cursor cli
             // our handlers log tool calls instead, so we don't need to display these
