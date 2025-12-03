@@ -165,8 +165,6 @@ export const gemini = agent({
         args: [cliPath, "--yolo", "--output-format=stream-json", "-p", sessionPrompt],
         env: createAgentEnv({
           GEMINI_API_KEY: apiKey,
-          GEMINI_CLI_DISABLE_SCHEMA_VALIDATION:
-            process.env.GEMINI_CLI_DISABLE_SCHEMA_VALIDATION || "1",
         }),
         onStdout: async (chunk) => {
           const text = chunk.toString();
@@ -252,8 +250,6 @@ function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersP
         encoding: "utf-8",
         env: {
           ...process.env,
-          GEMINI_CLI_DISABLE_SCHEMA_VALIDATION:
-            process.env.GEMINI_CLI_DISABLE_SCHEMA_VALIDATION || "1",
         },
       });
 
