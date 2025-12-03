@@ -263,7 +263,7 @@ function parsePayload(inputs: Inputs): Payload {
       agent: null,
       prompt: inputs.prompt,
       event: {
-        trigger: "workflow_dispatch",
+        trigger: "unknown",
       },
       modes,
     };

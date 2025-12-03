@@ -83,58 +83,6 @@ type CursorEvent =
   | CursorToolCallEvent
   | CursorResultEvent;
 
-const messageHandlers = {
-  system: (_event: CursorSystemEvent) => {
-    // system init events - no logging needed
-  },
-  user: (_event: CursorUserEvent) => {
-    // user messages already logged in prompt box
-  },
-  thinking: (_event: CursorThinkingEvent) => {
-    // thinking events are internal - no logging needed
-  },
-  assistant: (event: CursorAssistantEvent) => {
-    // only log finalized messages (ones with model_call_id)
-    // cursor emits each message twice: once without model_call_id, then again with it
-    if (event.model_call_id) {
-      const text = event.message?.content?.[0]?.text;
-      if (text?.trim()) {
-        log.box(text.trim(), { title: "Cursor" });
-      }
-    }
-  },
-  tool_call: (event: CursorToolCallEvent) => {
-    if (event.subtype === "started") {
-      // handle both MCP tools and built-in tools (bash, WebFetch, etc)
-      const mcpToolCall = event.tool_call?.mcpToolCall;
-      const builtinToolCall = (event.tool_call as any)?.builtinToolCall;
-
-      if (mcpToolCall?.args?.toolName && mcpToolCall?.args?.args) {
-        log.toolCall({
-          toolName: mcpToolCall.args.toolName,
-          input: mcpToolCall.args.args,
-        });
-      } else if (builtinToolCall?.args?.name && builtinToolCall?.args?.args) {
-        log.toolCall({
-          toolName: builtinToolCall.args.name,
-          input: builtinToolCall.args.args,
-        });
-      }
-    } else if (event.subtype === "completed") {
-      const isError = event.tool_call?.mcpToolCall?.result?.success?.isError;
-      if (isError) {
-        log.warning("Tool call failed");
-      }
-    }
-  },
-  result: async (event: CursorResultEvent) => {
-    if (event.subtype === "success" && event.duration_ms) {
-      const durationSec = (event.duration_ms / 1000).toFixed(1);
-      log.debug(`Cursor completed in ${durationSec}s`);
-    }
-  },
-};
-
 export const cursor = agent({
   name: "cursor",
   install: async () => {
@@ -145,6 +93,60 @@ export const cursor = agent({
   },
   run: async ({ payload, apiKey, cliPath, mcpServers }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
+
+    // track logged messages to avoid duplicates
+    const loggedAssistantMessages = new Set<string>();
+
+    // moved into `run` because it is stateful
+    // it tracks logged assistant messages to avoid duplicates
+    const messageHandlers = {
+      system: (_event: CursorSystemEvent) => {
+        // system init events - no logging needed
+      },
+      user: (_event: CursorUserEvent) => {
+        // user messages already logged in prompt box
+      },
+      thinking: (_event: CursorThinkingEvent) => {
+        // thinking events are internal - no logging needed
+      },
+      assistant: (event: CursorAssistantEvent) => {
+        const text = event.message?.content?.[0]?.text?.trim();
+        if (text && !loggedAssistantMessages.has(text)) {
+          loggedAssistantMessages.add(text);
+          log.box(text, { title: "Cursor" });
+        }
+      },
+      tool_call: (event: CursorToolCallEvent) => {
+        if (event.subtype === "started") {
+          // handle both MCP tools and built-in tools (bash, WebFetch, etc)
+          const mcpToolCall = event.tool_call?.mcpToolCall;
+          const builtinToolCall = (event.tool_call as any)?.builtinToolCall;
+
+          if (mcpToolCall?.args?.toolName && mcpToolCall?.args?.args) {
+            log.toolCall({
+              toolName: mcpToolCall.args.toolName,
+              input: mcpToolCall.args.args,
+            });
+          } else if (builtinToolCall?.args?.name && builtinToolCall?.args?.args) {
+            log.toolCall({
+              toolName: builtinToolCall.args.name,
+              input: builtinToolCall.args.args,
+            });
+          }
+        } else if (event.subtype === "completed") {
+          const isError = event.tool_call?.mcpToolCall?.result?.success?.isError;
+          if (isError) {
+            log.warning("Tool call failed");
+          }
+        }
+      },
+      result: async (event: CursorResultEvent) => {
+        if (event.subtype === "success" && event.duration_ms) {
+          const durationSec = (event.duration_ms / 1000).toFixed(1);
+          log.debug(`Cursor completed in ${durationSec}s`);
+        }
+      },
+    };
 
     try {
       const fullPrompt = addInstructions(payload);
@@ -187,6 +189,11 @@ export const cursor = agent({
 
           try {
             const event = JSON.parse(text) as CursorEvent;
+
+            // skip debug logging for empty thinking deltas
+            if (event.type === "thinking" && event.subtype === "delta" && !event.text) {
+              return;
+            }
 
             // route to appropriate handler
             const handler = messageHandlers[event.type as keyof typeof messageHandlers];

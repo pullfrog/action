@@ -70,7 +70,7 @@ Before starting any work, you must first determine which mode to use by examinin
 
 Available modes:
 
-${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${(payload.modes.length > 0 ? payload.modes : modes).map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 **IMPORTANT**: The first thing you must do is:
 1. Examine the user's request/prompt carefully

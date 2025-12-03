@@ -1,1 +1,1 @@
-summarize https://github.com/pullfrogai/scratch/issues/56, its status, and pertinent discussion on the issue
+Tell me a joke

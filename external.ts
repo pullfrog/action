@@ -135,6 +135,10 @@ export type PayloadEvent =
   | {
       trigger: "workflow_dispatch";
       [key: string]: any;
+    }
+  | {
+      trigger: "unknown";
+      [key: string]: any;
     };
 
 // payload type for agent execution
