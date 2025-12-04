@@ -93,6 +93,7 @@ export const cursor = agent({
   },
   run: async ({ payload, apiKey, cliPath, mcpServers }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
+    configureCursorSandbox({ sandbox: payload.sandbox ?? false });
 
     // track logged model_call_ids to avoid duplicates
     // cursor emits each assistant message twice: once without model_call_id, then again with it
@@ -167,30 +168,35 @@ export const cursor = agent({
     try {
       const fullPrompt = addInstructions(payload);
 
+      // configure sandbox mode if enabled
+      // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings
+      const cursorArgs = payload.sandbox
+        ? [
+            "--print",
+            fullPrompt,
+            "--output-format",
+            "stream-json",
+            "--approve-mcps",
+            // --force removed in sandbox mode to enforce safety checks
+          ]
+        : ["--print", fullPrompt, "--output-format", "stream-json", "--approve-mcps", "--force"];
+
+      if (payload.sandbox) {
+        log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+      }
+
       log.info("Running Cursor CLI...");
 
       const startTime = Date.now();
 
       return new Promise((resolve) => {
-        const child = spawn(
-          cliPath,
-          [
-            "--print",
-            fullPrompt,
-            "--output-format",
-            "stream-json",
-            // "--stream-partial-output",
-            "--approve-mcps",
-            "--force",
-          ],
-          {
-            cwd: process.cwd(),
-            env: createAgentEnv({
-              CURSOR_API_KEY: apiKey,
-            }),
-            stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
-          }
-        );
+        const child = spawn(cliPath, cursorArgs, {
+          cwd: process.cwd(),
+          env: createAgentEnv({
+            CURSOR_API_KEY: apiKey,
+          }),
+          stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
+        });
 
         let stdout = "";
         let stderr = "";
@@ -302,4 +308,43 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
 
   writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: cursorMcpServers }, null, 2), "utf-8");
   log.info(`MCP config written to ${mcpConfigPath}`);
+}
+
+/**
+ * Configure Cursor CLI sandbox mode via cli-config.json.
+ * When sandbox is enabled, denies all file writes and shell commands.
+ * In print mode without --force, writes are blocked by default, but we add
+ * explicit deny rules as defense in depth.
+ *
+ * See: https://cursor.com/docs/cli/reference/permissions
+ */
+function configureCursorSandbox({ sandbox }: { sandbox: boolean }): void {
+  const realHome = homedir();
+  const cursorConfigDir = join(realHome, ".cursor");
+  const cliConfigPath = join(cursorConfigDir, "cli-config.json");
+  mkdirSync(cursorConfigDir, { recursive: true });
+
+  const config = sandbox
+    ? {
+        // sandbox mode: deny all writes and shell commands
+        permissions: {
+          allow: [
+            "Read(**)", // allow reading all files
+          ],
+          deny: [
+            "Write(**)", // deny all file writes
+            "Shell(**)", // deny all shell commands
+          ],
+        },
+      }
+    : {
+        // normal mode: allow everything
+        permissions: {
+          allow: ["Read(**)", "Write(**)", "Shell(**)"],
+          deny: [],
+        },
+      };
+
+  writeFileSync(cliConfigPath, JSON.stringify(config, null, 2), "utf-8");
+  log.info(`CLI config written to ${cliConfigPath} (sandbox: ${sandbox})`);
 }

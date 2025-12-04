@@ -172,4 +172,10 @@ export type Payload = {
   readonly comment_id?: number | null;
   readonly issue_id?: number | null;
   readonly pr_id?: number | null;
+
+  /**
+   * Sandbox mode flag - when true, restricts agent to read-only operations
+   * (no Write, Web, or Bash access)
+   */
+  readonly sandbox?: boolean;
 };

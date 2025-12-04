@@ -1,4 +1,4 @@
-import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
@@ -21,12 +21,40 @@ export const claude = agent({
     const prompt = addInstructions(payload);
     console.log(prompt);
 
+    // configure sandbox mode if enabled
+    const sandboxOptions: Options = payload.sandbox
+      ? {
+          permissionMode: "default",
+          disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
+          async canUseTool(toolName, input, _options) {
+            if (toolName.startsWith("mcp__gh_pullfrog__"))
+              return {
+                behavior: "allow",
+                updatedInput: input,
+                updatedPermissions: [],
+              };
+
+            console.error("can i use this tool?", toolName);
+            return {
+              behavior: "deny",
+              message: "You are not allowed to use this tool.",
+            };
+          },
+        }
+      : {
+          permissionMode: "bypassPermissions" as const,
+        };
+
+    if (payload.sandbox) {
+      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    }
+
     // Pass secrets via SDK's env option only (not process.env)
     // This ensures secrets are only available to Claude Code subprocess, not user code
     const queryInstance = query({
       prompt,
       options: {
-        permissionMode: "bypassPermissions",
+        ...sandboxOptions,
         mcpServers,
         pathToClaudeCodeExecutable: cliPath,
         env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),

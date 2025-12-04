@@ -39,13 +39,26 @@ export const codex = agent({
       codexPathOverride: cliPath,
     };
 
+    if (payload.sandbox) {
+      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    }
+
     const codex = new Codex(codexOptions);
-    const thread = codex.startThread({
-      approvalPolicy: "never",
-      // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
-      sandboxMode: "danger-full-access",
-      networkAccessEnabled: true,
-    });
+    // valid sandbox modes: read-only, workspace-write, danger-full-access
+    const thread = codex.startThread(
+      payload.sandbox
+        ? {
+            approvalPolicy: "never",
+            sandboxMode: "read-only",
+            networkAccessEnabled: false,
+          }
+        : {
+            approvalPolicy: "never",
+            // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
+            sandboxMode: "danger-full-access",
+            networkAccessEnabled: true,
+          }
+    );
 
     try {
       const streamedTurn = await thread.runStreamed(addInstructions(payload));

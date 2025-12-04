@@ -70,10 +70,12 @@ let assistantMessageBuffer = "";
 
 const messageHandlers = {
   init: (_event: GeminiInitEvent) => {
+    log.debug(JSON.stringify(_event, null, 2));
     // initialization event - no logging needed
     assistantMessageBuffer = "";
   },
   message: (event: GeminiMessageEvent) => {
+    log.debug(JSON.stringify(event, null, 2));
     if (event.role === "assistant" && event.content?.trim()) {
       if (event.delta) {
         // accumulate delta messages
@@ -93,6 +95,7 @@ const messageHandlers = {
     }
   },
   tool_use: (event: GeminiToolUseEvent) => {
+    log.debug(JSON.stringify(event, null, 2));
     if (event.tool_name) {
       log.toolCall({
         toolName: event.tool_name,
@@ -101,6 +104,7 @@ const messageHandlers = {
     }
   },
   tool_result: (event: GeminiToolResultEvent) => {
+    log.debug(JSON.stringify(event, null, 2));
     if (event.status === "error") {
       const errorMsg =
         typeof event.output === "string" ? event.output : JSON.stringify(event.output);
@@ -108,6 +112,7 @@ const messageHandlers = {
     }
   },
   result: async (event: GeminiResultEvent) => {
+    log.debug(JSON.stringify(event, null, 2));
     // log any remaining buffered assistant message
     if (assistantMessageBuffer.trim()) {
       log.box(assistantMessageBuffer.trim(), { title: "Gemini" });
@@ -151,6 +156,7 @@ export const gemini = agent({
   },
   run: async ({ payload, apiKey, mcpServers, cliPath }) => {
     configureGeminiMcpServers({ mcpServers, cliPath });
+
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
@@ -158,11 +164,30 @@ export const gemini = agent({
     const sessionPrompt = addInstructions(payload);
     log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
 
+    // configure sandbox mode if enabled
+    // --allowed-tools restricts which tools are available (removes others from registry entirely)
+    // in sandbox mode: only read-only tools available (no write_file, run_shell_command, web_fetch)
+    const args = payload.sandbox
+      ? [
+          "--allowed-tools",
+          "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
+          "--allowed-mcp-server-names",
+          "gh_pullfrog",
+          "--output-format=stream-json",
+          "-p",
+          sessionPrompt,
+        ]
+      : ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+
+    if (payload.sandbox) {
+      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    }
+
     let finalOutput = "";
     try {
       const result = await spawn({
         cmd: "node",
-        args: [cliPath, "--yolo", "--output-format=stream-json", "-p", sessionPrompt],
+        args: [cliPath, ...args],
         env: createAgentEnv({
           GEMINI_API_KEY: apiKey,
         }),
