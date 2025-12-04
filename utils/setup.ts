@@ -7,7 +7,6 @@ import { $ } from "./shell.ts";
 
 export interface SetupOptions {
   tempDir: string;
-  repoUrl?: string;
   forceClean?: boolean;
 }
 
@@ -15,11 +14,7 @@ export interface SetupOptions {
  * Setup the test repository for running actions
  */
 export function setupTestRepo(options: SetupOptions): void {
-  const {
-    tempDir,
-    repoUrl = "git@github.com:pullfrogai/scratch.git",
-    forceClean = false,
-  } = options;
+  const { tempDir, forceClean = false } = options;
 
   if (existsSync(tempDir)) {
     if (forceClean) {
@@ -27,7 +22,7 @@ export function setupTestRepo(options: SetupOptions): void {
       rmSync(tempDir, { recursive: true, force: true });
 
       log.info("📦 Cloning pullfrogai/scratch into .temp...");
-      $("git", ["clone", repoUrl, tempDir]);
+      $("git", ["clone", "git@github.com:pullfrogai/scratch.git", tempDir]);
     } else {
       log.info("📦 Resetting existing .temp repository...");
       execSync("git reset --hard HEAD && git clean -fd", {
@@ -37,7 +32,7 @@ export function setupTestRepo(options: SetupOptions): void {
     }
   } else {
     log.info("📦 Cloning pullfrogai/scratch into .temp...");
-    $("git", ["clone", repoUrl, tempDir]);
+    $("git", ["clone", "git@github.com:pullfrogai/scratch.git", tempDir]);
   }
 }
 
@@ -50,11 +45,11 @@ export function setupGitConfig(): void {
   log.info("🔧 Setting up git configuration...");
   try {
     // Use --local to scope config to this repo only, preventing leakage to user's global config
-    execSync('git config --local user.email "action@pullfrog.ai"', {
+    execSync('git config --local user.email "team@pullfrog.ai"', {
       cwd: repoDir,
       stdio: "pipe",
     });
-    execSync('git config --local user.name "Pullfrog Action"', {
+    execSync('git config --local user.name "pullfrog"', {
       cwd: repoDir,
       stdio: "pipe",
     });

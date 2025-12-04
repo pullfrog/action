@@ -18,4 +18,3 @@ export class Timer {
     this.lastCheckpointTimestamp = now;
   }
 }
-
