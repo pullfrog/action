@@ -1,1 +1,1 @@
-Use the debug_shell_command MCP tool to run git status and show me the output.
+Implement a fun new feature in a new branch. No PR.

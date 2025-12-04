@@ -26,9 +26,21 @@ export const modes: Mode[] = [
 
 6. ${reportProgressInstruction}
 
-7. When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123"). Create a PR with an informative title and body. If relevant, include links to the issue or comment that triggered the PR.
+7. When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123").
 
-8. Call report_progress one final time with a summary of the results. Include links to any created issues/PRs, e.g. \`[View PR](https://github.com/org/repo/pull/123)\`
+8. By default, create a PR with an informative title and body. However, if the user explicitly requests a branch without a PR (e.g. "implement X in a new branch", "don't create a PR", "branch only"), just make changes the changes in a branch and push them. 
+
+9. Call report_progress one final time with a summary of the results and a link to any artifacts created, like PRs or branches. 
+  - If relevant, include links to the issue or comment that triggered the PR. 
+  - If you created a PR, ALWAYS include a "View PR" link. e.g.: 
+    \`\`\`md
+    [View PR ➔](https://github.com/org/repo/pull/123)
+    \`\`\`
+  - If you created a branch without a PR, ALWAYS include a "Create PR" link and a link to the branch. e.g.:
+    
+    \`\`\`md
+    [\`pullfrog/branch-name\`](https://github.com/pullfrogai/scratch/tree/pullfrog/branch-name) • [Create PR ➔](https://github.com/pullfrogai/scratch/compare/main...pullfrog/branch-name?quick_pull=1&title=<informative_title>&body=<informative_body>)
+    \`\`\`
 `,
   },
   {
