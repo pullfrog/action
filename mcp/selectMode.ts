@@ -1,5 +1,11 @@
 import { type } from "arktype";
-import { contextualize, tool } from "./shared.ts";
+import {
+  contextualize,
+  hasPlanModeProgressBeenPosted,
+  isPlanMode,
+  setSelectedMode,
+  tool,
+} from "./shared.ts";
 
 export const SelectMode = type({
   modeName: type.string.describe(
@@ -22,6 +28,22 @@ export const SelectModeTool = tool({
         availableModes: ctx.modes.map((m) => ({ name: m.name, description: m.description })),
       };
     }
+
+    // block switching to Build mode from Plan mode after progress is posted
+    if (isPlanMode() && hasPlanModeProgressBeenPosted()) {
+      const requestedMode = selectedMode.name.toLowerCase();
+      if (requestedMode === "build") {
+        return {
+          error: `Cannot switch from Plan mode to Build mode after the plan has been posted. Plan mode is complete. To implement the plan, use Build mode in a separate workflow run.`,
+          modeName: "Plan",
+          description: selectedMode.description,
+          prompt: selectedMode.prompt,
+        };
+      }
+    }
+
+    // track the selected mode for enforcement
+    setSelectedMode(selectedMode.name);
 
     return {
       modeName: selectedMode.name,

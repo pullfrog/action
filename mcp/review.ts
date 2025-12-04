@@ -1,6 +1,6 @@
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
-import { contextualize, tool } from "./shared.ts";
+import { assertNotPlanModeComplete, contextualize, tool } from "./shared.ts";
 
 export const Review = type({
   pull_number: type.number.describe("The pull request number to review"),
@@ -43,6 +43,7 @@ export const ReviewTool = tool({
     "Only use 'body' for a brief summary or feedback that doesn't apply to a specific location.",
   parameters: Review,
   execute: contextualize(async ({ pull_number, body, commit_id, comments = [] }, ctx) => {
+    assertNotPlanModeComplete("submit_pull_request_review");
     // Get the PR to determine the head commit if commit_id not provided
     const pr = await ctx.octokit.rest.pulls.get({
       owner: ctx.owner,

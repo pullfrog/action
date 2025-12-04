@@ -1,7 +1,7 @@
 import { type } from "arktype";
 import { $ } from "../utils/shell.ts";
 import type { ToolResult } from "./shared.ts";
-import { tool } from "./shared.ts";
+import { assertNotPlanModeComplete, tool } from "./shared.ts";
 
 export const DebugShellCommand = type({});
 
@@ -11,6 +11,7 @@ export const DebugShellCommandTool = tool({
     "debug tool: runs 'git status' and returns the output. use this to test shell command execution in the MCP server.",
   parameters: DebugShellCommand,
   execute: async (): Promise<ToolResult> => {
+    assertNotPlanModeComplete("debug_shell_command");
     try {
       const result = $("git", ["status"]);
 

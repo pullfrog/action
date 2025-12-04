@@ -2,7 +2,7 @@ import { type } from "arktype";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
-import { contextualize, tool } from "./shared.ts";
+import { assertNotPlanModeComplete, contextualize, tool } from "./shared.ts";
 
 export const PullRequest = type({
   title: type.string.describe("the title of the pull request"),
@@ -15,6 +15,8 @@ export const PullRequestTool = tool({
   description: "Create a pull request from the current branch",
   parameters: PullRequest,
   execute: contextualize(async ({ title, body, base }, ctx) => {
+    assertNotPlanModeComplete("create_pull_request");
+
     const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
     log.info(`Current branch: ${currentBranch}`);
 

@@ -2,7 +2,14 @@ import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
 import { parseRepoContext } from "../utils/github.ts";
-import { contextualize, getMcpContext, tool } from "./shared.ts";
+import {
+  contextualize,
+  getMcpContext,
+  hasPlanModeProgressBeenPosted,
+  isPlanMode,
+  markPlanModeProgressPosted,
+  tool,
+} from "./shared.ts";
 
 const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
 
@@ -207,6 +214,13 @@ export const ReportProgressTool = tool({
     "Share progress on the associated GitHub issue/PR. Call this to post updates as you work. The first call creates a comment, subsequent calls update it. Use this throughout your work to keep stakeholders informed.",
   parameters: ReportProgress,
   execute: contextualize(async ({ body }) => {
+    // block updates in Plan mode after first call
+    if (isPlanMode() && hasPlanModeProgressBeenPosted()) {
+      throw new Error(
+        "Plan mode only allows one report_progress call. Your plan has already been posted. Plan mode is complete - do not continue with implementation."
+      );
+    }
+
     const result = await reportProgress({ body });
 
     if (!result) {
@@ -214,6 +228,11 @@ export const ReportProgressTool = tool({
         success: false,
         message: "cannot create progress comment: no issue_number found in the payload event",
       };
+    }
+
+    // mark plan mode as complete if this is Plan mode
+    if (isPlanMode()) {
+      markPlanModeProgressPosted();
     }
 
     return {

@@ -12,10 +12,58 @@ export interface McpInitContext {
 }
 
 let mcpInitContext: McpInitContext | undefined;
+let selectedModeName: string | null = null;
+let planModeProgressPosted = false;
 
 // this must be called on mcp server initialization
 export function initMcpContext(state: McpInitContext): void {
   mcpInitContext = state;
+  // reset mode tracking on new context
+  selectedModeName = null;
+  planModeProgressPosted = false;
+}
+
+/**
+ * Set the currently selected mode (called by select_mode tool)
+ */
+export function setSelectedMode(modeName: string): void {
+  selectedModeName = modeName;
+  // reset plan mode flag when mode changes away from plan
+  if (modeName.toLowerCase() !== "plan") {
+    planModeProgressPosted = false;
+  }
+}
+
+/**
+ * Check if Plan mode is currently active
+ */
+export function isPlanMode(): boolean {
+  return selectedModeName?.toLowerCase() === "plan";
+}
+
+/**
+ * Mark that plan mode progress has been posted (first report_progress call)
+ */
+export function markPlanModeProgressPosted(): void {
+  planModeProgressPosted = true;
+}
+
+/**
+ * Check if plan mode progress has already been posted
+ */
+export function hasPlanModeProgressBeenPosted(): boolean {
+  return planModeProgressPosted;
+}
+
+/**
+ * Throw an error if Plan mode has completed (progress posted) and this is an implementation tool
+ */
+export function assertNotPlanModeComplete(toolName: string): void {
+  if (isPlanMode() && hasPlanModeProgressBeenPosted()) {
+    throw new Error(
+      `Cannot use ${toolName} in Plan mode after the plan has been posted. Plan mode only creates plans - it does not implement changes. To implement, use Build mode in a separate workflow run.`
+    );
+  }
 }
 
 export interface McpContext extends McpInitContext, RepoContext {
