@@ -8,12 +8,14 @@ import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
 import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
+import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { fetchRepoSettings, fetchWorkflowRunInfo } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
+import { reportErrorToComment } from "./utils/errorReport.ts";
 import {
   parseRepoContext,
   type RepoContext,
@@ -68,14 +70,20 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     mcpServerClose = ctx.mcpServerClose;
     setupMcpServers(ctx);
     await installAgentCli(ctx);
-    validateApiKey(ctx);
+    await validateApiKey(ctx);
 
     const result = await runAgent(ctx);
-    return await handleAgentResult(result);
+    const mainResult = await handleAgentResult(result);
+    // ensure progress comment is updated if it was never updated during execution
+    await ensureProgressCommentUpdated();
+    return mainResult;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     log.error(errorMessage);
+    await reportErrorToComment({ error: errorMessage });
     await log.writeSummary();
+    // ensure progress comment is updated if it was never updated during execution
+    await ensureProgressCommentUpdated();
     return {
       success: false,
       error: errorMessage,
@@ -111,18 +119,17 @@ function getAllPossibleKeyNames(): string[] {
 /**
  * Throw an error for missing API key with helpful message linking to repo settings
  */
-function throwMissingApiKeyError({
-  agentName,
-  inputKeys,
+async function throwMissingApiKeyError({
+  agent,
   repoContext,
 }: {
-  agentName: string | null;
-  inputKeys: string[];
+  agent: (typeof agents)[AgentNameType] | null;
   repoContext: RepoContext;
-}): never {
+}): Promise<never> {
   const apiUrl = process.env.API_URL || "https://pullfrog.ai";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
 
+  const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
   const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
   const secretNameList =
     inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
@@ -131,9 +138,9 @@ function throwMissingApiKeyError({
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
 
   let message = `${
-    agentName === null
+    agent === null
       ? "Pullfrog has no agent configured and no API keys are available in the environment."
-      : `Pullfrog is configured to use ${agentName}, but the associated API key was not provided.`
+      : `Pullfrog is configured to use ${agent.displayName}, but the associated API key was not provided.`
   }
 
 To fix this, add the required secret to your GitHub repository:
@@ -144,11 +151,13 @@ To fix this, add the required secret to your GitHub repository:
 4. Set the value to your API key
 5. Click "Add secret"`;
 
-  if (agentName === null) {
+  if (agent === null) {
     message += `\n\nAlternatively, configure Pullfrog to use an agent at ${settingsUrl}`;
   }
 
   log.error(message);
+  // report to comment if MCP context is available (server has started)
+  await reportErrorToComment({ error: message });
   throw new Error(message);
 }
 
@@ -229,9 +238,8 @@ async function resolveAgent(
   log.debug(`Available agents: ${availableAgentNames || "none"}`);
 
   if (availableAgents.length === 0) {
-    throwMissingApiKeyError({
-      agentName: configuredAgentName,
-      inputKeys: getAllPossibleKeyNames(),
+    await throwMissingApiKeyError({
+      agent: null,
       repoContext,
     });
   }
@@ -306,14 +314,15 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
   }
 }
 
-function validateApiKey(ctx: MainContext): void {
+async function validateApiKey(ctx: MainContext): Promise<void> {
   const matchingInputKey = ctx.agent.apiKeyNames.find((inputKey) => ctx.inputs[inputKey]);
   if (!matchingInputKey) {
-    throwMissingApiKeyError({
-      agentName: ctx.agentName,
-      inputKeys: ctx.agent.apiKeyNames,
+    await throwMissingApiKeyError({
+      agent: ctx.agent,
       repoContext: ctx.repoContext,
     });
+    // unreachable - throwMissingApiKeyError always throws
+    return;
   }
   ctx.apiKey = ctx.inputs[matchingInputKey]!;
 }

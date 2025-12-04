@@ -2,7 +2,7 @@ import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
 import { parseRepoContext } from "../utils/github.ts";
-import { contextualize, tool } from "./shared.ts";
+import { contextualize, getMcpContext, tool } from "./shared.ts";
 
 const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
 
@@ -117,6 +117,9 @@ function getProgressCommentIdFromEnv(): number | null {
 let progressCommentId: number | null = null;
 let progressCommentIdInitialized = false;
 
+// track whether the progress comment was updated during execution
+let progressCommentWasUpdated = false;
+
 function getProgressCommentId(): number | null {
   if (!progressCommentIdInitialized) {
     progressCommentId = getProgressCommentIdFromEnv();
@@ -134,65 +137,131 @@ export const ReportProgress = type({
   body: type.string.describe("the progress update content to share"),
 });
 
+/**
+ * Standalone function to report progress to GitHub comment.
+ * Can be called directly without going through the MCP tool interface.
+ * Returns result data if successful, undefined if comment cannot be created.
+ */
+export async function reportProgress({ body }: { body: string }): Promise<
+  | {
+      commentId: number;
+      url: string;
+      body: string;
+      action: "created" | "updated";
+    }
+  | undefined
+> {
+  const ctx = getMcpContext();
+
+  const bodyWithFooter = addFooter(body, ctx.payload);
+  const existingCommentId = getProgressCommentId();
+
+  // if we already have a progress comment, update it
+  if (existingCommentId) {
+    const result = await ctx.octokit.rest.issues.updateComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      comment_id: existingCommentId,
+      body: bodyWithFooter,
+    });
+
+    progressCommentWasUpdated = true;
+
+    return {
+      commentId: result.data.id,
+      url: result.data.html_url,
+      body: result.data.body || "",
+      action: "updated",
+    };
+  }
+
+  // no existing comment - create one
+  const issueNumber = ctx.payload.event.issue_number;
+  if (issueNumber === undefined) {
+    // fail silently - cannot create comment without issue_number
+    return undefined;
+  }
+
+  const result = await ctx.octokit.rest.issues.createComment({
+    owner: ctx.owner,
+    repo: ctx.name,
+    issue_number: issueNumber,
+    body: bodyWithFooter,
+  });
+
+  // store the comment ID for future updates
+  setProgressCommentId(result.data.id);
+  progressCommentWasUpdated = true;
+
+  return {
+    commentId: result.data.id,
+    url: result.data.html_url,
+    body: result.data.body || "",
+    action: "created",
+  };
+}
+
 export const ReportProgressTool = tool({
   name: "report_progress",
   description:
     "Share progress on the associated GitHub issue/PR. Call this to post updates as you work. The first call creates a comment, subsequent calls update it. Use this throughout your work to keep stakeholders informed.",
   parameters: ReportProgress,
-  execute: contextualize(async ({ body }, ctx) => {
-    const bodyWithFooter = addFooter(body, ctx.payload);
-    const existingCommentId = getProgressCommentId();
+  execute: contextualize(async ({ body }) => {
+    const result = await reportProgress({ body });
 
-    // if we already have a progress comment, update it
-    if (existingCommentId) {
-      const result = await ctx.octokit.rest.issues.updateComment({
-        owner: ctx.owner,
-        repo: ctx.name,
-        comment_id: existingCommentId,
-        body: bodyWithFooter,
-      });
-
-      return {
-        success: true,
-        commentId: result.data.id,
-        url: result.data.html_url,
-        body: result.data.body,
-        action: "updated",
-      };
-    }
-
-    // no existing comment - create one
-    const issueNumber = ctx.payload.event.issue_number;
-    if (issueNumber === undefined) {
-      // fail silently
+    if (!result) {
       return {
         success: false,
         message: "cannot create progress comment: no issue_number found in the payload event",
       };
-      // throw new Error(
-      //   "cannot create progress comment: no issue_number found in the payload event"
-      // );
     }
-
-    const result = await ctx.octokit.rest.issues.createComment({
-      owner: ctx.owner,
-      repo: ctx.name,
-      issue_number: issueNumber,
-      body: bodyWithFooter,
-    });
-
-    // store the comment ID for future updates
-    setProgressCommentId(result.data.id);
 
     return {
       success: true,
-      commentId: result.data.id,
-      url: result.data.html_url,
-      body: result.data.body,
-      action: "created",
+      ...result,
     };
   }),
 });
+
+/**
+ * Check if the progress comment was updated during execution
+ */
+export function wasProgressCommentUpdated(): boolean {
+  return progressCommentWasUpdated;
+}
+
+/**
+ * Ensure the progress comment is updated with a generic error message if it was never updated.
+ * This should be called after agent execution completes to handle cases where the agent
+ * exited without ever calling reportProgress.
+ */
+export async function ensureProgressCommentUpdated(): Promise<void> {
+  // only update if we have a progress comment ID from env var and it was never updated
+  const existingCommentId = getProgressCommentId();
+  if (!existingCommentId || progressCommentWasUpdated) {
+    return;
+  }
+
+  // check if MCP context is initialized (MCP server started)
+  try {
+    const ctx = getMcpContext();
+    const errorMessage = `🐸 this run croaked
+
+The workflow encountered an error before any progress could be reported. Please check the workflow run logs for details.`;
+
+    const bodyWithFooter = addFooter(errorMessage, ctx.payload);
+
+    await ctx.octokit.rest.issues.updateComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      comment_id: existingCommentId,
+      body: bodyWithFooter,
+    });
+  } catch {
+    // fail silently - MCP context not initialized or other error
+    // don't want to fail the workflow if we can't update the comment
+  }
+}
 
 export const ReplyToReviewComment = type({
   pull_number: type.number.describe("the pull request number"),
