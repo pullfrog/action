@@ -23,6 +23,7 @@ import {
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
+import { Timer } from "./utils/timer.ts";
 
 // runtime validation using agents (needed for ArkType)
 // Note: The AgentName type is defined in external.ts, this is the runtime validator
@@ -53,23 +54,34 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   let mcpServerClose: (() => Promise<void>) | undefined;
 
   try {
+    const timer = new Timer();
+
     // parse payload early to extract agent
     const payload = parsePayload(inputs);
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as MainContext;
+    timer.checkpoint("initializeContext");
 
     setupGitAuth({
       githubInstallationToken: ctx.githubInstallationToken,
       repoContext: ctx.repoContext,
     });
+
     await setupTempDirectory(ctx);
+    timer.checkpoint("setupTempDirectory");
 
     setupGitBranch(ctx.payload);
+
     await startMcpServer(ctx);
     mcpServerClose = ctx.mcpServerClose;
+    timer.checkpoint("startMcpServer");
+
     setupMcpServers(ctx);
+
     await installAgentCli(ctx);
+    timer.checkpoint("installAgentCli");
+
     await validateApiKey(ctx);
 
     const result = await runAgent(ctx);

@@ -245,9 +245,15 @@ export async function ensureProgressCommentUpdated(): Promise<void> {
   // check if MCP context is initialized (MCP server started)
   try {
     const ctx = getMcpContext();
-    const errorMessage = `🐸 this run croaked
+    const repoContext = parseRepoContext();
+    const runId = process.env.GITHUB_RUN_ID;
+    const workflowRunLink = runId
+      ? `[workflow](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
+      : "workflow";
 
-The workflow encountered an error before any progress could be reported. Please check the workflow run logs for details.`;
+    const errorMessage = `❌ this run croaked
+
+The workflow encountered an error before any progress could be reported. Please check the ${workflowRunLink} for details.`;
 
     const bodyWithFooter = addFooter(errorMessage, ctx.payload);
 
