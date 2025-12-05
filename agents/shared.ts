@@ -97,6 +97,17 @@ export interface InstallFromGithubParams {
 }
 
 /**
+ * Parameters for installing from GitHub releases tarball
+ */
+export interface InstallFromGithubTarballParams {
+  owner: string;
+  repo: string;
+  assetNamePattern: string;
+  executablePath: string;
+  githubInstallationToken?: string;
+}
+
+/**
  * NPM registry response data structure
  */
 export interface NpmRegistryData {
@@ -314,6 +325,92 @@ export async function installFromGithub({
 
   chmodSync(cliPath, 0o755);
   log.info(`✓ Installed from GitHub release at ${cliPath}`);
+
+  return cliPath;
+}
+
+/**
+ * Install a CLI tool from a GitHub release tarball
+ * Downloads the tar.gz from GitHub releases, extracts it, and returns the path to the CLI executable
+ * The temp directory will be cleaned up by the OS automatically
+ */
+export async function installFromGithubTarball({
+  owner,
+  repo,
+  assetNamePattern,
+  executablePath,
+  githubInstallationToken,
+}: InstallFromGithubTarballParams): Promise<string> {
+  log.info(`📦 Installing ${owner}/${repo} from GitHub releases...`);
+
+  // determine platform-specific asset name
+  const os = process.platform === "darwin" ? "darwin" : "linux";
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const assetName = assetNamePattern.replace("{os}", os).replace("{arch}", arch);
+
+  // fetch release from GitHub API (latest)
+  const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+  log.info(`Fetching release from ${releaseUrl}...`);
+
+  const headers: Record<string, string> = {};
+  if (githubInstallationToken) {
+    headers.Authorization = `Bearer ${githubInstallationToken}`;
+  }
+
+  const releaseResponse = await fetchWithRetry(releaseUrl, headers, "Failed to fetch release");
+
+  const releaseData = (await releaseResponse.json()) as {
+    tag_name: string;
+    assets: Array<{
+      name: string;
+      browser_download_url: string;
+    }>;
+  };
+
+  log.info(`Found release: ${releaseData.tag_name}`);
+
+  const asset = releaseData.assets.find((a) => a.name === assetName);
+  if (!asset) {
+    throw new Error(`Asset '${assetName}' not found in release ${releaseData.tag_name}`);
+  }
+  const assetUrl = asset.browser_download_url;
+
+  log.info(`Downloading asset from ${assetUrl}...`);
+
+  const tempDir = process.env.PULLFROG_TEMP_DIR!;
+  const tarballPath = join(tempDir, assetName);
+
+  // download the asset
+  const assetResponse = await fetchWithRetry(assetUrl, headers, "Failed to download asset");
+
+  if (!assetResponse.body) throw new Error("Response body is null");
+  const fileStream = createWriteStream(tarballPath);
+  await pipeline(assetResponse.body, fileStream);
+  log.info(`Downloaded tarball to ${tarballPath}`);
+
+  // extract tar.gz
+  log.info(`Extracting tarball...`);
+  const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
+    stdio: "pipe",
+    encoding: "utf-8",
+  });
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Failed to extract tarball: ${extractResult.stderr || extractResult.stdout || "Unknown error"}`
+    );
+  }
+
+  // find executable in the extracted tarball
+  const cliPath = join(tempDir, executablePath);
+
+  if (!existsSync(cliPath)) {
+    throw new Error(`Executable not found in extracted tarball at ${cliPath}`);
+  }
+
+  // make the file executable
+  chmodSync(cliPath, 0o755);
+
+  log.info(`✓ ${owner}/${repo} installed at ${cliPath}`);
 
   return cliPath;
 }
