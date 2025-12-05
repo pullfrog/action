@@ -39,7 +39,7 @@ export const modes: Mode[] = [
   - If you created a branch without a PR, ALWAYS include a "Create PR" link and a link to the branch. e.g.:
     
     \`\`\`md
-    [\`pullfrog/branch-name\`](https://github.com/pullfrogai/scratch/tree/pullfrog/branch-name) • [Create PR ➔](https://github.com/pullfrogai/scratch/compare/main...pullfrog/branch-name?quick_pull=1&title=<informative_title>&body=<informative_body>)
+    [\`pullfrog/branch-name\`](https://github.com/pullfrog/scratch/tree/pullfrog/branch-name) • [Create PR ➔](https://github.com/pullfrog/scratch/compare/main...pullfrog/branch-name?quick_pull=1&title=<informative_title>&body=<informative_body>)
     \`\`\`
 `,
   },

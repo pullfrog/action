@@ -21,8 +21,8 @@ export function setupTestRepo(options: SetupOptions): void {
       log.info("🗑️  Removing existing .temp directory...");
       rmSync(tempDir, { recursive: true, force: true });
 
-      log.info("📦 Cloning pullfrogai/scratch into .temp...");
-      $("git", ["clone", "git@github.com:pullfrogai/scratch.git", tempDir]);
+      log.info("📦 Cloning pullfrog/scratch into .temp...");
+      $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
     } else {
       log.info("📦 Resetting existing .temp repository...");
       execSync("git reset --hard HEAD && git clean -fd", {
@@ -31,8 +31,8 @@ export function setupTestRepo(options: SetupOptions): void {
       });
     }
   } else {
-    log.info("📦 Cloning pullfrogai/scratch into .temp...");
-    $("git", ["clone", "git@github.com:pullfrogai/scratch.git", tempDir]);
+    log.info("📦 Cloning pullfrog/scratch into .temp...");
+    $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
   }
 }
 
@@ -45,7 +45,7 @@ export function setupGitConfig(): void {
   log.info("🔧 Setting up git configuration...");
   try {
     // Use --local to scope config to this repo only, preventing leakage to user's global config
-    execSync('git config --local user.email "team@pullfrog.ai"', {
+    execSync('git config --local user.email "team@pullfrog.com"', {
       cwd: repoDir,
       stdio: "pipe",
     });

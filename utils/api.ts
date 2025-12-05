@@ -34,7 +34,7 @@ export interface WorkflowRunInfo {
  * Returns the pre-created progress comment ID if one exists
  */
 export async function fetchWorkflowRunInfo(runId: string): Promise<WorkflowRunInfo> {
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
   // add timeout to prevent hanging (5 seconds)
   const timeoutMs = 5000;
@@ -88,7 +88,7 @@ export async function getRepoSettings(
   token: string,
   repoContext: RepoContext
 ): Promise<RepoSettings> {
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
   // Add timeout to prevent hanging (5 seconds)
   const timeoutMs = 5000;

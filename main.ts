@@ -138,7 +138,7 @@ async function throwMissingApiKeyError({
   agent: (typeof agents)[AgentNameType] | null;
   repoContext: RepoContext;
 }): Promise<never> {
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const apiUrl = process.env.API_URL || "https://pullfrog.com";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
 
   const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();

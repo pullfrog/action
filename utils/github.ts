@@ -53,7 +53,7 @@ async function acquireTokenViaOIDC(): Promise<string> {
   const oidcToken = await core.getIDToken("pullfrog-api");
   log.info("OIDC token generated successfully");
 
-  const apiUrl = process.env.API_URL || "https://pullfrog.ai";
+  const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
   log.info("Exchanging OIDC token for installation token...");
 

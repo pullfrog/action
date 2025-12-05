@@ -13,7 +13,7 @@ function buildCommentFooter(payload: Payload): string {
   const agentName = payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
   const agentDisplayName = agentInfo?.displayName || "Unknown agent";
-  const agentUrl = agentInfo?.url || "https://pullfrog.ai";
+  const agentUrl = agentInfo?.url || "https://pullfrog.com";
 
   // build workflow run link or show unavailable message
   const workflowRunPart = runId
@@ -22,7 +22,7 @@ function buildCommentFooter(payload: Payload): string {
 
   return `
 ${PULLFROG_DIVIDER}
-<sup><a href="https://pullfrog.ai"><picture><source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/logos/frog-white-full-128px.png"><img src="https://pullfrog.ai/logos/frog-green-full-128px.png" width="9px" height="9px" style="vertical-align: middle; " alt="Pullfrog"></picture></a>&nbsp;&nbsp;｜ Triggered by [Pullfrog](https://pullfrog.ai) ｜ Using [${agentDisplayName}](${agentUrl}) ｜ ${workflowRunPart} ｜ [𝕏](https://x.com/pullfrogai)</sup>`;
+<sup><a href="https://pullfrog.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/logos/frog-white-full-128px.png"><img src="https://pullfrog.com/logos/frog-green-full-128px.png" width="9px" height="9px" style="vertical-align: middle; " alt="Pullfrog"></picture></a>&nbsp;&nbsp;｜ Triggered by [Pullfrog](https://pullfrog.com) ｜ Using [${agentDisplayName}](${agentUrl}) ｜ ${workflowRunPart} ｜ [𝕏](https://x.com/pullfrogai)</sup>`;
 }
 
 function stripExistingFooter(body: string): string {

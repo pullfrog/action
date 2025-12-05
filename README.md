@@ -2,8 +2,8 @@
   
   <h1 align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.ai/frog-white-200px.png">
-      <img src="https://pullfrog.ai/frog-green-200px.png" width="25px" align="center" alt="Pullfrog logo" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/frog-white-200px.png">
+      <img src="https://pullfrog.com/frog-green-200px.png" width="25px" align="center" alt="Pullfrog logo" />
     </picture><br />
     Pullfrog
   </h1>
@@ -19,7 +19,7 @@
 Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
 
 <a href="https://github.com/apps/pullfrog/installations/new">
-  <img src="https://pullfrog.ai/add-to-github.png" alt="Add to GitHub" width="150px" />
+  <img src="https://pullfrog.com/add-to-github.png" alt="Add to GitHub" width="150px" />
 </a>
 
 <br />
