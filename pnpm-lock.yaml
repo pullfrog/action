@@ -36,8 +36,8 @@ importers:
         specifier: 1.0.0
         version: 1.0.0
       arktype:
-        specifier: 2.1.25
-        version: 2.1.25
+        specifier: 2.1.28
+        version: 2.1.28
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
@@ -46,7 +46,7 @@ importers:
         version: 9.6.0
       fastmcp:
         specifier: ^3.20.0
-        version: 3.20.0(arktype@2.1.25)
+        version: 3.20.0(arktype@2.1.28)
       table:
         specifier: ^6.9.0
         version: 6.9.0
@@ -96,11 +96,14 @@ packages:
   '@ark/fs@0.53.0':
     resolution: {integrity: sha512-XL0EbBAZgyy+j9aPhftYaBsbKAW5PTNSKCN6oLRRdrHuHPSAZgR6765/z0YZGhPxHEUNmq0vBoSk8yOLk91dNQ==}
 
-  '@ark/schema@0.53.0':
-    resolution: {integrity: sha512-1PB7RThUiTlmIu8jbSurPrhHpVixPd4C+xNBUF/HrjIENCeDcAMg36n5mpMzED7OQGDVIzpfXXiMnaTiutjHJw==}
+  '@ark/schema@0.56.0':
+    resolution: {integrity: sha512-ECg3hox/6Z/nLajxXqNhgPtNdHWC9zNsDyskwO28WinoFEnWow4IsERNz9AnXRhTZJnYIlAJ4uGn3nlLk65vZA==}
 
   '@ark/util@0.53.0':
     resolution: {integrity: sha512-TGn4gLlA6dJcQiqrtCtd88JhGb2XBHo6qIejsDre+nxpGuUVW4G3YZGVrwjNBTO0EyR+ykzIo4joHJzOj+/cpA==}
+
+  '@ark/util@0.56.0':
+    resolution: {integrity: sha512-BghfRC8b9pNs3vBoDJhcta0/c1J1rsoS1+HgVUreMFPdhz/CRAKReAu57YEllNaSy98rWAdY1gE+gFup7OXpgA==}
 
   '@borewit/text-codec@0.1.1':
     resolution: {integrity: sha512-5L/uBxmjaCIX5h8Z+uu+kA9BQLkc/Wl06UGR5ajNRxu+/XjonB5i8JpgFMrPj3LXTCPA0pv8yxUvbUi+QthGGA==}
@@ -486,11 +489,11 @@ packages:
   arg@5.0.2:
     resolution: {integrity: sha512-PYjyFOLKQ9y57JvQ6QLo8dAgNqswh8M1RMJYdQduT6xbWSgK36P/Z/v+p888pM69jMMfS8Xd8F6I1kQ/I9HUGg==}
 
-  arkregex@0.0.2:
-    resolution: {integrity: sha512-ttjDUICBVoXD/m8bf7eOjx8XMR6yIT2FmmW9vsN0FCcFOygEZvvIX8zK98tTdXkzi0LkRi5CmadB44jFEIyDNA==}
+  arkregex@0.0.4:
+    resolution: {integrity: sha512-biS/FkvSwQq59TZ453piUp8bxMui11pgOMV9WHAnli1F8o0ayNCZzUwQadL/bGIUic5TkS/QlPcyMuI8ZIwedQ==}
 
-  arktype@2.1.25:
-    resolution: {integrity: sha512-fdj10sNlUPeDRg1QUqMbzJ4Q7gutTOWOpLUNdcC4vxeVrN0G+cbDOvLbuxQOFj/NDAode1G7kwFv4yKwQvupJg==}
+  arktype@2.1.28:
+    resolution: {integrity: sha512-LVZqXl2zWRpNFnbITrtFmqeqNkPPo+KemuzbGSY6jvJwCb4v8NsDzrWOLHnQgWl26TkJeWWcUNUeBpq2Mst1/Q==}
 
   astral-regex@2.0.0:
     resolution: {integrity: sha512-Z7tMw1ytTXt5jqMcOP+OQteU1VuNK9Y02uuJtKQ1Sv69jXQKKg5cibLwGJow8yzZP+eAc18EmLGPal0bp36rvQ==}
@@ -1133,11 +1136,13 @@ snapshots:
 
   '@ark/fs@0.53.0': {}
 
-  '@ark/schema@0.53.0':
+  '@ark/schema@0.56.0':
     dependencies:
-      '@ark/util': 0.53.0
+      '@ark/util': 0.56.0
 
   '@ark/util@0.53.0': {}
+
+  '@ark/util@0.56.0': {}
 
   '@borewit/text-codec@0.1.1': {}
 
@@ -1456,15 +1461,15 @@ snapshots:
 
   arg@5.0.2: {}
 
-  arkregex@0.0.2:
+  arkregex@0.0.4:
     dependencies:
-      '@ark/util': 0.53.0
+      '@ark/util': 0.56.0
 
-  arktype@2.1.25:
+  arktype@2.1.28:
     dependencies:
-      '@ark/schema': 0.53.0
-      '@ark/util': 0.53.0
-      arkregex: 0.0.2
+      '@ark/schema': 0.56.0
+      '@ark/util': 0.56.0
+      arkregex: 0.0.4
 
   astral-regex@2.0.0: {}
 
@@ -1663,7 +1668,7 @@ snapshots:
 
   fast-uri@3.1.0: {}
 
-  fastmcp@3.20.0(arktype@2.1.25):
+  fastmcp@3.20.0(arktype@2.1.28):
     dependencies:
       '@modelcontextprotocol/sdk': 1.20.0
       '@standard-schema/spec': 1.0.0
@@ -1674,7 +1679,7 @@ snapshots:
       strict-event-emitter-types: 2.0.0
       undici: 7.16.0
       uri-templates: 0.2.0
-      xsschema: 0.3.5(arktype@2.1.25)(zod-to-json-schema@3.24.6(zod@3.25.76))(zod@3.25.76)
+      xsschema: 0.3.5(arktype@2.1.28)(zod-to-json-schema@3.24.6(zod@3.25.76))(zod@3.25.76)
       yargs: 18.0.0
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
@@ -2050,9 +2055,9 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  xsschema@0.3.5(arktype@2.1.25)(zod-to-json-schema@3.24.6(zod@3.25.76))(zod@3.25.76):
+  xsschema@0.3.5(arktype@2.1.28)(zod-to-json-schema@3.24.6(zod@3.25.76))(zod@3.25.76):
     optionalDependencies:
-      arktype: 2.1.25
+      arktype: 2.1.28
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
 

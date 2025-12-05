@@ -1,6 +1,6 @@
 {
   "name": "@pullfrog/action",
-  "version": "0.0.126",
+  "version": "0.0.127",
   "type": "module",
   "files": [
     "index.js",
@@ -32,7 +32,7 @@
     "@octokit/webhooks-types": "^7.6.1",
     "@openai/codex-sdk": "0.58.0",
     "@standard-schema/spec": "1.0.0",
-    "arktype": "2.1.25",
+    "arktype": "2.1.28",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "fastmcp": "^3.20.0",

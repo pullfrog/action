@@ -6,7 +6,7 @@ import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import type { AgentName, AgentName as AgentNameType, Payload } from "./external.ts";
+import type { AgentName, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -111,7 +111,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 /**
  * Get agents that have matching API keys in the inputs
  */
-function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentNameType][] {
+function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentName][] {
   return Object.values(agents).filter((agent) =>
     agent.apiKeyNames.some((inputKey) => inputs[inputKey])
   );
@@ -135,7 +135,7 @@ async function throwMissingApiKeyError({
   agent,
   repoContext,
 }: {
-  agent: (typeof agents)[AgentNameType] | null;
+  agent: (typeof agents)[AgentName] | null;
   repoContext: RepoContext;
 }): Promise<never> {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
@@ -167,7 +167,6 @@ To fix this, add the required secret to your GitHub repository:
     message += `\n\nAlternatively, configure Pullfrog to use an agent at ${settingsUrl}`;
   }
 
-  log.error(message);
   // report to comment if MCP context is available (server has started)
   await reportErrorToComment({ error: message });
   throw new Error(message);
@@ -177,8 +176,8 @@ interface MainContext {
   inputs: Inputs;
   githubInstallationToken: string;
   repoContext: RepoContext;
-  agentName: AgentNameType;
-  agent: (typeof agents)[AgentNameType];
+  agentName: AgentName;
+  agent: (typeof agents)[AgentName];
   sharedTempDir: string;
   payload: Payload;
   mcpServerUrl: string;
@@ -226,7 +225,7 @@ async function resolveAgent(
   payload: Payload,
   githubInstallationToken: string,
   repoContext: RepoContext
-): Promise<{ agentName: AgentNameType; agent: (typeof agents)[AgentNameType] }> {
+): Promise<{ agentName: AgentName; agent: (typeof agents)[AgentName] }> {
   const repoSettings = await fetchRepoSettings({
     token: githubInstallationToken,
     repoContext,
