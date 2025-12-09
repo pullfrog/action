@@ -11,8 +11,10 @@ import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
+// load action's .env file in case it exists for local dev
 config();
-config({ path: join(process.cwd(), "../.env") });
+// .env file should always be at repo root for pullfrog/pullfrog repo with action submodule
+config({ path: join(process.cwd(), "..", ".env") });
 
 export async function run(prompt: string): Promise<AgentResult> {
   try {
