@@ -25,6 +25,7 @@ export interface AgentResult {
  */
 export interface AgentConfig {
   apiKey: string;
+  apiKeys?: Record<string, string>; // all available keys for this agent
   payload: Payload;
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;

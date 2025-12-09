@@ -6,7 +6,6 @@ import { addInstructions } from "./instructions.ts";
 import {
   agent,
   type ConfigureMcpServersParams,
-  createAgentEnv,
   installFromNpmTarball,
   setupProcessAgentEnv,
 } from "./shared.ts";
@@ -211,34 +210,54 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath }) => {
+  run: async ({ payload, apiKey, apiKeys, mcpServers, cliPath }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    // 2. initialize MCP servers and sandbox
+    if (!apiKey) {
+      throw new Error("at least one API key is required for opencode agent");
+    }
+
+    // 2. build env vars from all available API keys (map to OpenCode's expected env var names)
+    const apiKeyEnv: Record<string, string> = {};
+    const envVarMap: Record<string, string> = {
+      anthropic_api_key: "ANTHROPIC_API_KEY",
+      openai_api_key: "OPENAI_API_KEY",
+      google_api_key: "GOOGLE_GENERATIVE_AI_API_KEY",
+      gemini_api_key: "GOOGLE_GENERATIVE_AI_API_KEY",
+    };
+    for (const [inputKey, value] of Object.entries(apiKeys || {})) {
+      const envVarName = envVarMap[inputKey] || inputKey.toUpperCase();
+      apiKeyEnv[envVarName] = value;
+    }
+
+    // 3. initialize MCP servers and sandbox
     configureOpenCodeMcpServers({ mcpServers });
     configureOpenCodeSandbox({ sandbox: payload.sandbox ?? false });
 
-    if (!apiKey) {
-      throw new Error("anthropic_api_key is required for opencode agent");
-    }
-
-    // 3. prepare prompt and args
+    // 4. prepare prompt and args
     const prompt = addInstructions(payload);
-    const args = ["run", "--format", "json", "-m", "anthropic/claude-sonnet-4-20250514", prompt];
+    const args = ["run", "--format", "json", prompt];
 
     if (payload.sandbox) {
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
     }
 
-    // 4. set up environment
+    // 6. set up environment
     const packageDir = join(cliPath, "..", "..");
-    setupProcessAgentEnv({ ANTHROPIC_API_KEY: apiKey, HOME: tempHome });
-    const env = createAgentEnv({ ANTHROPIC_API_KEY: apiKey, HOME: tempHome });
+    setupProcessAgentEnv({ HOME: tempHome, ...apiKeyEnv });
+    // don't pass GITHUB_TOKEN to opencode - it may try to use it incorrectly
+    const env: Record<string, string> = {
+      PATH: process.env.PATH || "",
+      HOME: tempHome,
+      LOG_LEVEL: process.env.LOG_LEVEL || "",
+      NODE_ENV: process.env.NODE_ENV || "",
+      ...apiKeyEnv,
+    };
 
-    // 5. spawn and stream JSON output
+    // 7. spawn and stream JSON output
     let output = "";
     const result = await spawn({
       cmd: cliPath,
@@ -278,7 +297,7 @@ export const opencode = agent({
       },
     });
 
-    // 6. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
+    // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
     if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {
       const totalTokens = accumulatedTokens.input + accumulatedTokens.output;
       await log.summaryTable([
@@ -291,11 +310,23 @@ export const opencode = agent({
       ]);
     }
 
-    // 7. return result
+    // 9. return result
+    if (result.exitCode !== 0) {
+      const errorMessage =
+        result.stderr || result.stdout || "Unknown error - no output from OpenCode CLI";
+      log.error(`OpenCode CLI exited with code ${result.exitCode}: ${errorMessage}`);
+      log.debug(`OpenCode stdout: ${result.stdout?.substring(0, 500)}`);
+      log.debug(`OpenCode stderr: ${result.stderr?.substring(0, 500)}`);
+      return {
+        success: false,
+        output: finalOutput || output,
+        error: errorMessage,
+      };
+    }
+
     return {
-      success: result.exitCode === 0,
+      success: true,
       output: finalOutput || output,
-      error: result.exitCode !== 0 ? result.stderr : undefined,
     };
   },
 });

@@ -185,13 +185,17 @@ interface MainContext {
   mcpServers: ReturnType<typeof createMcpConfigs>;
   cliPath: string;
   apiKey: string;
+  apiKeys: Record<string, string>;
 }
 
 async function initializeContext(
   inputs: Inputs,
   payload: Payload
 ): Promise<
-  Omit<MainContext, "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey">
+  Omit<
+    MainContext,
+    "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey" | "apiKeys"
+  >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
   Inputs.assert(inputs);
@@ -240,8 +244,31 @@ async function resolveAgent(
     if (!agent) {
       throw new Error(`invalid agent name: ${agentName}`);
     }
-    log.info(`Selected configured agent: ${agentName}`);
-    return { agentName, agent };
+
+    // if explicitly configured (via override or payload), respect it even without matching keys
+    // this allows users to force an agent selection (will fail later with clear error if no keys)
+    const isExplicitOverride = agentOverride !== undefined || payload.agent !== null;
+
+    if (isExplicitOverride) {
+      log.info(`Selected configured agent: ${agentName}`);
+      return { agentName, agent };
+    }
+
+    // for repo-level defaults, check if agent has matching keys before selecting
+    const hasMatchingKey = agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
+    if (!hasMatchingKey) {
+      log.warning(
+        `Repo default agent ${agentName} has no matching API keys. Available agents: ${
+          getAvailableAgents(inputs)
+            .map((a) => a.name)
+            .join(", ") || "none"
+        }`
+      );
+      // fall through to auto-selection for repo defaults
+    } else {
+      log.info(`Selected configured agent: ${agentName}`);
+      return { agentName, agent };
+    }
   }
 
   const availableAgents = getAvailableAgents(inputs);
@@ -330,8 +357,16 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
 }
 
 async function validateApiKey(ctx: MainContext): Promise<void> {
-  const matchingInputKey = ctx.agent.apiKeyNames.find((inputKey) => ctx.inputs[inputKey]);
-  if (!matchingInputKey) {
+  // collect all matching API keys for this agent
+  const apiKeys: Record<string, string> = {};
+  for (const inputKey of ctx.agent.apiKeyNames) {
+    const value = ctx.inputs[inputKey];
+    if (value) {
+      apiKeys[inputKey] = value;
+    }
+  }
+
+  if (Object.keys(apiKeys).length === 0) {
     await throwMissingApiKeyError({
       agent: ctx.agent,
       repoContext: ctx.repoContext,
@@ -339,7 +374,10 @@ async function validateApiKey(ctx: MainContext): Promise<void> {
     // unreachable - throwMissingApiKeyError always throws
     return;
   }
-  ctx.apiKey = ctx.inputs[matchingInputKey]!;
+
+  // keep apiKey for backward compat (first available key)
+  ctx.apiKey = Object.values(apiKeys)[0];
+  ctx.apiKeys = apiKeys;
 }
 
 async function runAgent(ctx: MainContext): Promise<AgentResult> {
@@ -354,6 +392,7 @@ async function runAgent(ctx: MainContext): Promise<AgentResult> {
     payload: ctx.payload,
     mcpServers: ctx.mcpServers,
     apiKey: ctx.apiKey,
+    apiKeys: ctx.apiKeys,
     cliPath: ctx.cliPath,
   });
 }
