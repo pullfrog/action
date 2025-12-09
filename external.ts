@@ -58,6 +58,14 @@ export type PayloadEvent =
       [key: string]: any;
     }
   | {
+      trigger: "pull_request_ready_for_review";
+      issue_number: number;
+      pr_title: string;
+      pr_body: string | null;
+      branch: string;
+      [key: string]: any;
+    }
+  | {
       trigger: "pull_request_review_requested";
       issue_number: number;
       pr_title: string;
