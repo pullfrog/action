@@ -35,6 +35,10 @@ export function getMcpContext(): McpContext {
   };
 }
 
+export function isProgressCommentDisabled(): boolean {
+  return mcpInitContext?.payload.disableProgressComment === true;
+}
+
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
 /**

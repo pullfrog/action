@@ -1,7 +1,7 @@
 import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
-import { modes } from "../modes.ts";
+import { getModes } from "../modes.ts";
 
 export const addInstructions = (payload: Payload) => {
   let encodedEvent = "";
@@ -92,7 +92,7 @@ Before starting any work, you must first determine which mode to use by examinin
 
 Available modes:
 
-${[...modes, ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...getModes({ disableProgressComment: payload.disableProgressComment }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 **Required first step**: 
 1. Examine the user's request/prompt carefully

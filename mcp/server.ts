@@ -1,7 +1,7 @@
 import "./arkConfig.ts";
 // this must be imported first
 import { createServer } from "node:net";
-import { FastMCP } from "fastmcp";
+import { FastMCP, type Tool } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
@@ -15,12 +15,18 @@ import { IssueTool } from "./issue.ts";
 import { GetIssueCommentsTool } from "./issueComments.ts";
 import { GetIssueEventsTool } from "./issueEvents.ts";
 import { IssueInfoTool } from "./issueInfo.ts";
+import { AddLabelsTool } from "./labels.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
-import { addTools, initMcpContext, type McpInitContext } from "./shared.ts";
+import {
+  addTools,
+  initMcpContext,
+  isProgressCommentDisabled,
+  type McpInitContext,
+} from "./shared.ts";
 
 /**
  * Find an available port starting from the given port
@@ -64,9 +70,8 @@ export async function startMcpHttpServer(
     version: "0.0.1",
   });
 
-  addTools(server, [
+  const tools: Tool<any, any>[] = [
     SelectModeTool,
-    ReportProgressTool,
     CreateCommentTool,
     EditCommentTool,
     ReplyToReviewCommentTool,
@@ -81,7 +86,15 @@ export async function startMcpHttpServer(
     ListPullRequestReviewsTool,
     GetCheckSuiteLogsTool,
     DebugShellCommandTool,
-  ]);
+    AddLabelsTool,
+  ];
+
+  // only include ReportProgressTool if progress comment is not disabled
+  if (!isProgressCommentDisabled()) {
+    tools.push(ReportProgressTool);
+  }
+
+  addTools(server, tools);
 
   const port = await findAvailablePort(3764);
   const host = "127.0.0.1";

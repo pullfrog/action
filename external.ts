@@ -149,8 +149,21 @@ export type PayloadEvent =
       [key: string]: any;
     };
 
+export interface DispatchOptions {
+  /**
+   * Sandbox mode flag - when true, restricts agent to read-only operations
+   * (no Write, Web, or Bash access)
+   */
+  readonly sandbox?: boolean;
+
+  /**
+   * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)
+   */
+  readonly disableProgressComment?: true;
+}
+
 // payload type for agent execution
-export type Payload = {
+export interface Payload extends DispatchOptions {
   "~pullfrog": true;
 
   /**
@@ -180,10 +193,4 @@ export type Payload = {
   readonly comment_id?: number | null;
   readonly issue_id?: number | null;
   readonly pr_id?: number | null;
-
-  /**
-   * Sandbox mode flag - when true, restricts agent to read-only operations
-   * (no Write, Web, or Bash access)
-   */
-  readonly sandbox?: boolean;
-};
+}

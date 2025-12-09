@@ -11,7 +11,7 @@ import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
-import { modes } from "./modes.ts";
+import { getModes, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
 import { fetchRepoSettings, fetchWorkflowRunInfo } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
@@ -300,7 +300,11 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
       log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
     }
   }
-  const allModes = [...modes, ...(ctx.payload.modes || [])];
+
+  const allModes = [
+    ...getModes({ disableProgressComment: ctx.payload.disableProgressComment }),
+    ...(ctx.payload.modes || []),
+  ];
   const { url, close } = await startMcpHttpServer({
     payload: ctx.payload,
     modes: allModes,
