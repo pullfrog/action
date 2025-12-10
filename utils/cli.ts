@@ -11,30 +11,6 @@ const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = () => process.env.LOG_LEVEL === "debug";
 
 /**
- * Get the terminal width, or a reasonable default if not available
- */
-function getTerminalWidth(): number {
-  if (process.stdout.columns && process.stdout.columns > 0) {
-    return process.stdout.columns;
-  }
-  // reasonable default for most terminals
-  return 120;
-}
-
-/**
- * Truncate a line to fit within maxLength, adding ellipsis if needed
- */
-function truncateLine(line: string, maxLength: number): string {
-  if (line.length <= maxLength) {
-    return line;
-  }
-  if (maxLength <= 3) {
-    return "...".slice(0, maxLength);
-  }
-  return line.slice(0, maxLength - 3) + "...";
-}
-
-/**
  * Start a collapsed group (GitHub Actions) or regular group (local)
  */
 function startGroup(name: string): void {
@@ -68,16 +44,45 @@ function boxString(
     padding?: number;
   }
 ): string {
-  const terminalWidth = getTerminalWidth();
-  const { title, maxWidth = terminalWidth, indent = "", padding = 1 } = options || {};
-
-  // account for box borders (2 chars: │ on each side) and padding
-  const maxContentWidth = maxWidth - 2 - padding * 2;
+  const { title, maxWidth = 80, indent = "", padding = 1 } = options || {};
 
   const lines = text.trim().split("\n");
-  const truncatedLines = lines.map((line) => truncateLine(line, maxContentWidth));
+  const wrappedLines: string[] = [];
 
-  const maxLineLength = Math.max(...truncatedLines.map((line) => line.length));
+  for (const line of lines) {
+    if (line.length <= maxWidth - padding * 2) {
+      wrappedLines.push(line);
+    } else {
+      const words = line.split(" ");
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (testLine.length <= maxWidth - padding * 2) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+            currentLine = "";
+          }
+          // wrap long words by breaking them into chunks
+          const maxLineLength = maxWidth - padding * 2;
+          let remainingWord = word;
+          while (remainingWord.length > maxLineLength) {
+            wrappedLines.push(remainingWord.substring(0, maxLineLength));
+            remainingWord = remainingWord.substring(maxLineLength);
+          }
+          currentLine = remainingWord;
+        }
+      }
+
+      if (currentLine) {
+        wrappedLines.push(currentLine);
+      }
+    }
+  }
+
+  const maxLineLength = Math.max(...wrappedLines.map((line) => line.length));
   const contentBoxWidth = maxLineLength + padding * 2;
 
   // ensure box width is at least as wide as the title line when title exists
@@ -96,7 +101,7 @@ function boxString(
     result += `${indent}┌${"─".repeat(boxWidth)}┐\n`;
   }
 
-  for (const line of truncatedLines) {
+  for (const line of wrappedLines) {
     const paddedLine = line.padEnd(maxLineLength);
     result += `${indent}│${" ".repeat(padding)}${paddedLine}${" ".repeat(padding)}│\n`;
   }
