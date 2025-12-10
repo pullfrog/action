@@ -31,6 +31,7 @@
     "@octokit/rest": "^22.0.0",
     "@octokit/webhooks-types": "^7.6.1",
     "@openai/codex-sdk": "0.58.0",
+    "@opencode-ai/sdk": "^1.0.143",
     "@standard-schema/spec": "1.0.0",
     "arktype": "2.1.28",
     "dotenv": "^17.2.3",

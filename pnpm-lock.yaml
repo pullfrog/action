@@ -32,6 +32,9 @@ importers:
       '@openai/codex-sdk':
         specifier: 0.58.0
         version: 0.58.0
+      '@opencode-ai/sdk':
+        specifier: ^1.0.143
+        version: 1.0.143
       '@standard-schema/spec':
         specifier: 1.0.0
         version: 1.0.0
@@ -439,6 +442,9 @@ packages:
   '@openai/codex-sdk@0.58.0':
     resolution: {integrity: sha512-Z5vK294gUS9cn7bpU/lJtgzqJy1UqIGee7WMP+1Z4a6AxDcTxFCLZI4YkH9praJfrgoj5bFeu+3V9HIoBBTzcw==}
     engines: {node: '>=18'}
+
+  '@opencode-ai/sdk@1.0.143':
+    resolution: {integrity: sha512-dtmkBfJ7IIAHzL6KCzAlwc9GybfJONVeCsF6ePYySpkuhslDbRkZBJYb5vqGd1H5zdsgjc6JjuvmOf0rPWUL6A==}
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
@@ -1409,6 +1415,8 @@ snapshots:
   '@octokit/webhooks-types@7.6.1': {}
 
   '@openai/codex-sdk@0.58.0': {}
+
+  '@opencode-ai/sdk@1.0.143': {}
 
   '@sec-ant/readable-stream@0.4.1': {}
 

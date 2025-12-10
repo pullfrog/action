@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
@@ -9,6 +10,14 @@ import {
   installFromNpmTarball,
   setupProcessAgentEnv,
 } from "./shared.ts";
+
+// import { createOpencode } from "@opencode-ai/sdk"
+
+// const { client } = await createOpencode({
+//   config: {
+//     ''
+//   }
+// })
 
 // opencode cli event types inferred from json output format
 interface OpenCodeInitEvent {
