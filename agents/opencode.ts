@@ -121,35 +121,65 @@ type OpenCodeEvent =
 let finalOutput = "";
 let accumulatedTokens: { input: number; output: number } = { input: 0, output: 0 };
 let tokensLogged = false;
+const toolCallTimings = new Map<string, number>();
+let currentStepId: string | null = null;
+let currentStepType: string | null = null;
+let stepHistory: Array<{ stepId: string; stepType: string; toolCalls: string[] }> = [];
 
 const messageHandlers = {
-  init: (_event: OpenCodeInitEvent) => {
+  init: (event: OpenCodeInitEvent) => {
     // initialization event - reset state
+    log.info(
+      `🔵 OpenCode init: session_id=${event.session_id || "unknown"}, model=${event.model || "unknown"}`
+    );
     finalOutput = "";
     accumulatedTokens = { input: 0, output: 0 };
     tokensLogged = false;
   },
   message: (event: OpenCodeMessageEvent) => {
-    // update finalOutput but don't log here - text handler will log
-    if (event.role === "assistant" && event.content?.trim() && !event.delta) {
+    if (event.role === "assistant" && event.content?.trim()) {
       const message = event.content.trim();
       if (message) {
-        finalOutput = message;
+        if (event.delta) {
+          // delta messages are streaming thoughts/reasoning
+          log.info(
+            `💭 OpenCode thinking: ${message.substring(0, 300)}${message.length > 300 ? "..." : ""}`
+          );
+        } else {
+          // complete messages
+          log.info(
+            `💬 OpenCode message (${event.role}): ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`
+          );
+          finalOutput = message;
+        }
       }
+    } else if (event.role === "user") {
+      log.info(
+        `💬 OpenCode message (${event.role}): ${event.content?.substring(0, 100) || ""}${event.content && event.content.length > 100 ? "..." : ""}`
+      );
     }
   },
   text: (event: OpenCodeTextEvent) => {
     // log from text events only to avoid duplicates
     if (event.part?.text?.trim()) {
       const message = event.part.text.trim();
+      log.info(
+        `📝 OpenCode text output: ${message.substring(0, 200)}${message.length > 200 ? "..." : ""}`
+      );
       log.box(message, { title: "OpenCode" });
       finalOutput = message;
     }
   },
-  step_start: (_event: OpenCodeStepStartEvent) => {
-    // step start - no logging needed
+  step_start: (event: OpenCodeStepStartEvent) => {
+    const stepType = event.part?.type || "unknown";
+    const stepId = event.part?.id || "unknown";
+    currentStepId = stepId;
+    currentStepType = stepType;
+    stepHistory.push({ stepId, stepType, toolCalls: [] });
   },
   step_finish: async (event: OpenCodeStepFinishEvent) => {
+    const stepId = event.part?.id || "unknown";
+
     // accumulate tokens from step_finish events (they come here, not in result)
     const eventTokens = event.part?.tokens;
     if (eventTokens) {
@@ -160,9 +190,30 @@ const messageHandlers = {
       accumulatedTokens.input += inputTokens;
       accumulatedTokens.output += outputTokens;
     }
+
+    // clear current step
+    if (currentStepId === stepId) {
+      currentStepId = null;
+      currentStepType = null;
+    }
   },
   tool_use: (event: OpenCodeToolUseEvent) => {
-    if (event.tool_name) {
+    if (event.tool_name && event.tool_id) {
+      toolCallTimings.set(event.tool_id, Date.now());
+      const paramsStr = event.parameters
+        ? JSON.stringify(event.parameters).substring(0, 500)
+        : "{}";
+      const stepContext = currentStepId
+        ? ` (step=${currentStepType || "unknown"}, stepId=${currentStepId.substring(0, 20)}...)`
+        : "";
+      log.info(`🔧 OpenCode tool_use: ${event.tool_name}${stepContext}, id=${event.tool_id}`);
+      log.info(`   Parameters: ${paramsStr}${paramsStr.length >= 500 ? "..." : ""}`);
+
+      // track tool call in current step
+      if (stepHistory.length > 0) {
+        stepHistory[stepHistory.length - 1].toolCalls.push(event.tool_name);
+      }
+
       log.toolCall({
         toolName: event.tool_name,
         input: event.parameters || {},
@@ -170,20 +221,54 @@ const messageHandlers = {
     }
   },
   tool_result: (event: OpenCodeToolResultEvent) => {
+    if (event.tool_id) {
+      const toolStartTime = toolCallTimings.get(event.tool_id);
+      if (toolStartTime) {
+        const toolDuration = Date.now() - toolStartTime;
+        toolCallTimings.delete(event.tool_id);
+        const status = event.status || "unknown";
+        const stepContext = currentStepId ? ` (step=${currentStepType || "unknown"})` : "";
+        const outputPreview =
+          typeof event.output === "string"
+            ? event.output.substring(0, 500)
+            : JSON.stringify(event.output).substring(0, 500);
+        log.info(
+          `🔧 OpenCode tool_result${stepContext}: id=${event.tool_id}, status=${status}, duration=${toolDuration}ms`
+        );
+        if (outputPreview && outputPreview !== "{}" && outputPreview !== "null") {
+          log.info(`   Output: ${outputPreview}${outputPreview.length >= 500 ? "..." : ""}`);
+        }
+        if (toolDuration > 5000) {
+          log.warning(
+            `⚠️  Tool call took ${(toolDuration / 1000).toFixed(1)}s - this may indicate network latency or slow processing`
+          );
+        }
+      }
+    }
     if (event.status === "error") {
       const errorMsg =
         typeof event.output === "string" ? event.output : JSON.stringify(event.output);
-      log.warning(`Tool call failed: ${errorMsg}`);
+      log.warning(`❌ Tool call failed: ${errorMsg}`);
     }
   },
   result: async (event: OpenCodeResultEvent) => {
+    const status = event.status || "unknown";
+    const duration = event.stats?.duration_ms || 0;
+    const toolCalls = event.stats?.tool_calls || 0;
+    log.info(
+      `🏁 OpenCode result: status=${status}, duration=${duration}ms, tool_calls=${toolCalls}`
+    );
+
     if (event.status === "error") {
-      log.error(`OpenCode CLI failed: ${JSON.stringify(event)}`);
+      log.error(`❌ OpenCode CLI failed: ${JSON.stringify(event)}`);
     } else {
       // log tokens once at the end (use stats from result if available, otherwise use accumulated from step_finish)
       const inputTokens = event.stats?.input_tokens || accumulatedTokens.input || 0;
       const outputTokens = event.stats?.output_tokens || accumulatedTokens.output || 0;
       const totalTokens = event.stats?.total_tokens || inputTokens + outputTokens;
+      log.info(
+        `📊 OpenCode final stats: input=${inputTokens}, output=${outputTokens}, total=${totalTokens}, tool_calls=${toolCalls}, duration=${duration}ms`
+      );
 
       if ((inputTokens > 0 || outputTokens > 0) && !tokensLogged) {
         await log.summaryTable([
@@ -210,34 +295,15 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey, apiKeys, mcpServers, cliPath }) => {
+  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    if (!apiKey) {
-      throw new Error("at least one API key is required for opencode agent");
-    }
-
-    // 2. build env vars from all available API keys (map to OpenCode's expected env var names)
-    const apiKeyEnv: Record<string, string> = {};
-    const envVarMap: Record<string, string> = {
-      anthropic_api_key: "ANTHROPIC_API_KEY",
-      openai_api_key: "OPENAI_API_KEY",
-      google_api_key: "GOOGLE_GENERATIVE_AI_API_KEY",
-      gemini_api_key: "GOOGLE_GENERATIVE_AI_API_KEY",
-    };
-    for (const [inputKey, value] of Object.entries(apiKeys || {})) {
-      const envVarName = envVarMap[inputKey] || inputKey.toUpperCase();
-      apiKeyEnv[envVarName] = value;
-    }
-
-    // 3. initialize MCP servers and sandbox
     configureOpenCodeMcpServers({ mcpServers });
     configureOpenCodeSandbox({ sandbox: payload.sandbox ?? false });
 
-    // 4. prepare prompt and args
     const prompt = addInstructions(payload);
     const args = ["run", "--format", "json", prompt];
 
@@ -246,25 +312,41 @@ export const opencode = agent({
     }
 
     // 6. set up environment
-    const packageDir = join(cliPath, "..", "..");
-    setupProcessAgentEnv({ HOME: tempHome, ...apiKeyEnv });
-    // don't pass GITHUB_TOKEN to opencode - it may try to use it incorrectly
+    setupProcessAgentEnv({ HOME: tempHome });
+
+    // build env vars: start with process.env (includes all API_KEY vars loaded by config())
+    // exclude GITHUB_TOKEN - OpenCode should use MCP server for GitHub operations, not direct token
+    // then override with apiKeys and HOME
     const env: Record<string, string> = {
-      PATH: process.env.PATH || "",
+      ...(Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([key, value]) => value !== undefined && key !== "GITHUB_TOKEN"
+        )
+      ) as Record<string, string>),
       HOME: tempHome,
-      LOG_LEVEL: process.env.LOG_LEVEL || "",
-      NODE_ENV: process.env.NODE_ENV || "",
-      ...apiKeyEnv,
     };
 
-    // 7. spawn and stream JSON output
+    // add/override API keys from apiKeys object (uppercase keys)
+    for (const [key, value] of Object.entries(apiKeys || {})) {
+      env[key.toUpperCase()] = value;
+    }
+
+    // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
+    const repoDir = process.cwd();
+
+    log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
+    log.info(`📁 Working directory: ${repoDir}`);
+    const startTime = Date.now();
+    let lastActivityTime = startTime;
+    let eventCount = 0;
+
     let output = "";
     const result = await spawn({
       cmd: cliPath,
       args,
-      cwd: packageDir,
+      cwd: repoDir,
       env,
-      timeout: 300000,
+      timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
         const text = chunk.toString();
@@ -280,9 +362,39 @@ export const opencode = agent({
 
           try {
             const event = JSON.parse(trimmed) as OpenCodeEvent;
+            eventCount++;
+            const timeSinceLastActivity = Date.now() - lastActivityTime;
+            if (timeSinceLastActivity > 10000) {
+              const activeToolCalls = toolCallTimings.size;
+              const toolCallInfo =
+                activeToolCalls > 0
+                  ? ` (waiting for ${activeToolCalls} tool call${activeToolCalls > 1 ? "s" : ""})`
+                  : " (OpenCode may be processing internally - LLM calls, planning, etc.)";
+              log.warning(
+                `⚠️  No activity for ${(timeSinceLastActivity / 1000).toFixed(1)}s${toolCallInfo} (${eventCount} events processed so far)`
+              );
+            }
+            lastActivityTime = Date.now();
             const handler = messageHandlers[event.type as keyof typeof messageHandlers];
             if (handler) {
               await handler(event as never);
+            } else {
+              // log unhandled event types for visibility (but don't spam)
+              if (
+                event.type &&
+                ![
+                  "init",
+                  "message",
+                  "text",
+                  "step_start",
+                  "step_finish",
+                  "tool_use",
+                  "tool_result",
+                  "result",
+                ].includes(event.type)
+              ) {
+                log.debug(`📋 OpenCode event (unhandled): type=${event.type}`);
+              }
             }
           } catch {
             // non-JSON lines are ignored
@@ -296,6 +408,9 @@ export const opencode = agent({
         }
       },
     });
+
+    const duration = Date.now() - startTime;
+    log.info(`✅ OpenCode CLI completed in ${duration}ms with exit code ${result.exitCode}`);
 
     // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
     if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {

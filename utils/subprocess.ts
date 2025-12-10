@@ -92,12 +92,15 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
       });
     });
 
-    child.on("error", (_error) => {
+    child.on("error", (error) => {
       const durationMs = Date.now() - startTime;
 
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+
+      // log spawn errors for debugging
+      console.error(`[spawn] Process spawn error: ${error.message}`);
 
       resolve({
         stdout: stdoutBuffer,

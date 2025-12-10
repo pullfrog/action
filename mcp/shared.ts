@@ -42,10 +42,11 @@ export function isProgressCommentDisabled(): boolean {
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
 /**
- * Sanitize JSON schema to remove problematic fields that Gemini CLI can't handle
+ * Sanitize JSON schema to remove problematic fields that Gemini CLI/API can't handle
  * - Removes $schema field (causes "no schema with key or ref" errors)
  * - Converts $defs to definitions (draft-07 compatibility)
  * - Removes any draft-2020-12 specific features
+ * - Converts any_of with enum values to direct STRING enum (Google API requirement)
  */
 function sanitizeSchema(schema: any): any {
   if (!schema || typeof schema !== "object") {
@@ -56,11 +57,53 @@ function sanitizeSchema(schema: any): any {
     return schema.map(sanitizeSchema);
   }
 
+  // handle any_of with enum values - convert to direct STRING enum for Google API
+  // Google API requires: {type: "string", enum: [...]} not {anyOf: [{enum: [...]}, {enum: [...]}]}
+  if (schema.anyOf && Array.isArray(schema.anyOf) && schema.anyOf.length > 0) {
+    const enumValues: string[] = [];
+    let allAreEnumObjects = true;
+
+    for (const item of schema.anyOf) {
+      if (item && typeof item === "object" && Array.isArray(item.enum)) {
+        // collect enum values (only strings)
+        const stringEnums = item.enum.filter((v: any) => typeof v === "string");
+        if (stringEnums.length > 0) {
+          enumValues.push(...stringEnums);
+        } else {
+          allAreEnumObjects = false;
+          break;
+        }
+      } else {
+        allAreEnumObjects = false;
+        break;
+      }
+    }
+
+    // if all any_of items are enum objects with string values, convert to direct STRING enum
+    if (allAreEnumObjects && enumValues.length > 0) {
+      const uniqueEnums = [...new Set(enumValues)];
+      // preserve other properties from the original schema (like description)
+      const result: any = {
+        type: "string",
+        enum: uniqueEnums,
+      };
+      if (schema.description) {
+        result.description = schema.description;
+      }
+      return result;
+    }
+  }
+
   const sanitized: any = {};
 
   for (const [key, value] of Object.entries(schema)) {
     // skip $schema field entirely
     if (key === "$schema") {
+      continue;
+    }
+
+    // skip any_of if we already converted it above
+    if (key === "anyOf" && schema.anyOf) {
       continue;
     }
 
@@ -120,8 +163,10 @@ function sanitizeTool<T extends Tool<any, any>>(tool: T): T {
 }
 
 export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
-  // only sanitize schemas for gemini agent (it has issues with draft-2020-12 schemas)
-  const shouldSanitize = mcpInitContext?.agentName === "gemini";
+  // sanitize schemas for gemini agent and opencode (when using Google API)
+  // both have issues with draft-2020-12 schemas and any_of enum constructs
+  const shouldSanitize =
+    mcpInitContext?.agentName === "gemini" || mcpInitContext?.agentName === "opencode";
 
   for (const tool of tools) {
     const processedTool = shouldSanitize ? sanitizeTool(tool) : tool;

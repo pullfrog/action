@@ -112,9 +112,14 @@ export async function main(inputs: Inputs): Promise<MainResult> {
  * Get agents that have matching API keys in the inputs
  */
 function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentName][] {
-  return Object.values(agents).filter((agent) =>
-    agent.apiKeyNames.some((inputKey) => inputs[inputKey])
-  );
+  return Object.values(agents).filter((agent) => {
+    // for OpenCode, check if any API_KEY variable exists in inputs
+    if (agent.name === "opencode") {
+      return Object.keys(inputs).some((key) => key.includes("api_key"));
+    }
+    // for other agents, check apiKeyNames
+    return agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
+  });
 }
 
 /**
@@ -141,13 +146,20 @@ async function throwMissingApiKeyError({
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
 
-  const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
-  const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
-  const secretNameList =
-    inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
-
   const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
+
+  // for OpenCode, use a generic message since it accepts any API key
+  const isOpenCode = agent?.name === "opencode";
+  let secretNameList: string;
+  if (isOpenCode) {
+    secretNameList =
+      "any API key (e.g., `OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)";
+  } else {
+    const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
+    const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
+    secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
+  }
 
   let message = `${
     agent === null
@@ -255,7 +267,10 @@ async function resolveAgent(
     }
 
     // for repo-level defaults, check if agent has matching keys before selecting
-    const hasMatchingKey = agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
+    const hasMatchingKey =
+      agent.name === "opencode"
+        ? Object.keys(inputs).some((key) => key.includes("api_key"))
+        : agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
     if (!hasMatchingKey) {
       log.warning(
         `Repo default agent ${agentName} has no matching API keys. Available agents: ${
@@ -363,6 +378,17 @@ async function validateApiKey(ctx: MainContext): Promise<void> {
     const value = ctx.inputs[inputKey];
     if (value) {
       apiKeys[inputKey] = value;
+    }
+  }
+
+  // for OpenCode: if no keys found in inputs, check process.env for any API_KEY variables
+  if (ctx.agentName === "opencode" && Object.keys(apiKeys).length === 0) {
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value && typeof value === "string" && key.includes("API_KEY")) {
+        // convert env var name back to input key format (lowercase with underscores)
+        const inputKey = key.toLowerCase();
+        apiKeys[inputKey] = value;
+      }
     }
   }
 

@@ -20,6 +20,16 @@ function getAllSecrets(): string[] {
     }
   }
 
+  // for OpenCode: also scan all API_KEY environment variables (since apiKeyNames is empty)
+  const opencodeAgent = agentsManifest.opencode;
+  if (opencodeAgent && opencodeAgent.apiKeyNames.length === 0) {
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value && typeof value === "string" && key.includes("API_KEY")) {
+        secrets.push(value);
+      }
+    }
+  }
+
   // add GitHub installation token
   try {
     const token = getGitHubInstallationToken();

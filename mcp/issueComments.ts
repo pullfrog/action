@@ -7,7 +7,8 @@ export const GetIssueComments = type({
 
 export const GetIssueCommentsTool = tool({
   name: "get_issue_comments",
-  description: "Get all comments for a GitHub issue. Returns all comments including the issue body and all subsequent discussion comments.",
+  description:
+    "Get all comments for a GitHub issue. Returns all comments including the issue body and all subsequent discussion comments.",
   parameters: GetIssueComments,
   execute: contextualize(async ({ issue_number }, ctx) => {
     const comments = await ctx.octokit.paginate(ctx.octokit.rest.issues.listComments, {
@@ -32,4 +33,3 @@ export const GetIssueCommentsTool = tool({
     };
   }),
 });
-

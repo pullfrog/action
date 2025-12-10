@@ -40,7 +40,7 @@ export const agentsManifest = {
   },
   opencode: {
     displayName: "OpenCode",
-    apiKeyNames: ["anthropic_api_key", "openai_api_key", "google_api_key", "gemini_api_key"],
+    apiKeyNames: [], // empty array means OpenCode accepts any API_KEY from environment
     url: "https://opencode.ai",
   },
 } as const satisfies Record<string, AgentManifest>;

@@ -1,1 +1,1 @@
-Use the debug_shell_command MCP tool to run `git status` and show me the output
+Use the debug_shell_command MCP tool to run `git status` and tell me what agent is running

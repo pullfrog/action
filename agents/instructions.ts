@@ -3,6 +3,90 @@ import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
 
+/**
+ * Extract only essential fields from event data to reduce token usage.
+ * Removes verbose GitHub API metadata (user objects, repository metadata, etc.)
+ * and keeps only the fields agents actually need.
+ */
+function extractEssentialEventData(event: Payload["event"]): Record<string, unknown> {
+  const trigger = event.trigger;
+  const essential: Record<string, unknown> = { trigger };
+
+  // common fields
+  if ("issue_number" in event) {
+    essential.issue_number = event.issue_number;
+  }
+  if ("branch" in event && event.branch) {
+    essential.branch = event.branch;
+  }
+
+  // trigger-specific fields
+  switch (trigger) {
+    case "issue_comment_created":
+      if ("comment_id" in event) essential.comment_id = event.comment_id;
+      if ("comment_body" in event) essential.comment_body = event.comment_body;
+      // include issue title/body if available in context (but not the entire context object)
+      if ("context" in event && event.context && typeof event.context === "object") {
+        const ctx = event.context as Record<string, unknown>;
+        if (ctx.issue && typeof ctx.issue === "object") {
+          const issue = ctx.issue as Record<string, unknown>;
+          if (issue.title) essential.issue_title = issue.title;
+          if (issue.body) essential.issue_body = issue.body;
+        }
+      }
+      break;
+
+    case "issues_opened":
+    case "issues_assigned":
+    case "issues_labeled":
+      if ("issue_title" in event) essential.issue_title = event.issue_title;
+      if ("issue_body" in event) essential.issue_body = event.issue_body;
+      break;
+
+    case "pull_request_opened":
+    case "pull_request_review_requested":
+      if ("pr_title" in event) essential.pr_title = event.pr_title;
+      if ("pr_body" in event) essential.pr_body = event.pr_body;
+      if ("branch" in event) essential.branch = event.branch;
+      break;
+
+    case "pull_request_review_submitted":
+      if ("review_id" in event) essential.review_id = event.review_id;
+      if ("review_body" in event) essential.review_body = event.review_body;
+      if ("review_state" in event) essential.review_state = event.review_state;
+      if ("branch" in event) essential.branch = event.branch;
+      break;
+
+    case "pull_request_review_comment_created":
+      if ("comment_id" in event) essential.comment_id = event.comment_id;
+      if ("comment_body" in event) essential.comment_body = event.comment_body;
+      if ("pr_title" in event) essential.pr_title = event.pr_title;
+      if ("branch" in event) essential.branch = event.branch;
+      break;
+
+    case "check_suite_completed":
+      if ("pr_title" in event) essential.pr_title = event.pr_title;
+      if ("pr_body" in event) essential.pr_body = event.pr_body;
+      if ("branch" in event) essential.branch = event.branch;
+      if ("check_suite" in event) {
+        essential.check_suite = {
+          id: event.check_suite.id,
+          head_sha: event.check_suite.head_sha,
+          head_branch: event.check_suite.head_branch,
+          status: event.check_suite.status,
+          conclusion: event.check_suite.conclusion,
+        };
+      }
+      break;
+
+    case "workflow_dispatch":
+      if ("inputs" in event) essential.inputs = event.inputs;
+      break;
+  }
+
+  return essential;
+}
+
 export const addInstructions = (payload: Payload) => {
   let encodedEvent = "";
 
@@ -10,7 +94,9 @@ export const addInstructions = (payload: Payload) => {
   if (eventKeys.length === 1 && eventKeys[0] === "trigger") {
     // no meaningful event data to encode
   } else {
-    encodedEvent = toonEncode(payload.event);
+    // extract only essential fields to reduce token usage
+    const essentialEvent = extractEssentialEventData(payload.event);
+    encodedEvent = toonEncode(essentialEvent);
   }
 
   return `
@@ -82,7 +168,22 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 
 **GitHub CLI prohibition**: Do not use the \`gh\` CLI under any circumstances. Use the corresponding tool from ${ghPullfrogMcpName} instead.
 
-**Authentication**: Do not attempt to configure git credentials, generate tokens, or handle GitHub authentication manually. The ${ghPullfrogMcpName} server handles all authentication internally.
+**Git operations**: All git operations must use ${ghPullfrogMcpName} MCP tools to ensure proper authentication and commit attribution. Do NOT use git commands directly (e.g., \`git commit\`, \`git push\`, \`git checkout\`, \`git branch\`) - these will use incorrect credentials and attribute commits to the wrong author.
+
+**Available git MCP tools**:
+- \`${ghPullfrogMcpName}/create_branch\` - Create a new branch from a base branch
+- \`${ghPullfrogMcpName}/commit_files\` - Stage and commit files with proper authentication
+- \`${ghPullfrogMcpName}/push_branch\` - Push a branch to the remote repository
+- \`${ghPullfrogMcpName}/create_pull_request\` - Create a PR from the current branch
+
+**Workflow for making code changes**:
+1. Use file operations to create/modify files
+2. Use \`${ghPullfrogMcpName}/create_branch\` to create a new branch
+3. Use \`${ghPullfrogMcpName}/commit_files\` to commit your changes
+4. Use \`${ghPullfrogMcpName}/push_branch\` to push the branch
+5. Use \`${ghPullfrogMcpName}/create_pull_request\` to create a PR
+
+**Do not attempt to configure git credentials manually** - the ${ghPullfrogMcpName} server handles all authentication internally.
 
 **Commenting style**: When posting comments via ${ghPullfrogMcpName}, write as a professional team member would. Your final comments should be polished and actionable—do not include intermediate reasoning like "I'll now look at the code" or "Let me respond to the question."
 

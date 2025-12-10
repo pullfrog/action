@@ -11,6 +11,7 @@ import {
   ReportProgressTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
+import { CommitFilesTool, CreateBranchTool, PushBranchTool } from "./git.ts";
 import { IssueTool } from "./issue.ts";
 import { GetIssueCommentsTool } from "./issueComments.ts";
 import { GetIssueEventsTool } from "./issueEvents.ts";
@@ -87,6 +88,9 @@ export async function startMcpHttpServer(
     GetCheckSuiteLogsTool,
     DebugShellCommandTool,
     AddLabelsTool,
+    CreateBranchTool,
+    CommitFilesTool,
+    PushBranchTool,
   ];
 
   // only include ReportProgressTool if progress comment is not disabled

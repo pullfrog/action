@@ -27,12 +27,23 @@ export async function run(prompt: string): Promise<AgentResult> {
     // check if prompt is a pullfrog payload and extract agent
     // note: agent from payload will be used by determineAgent with highest precedence
     // we don't need to extract it here since main() will parse the payload
-    const inputs: Required<Inputs> = {
+    const inputs = {
       prompt,
-      ...flatMorph(agents, (_, agent) =>
-        agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]])
-      ),
-    };
+      ...flatMorph(agents, (_, agent) => {
+        // for OpenCode, scan all API_KEY environment variables
+        if (agent.name === "opencode") {
+          const opencodeKeys: Array<[string, string | undefined]> = [];
+          for (const [key, value] of Object.entries(process.env)) {
+            if (value && typeof value === "string" && key.includes("API_KEY")) {
+              opencodeKeys.push([key.toLowerCase(), value]);
+            }
+          }
+          return opencodeKeys;
+        }
+        // for other agents, use apiKeyNames
+        return agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]]);
+      }),
+    } as Required<Inputs>;
 
     const result = await main(inputs);
 
