@@ -65,17 +65,18 @@ To manually set up the Pullfrog action, you need to set up two workflow files in
 Create a file at `.github/workflows/pullfrog.yml`. This is a reusable workflow that runs the Pullfrog action.
 
 ```yaml
+# PULLFROG ACTION — DO NOT EDIT EXCEPT WHERE INDICATED
 name: Pullfrog
 on:
   workflow_dispatch:
     inputs:
       prompt:
         type: string
-        description: "Agent prompt"
+        description: 'Agent prompt'
   workflow_call:
     inputs:
       prompt:
-        description: "Agent prompt"
+        description: 'Agent prompt'
         type: string
 
 permissions:
@@ -90,13 +91,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      # optionally, setup your repo here
+      # the agent can figure this out itself, but pre-setup is more efficient
+      # - uses: actions/setup-node@v6
+      
       - name: Run agent
-        uses: pullfrog/action@main # Use a specific version tag in production
+        uses: pullfrog/action@v0
         with:
-          prompt: ${{ inputs.prompt }}
+          prompt: ${{ github.event.inputs.prompt }}
+
+          # feel free to comment out any you won't use
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Add other keys as needed:
-          # openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          google_api_key: ${{ secrets.GOOGLE_API_KEY }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          
 ```
 
 #### 2. Create `triggers.yml`
