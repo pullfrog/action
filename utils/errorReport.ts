@@ -1,6 +1,6 @@
-import { log } from "./cli.ts";
 import { reportProgress } from "../mcp/comment.ts";
 import { getMcpContext } from "../mcp/shared.ts";
+import { log } from "./cli.ts";
 
 /**
  * Check if MCP context is initialized (i.e., MCP server has started)
@@ -37,9 +37,7 @@ export async function reportErrorToComment({
     await reportProgress({ body: formattedError });
   } catch (reportError) {
     // log but don't throw - we don't want error reporting to fail the workflow
-    const errorMessage =
-      reportError instanceof Error ? reportError.message : String(reportError);
+    const errorMessage = reportError instanceof Error ? reportError.message : String(reportError);
     log.warning(`failed to report error to comment: ${errorMessage}`);
   }
 }
-

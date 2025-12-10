@@ -112,9 +112,14 @@ export async function main(inputs: Inputs): Promise<MainResult> {
  * Get agents that have matching API keys in the inputs
  */
 function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentName][] {
-  return Object.values(agents).filter((agent) =>
-    agent.apiKeyNames.some((inputKey) => inputs[inputKey])
-  );
+  return Object.values(agents).filter((agent) => {
+    // for OpenCode, check if any API_KEY variable exists in inputs
+    if (agent.name === "opencode") {
+      return Object.keys(inputs).some((key) => key.includes("api_key"));
+    }
+    // for other agents, check apiKeyNames
+    return agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
+  });
 }
 
 /**
@@ -141,13 +146,20 @@ async function throwMissingApiKeyError({
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
   const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
 
-  const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
-  const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
-  const secretNameList =
-    inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
-
   const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
+
+  // for OpenCode, use a generic message since it accepts any API key
+  const isOpenCode = agent?.name === "opencode";
+  let secretNameList: string;
+  if (isOpenCode) {
+    secretNameList =
+      "any API key (e.g., `OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)";
+  } else {
+    const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
+    const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
+    secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
+  }
 
   let message = `${
     agent === null
@@ -185,13 +197,17 @@ interface MainContext {
   mcpServers: ReturnType<typeof createMcpConfigs>;
   cliPath: string;
   apiKey: string;
+  apiKeys: Record<string, string>;
 }
 
 async function initializeContext(
   inputs: Inputs,
   payload: Payload
 ): Promise<
-  Omit<MainContext, "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey">
+  Omit<
+    MainContext,
+    "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey" | "apiKeys"
+  >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
   Inputs.assert(inputs);
@@ -240,8 +256,34 @@ async function resolveAgent(
     if (!agent) {
       throw new Error(`invalid agent name: ${agentName}`);
     }
-    log.info(`Selected configured agent: ${agentName}`);
-    return { agentName, agent };
+
+    // if explicitly configured (via override or payload), respect it even without matching keys
+    // this allows users to force an agent selection (will fail later with clear error if no keys)
+    const isExplicitOverride = agentOverride !== undefined || payload.agent !== null;
+
+    if (isExplicitOverride) {
+      log.info(`Selected configured agent: ${agentName}`);
+      return { agentName, agent };
+    }
+
+    // for repo-level defaults, check if agent has matching keys before selecting
+    const hasMatchingKey =
+      agent.name === "opencode"
+        ? Object.keys(inputs).some((key) => key.includes("api_key"))
+        : agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
+    if (!hasMatchingKey) {
+      log.warning(
+        `Repo default agent ${agentName} has no matching API keys. Available agents: ${
+          getAvailableAgents(inputs)
+            .map((a) => a.name)
+            .join(", ") || "none"
+        }`
+      );
+      // fall through to auto-selection for repo defaults
+    } else {
+      log.info(`Selected configured agent: ${agentName}`);
+      return { agentName, agent };
+    }
   }
 
   const availableAgents = getAvailableAgents(inputs);
@@ -330,8 +372,27 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
 }
 
 async function validateApiKey(ctx: MainContext): Promise<void> {
-  const matchingInputKey = ctx.agent.apiKeyNames.find((inputKey) => ctx.inputs[inputKey]);
-  if (!matchingInputKey) {
+  // collect all matching API keys for this agent
+  const apiKeys: Record<string, string> = {};
+  for (const inputKey of ctx.agent.apiKeyNames) {
+    const value = ctx.inputs[inputKey];
+    if (value) {
+      apiKeys[inputKey] = value;
+    }
+  }
+
+  // for OpenCode: if no keys found in inputs, check process.env for any API_KEY variables
+  if (ctx.agentName === "opencode" && Object.keys(apiKeys).length === 0) {
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value && typeof value === "string" && key.includes("API_KEY")) {
+        // convert env var name back to input key format (lowercase with underscores)
+        const inputKey = key.toLowerCase();
+        apiKeys[inputKey] = value;
+      }
+    }
+  }
+
+  if (Object.keys(apiKeys).length === 0) {
     await throwMissingApiKeyError({
       agent: ctx.agent,
       repoContext: ctx.repoContext,
@@ -339,7 +400,10 @@ async function validateApiKey(ctx: MainContext): Promise<void> {
     // unreachable - throwMissingApiKeyError always throws
     return;
   }
-  ctx.apiKey = ctx.inputs[matchingInputKey]!;
+
+  // keep apiKey for backward compat (first available key)
+  ctx.apiKey = Object.values(apiKeys)[0];
+  ctx.apiKeys = apiKeys;
 }
 
 async function runAgent(ctx: MainContext): Promise<AgentResult> {
@@ -354,6 +418,7 @@ async function runAgent(ctx: MainContext): Promise<AgentResult> {
     payload: ctx.payload,
     mcpServers: ctx.mcpServers,
     apiKey: ctx.apiKey,
+    apiKeys: ctx.apiKeys,
     cliPath: ctx.cliPath,
   });
 }

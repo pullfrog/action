@@ -7,6 +7,7 @@ export interface SpawnOptions {
   input?: string;
   timeout?: number;
   cwd?: string;
+  stdio?: ("pipe" | "ignore" | "inherit")[];
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
 }
@@ -22,7 +23,7 @@ export interface SpawnResult {
  * Spawn a subprocess with streaming callbacks and buffered results
  */
 export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
-  const { cmd, args, env, input, timeout, cwd, onStdout, onStderr } = options;
+  const { cmd, args, env, input, timeout, cwd, stdio, onStdout, onStderr } = options;
 
   const startTime = Date.now();
   let stdoutBuffer = "";
@@ -35,7 +36,7 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
         PATH: process.env.PATH || "",
         HOME: process.env.HOME || "",
       },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: stdio || ["pipe", "pipe", "pipe"],
       cwd: cwd || process.cwd(),
     });
 
@@ -91,12 +92,15 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
       });
     });
 
-    child.on("error", (_error) => {
+    child.on("error", (error) => {
       const durationMs = Date.now() - startTime;
 
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+
+      // log spawn errors for debugging
+      console.error(`[spawn] Process spawn error: ${error.message}`);
 
       resolve({
         stdout: stdoutBuffer,
@@ -106,7 +110,7 @@ export async function spawn(options: SpawnOptions): Promise<SpawnResult> {
       });
     });
 
-    if (input && child.stdin) {
+    if (input && child.stdin && stdio?.[0] !== "ignore") {
       child.stdin.write(input);
       child.stdin.end();
     }

@@ -38,6 +38,11 @@ export const agentsManifest = {
     apiKeyNames: ["google_api_key", "gemini_api_key"],
     url: "https://ai.google.dev/gemini-api/docs",
   },
+  opencode: {
+    displayName: "OpenCode",
+    apiKeyNames: [], // empty array means OpenCode accepts any API_KEY from environment
+    url: "https://opencode.ai",
+  },
 } as const satisfies Record<string, AgentManifest>;
 
 // agent name type - union of agent slugs

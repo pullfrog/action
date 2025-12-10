@@ -13,22 +13,6 @@ export interface GetModesParams {
 const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to share progress and results. Continue calling it as you make progress - it will update the same comment. Never create additional comments manually.`;
 
 export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
-  const progressStep = disableProgressComment ? "" : `\n\n6. ${reportProgressInstruction}`;
-  const finalProgressStep = disableProgressComment
-    ? ""
-    : `\n\n9. Call report_progress one final time with a summary of the results and a link to any artifacts created, like PRs or branches. 
-  - If relevant, include links to the issue or comment that triggered the PR. 
-  - If you created a PR, ALWAYS include a "View PR" link. e.g.: 
-    \`\`\`md
-    [View PR ➔](https://github.com/org/repo/pull/123)
-    \`\`\`
-  - If you created a branch without a PR, ALWAYS include a "Create PR" link and a link to the branch. e.g.:
-    
-    \`\`\`md
-    [\`pullfrog/branch-name\`](https://github.com/pullfrog/scratch/tree/pullfrog/branch-name) • [Create PR ➔](https://github.com/pullfrog/scratch/compare/main...pullfrog/branch-name?quick_pull=1&title=<informative_title>&body=<informative_body>)
-    \`\`\`
-`;
-
   return [
     {
       name: "Build",
@@ -37,17 +21,35 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
       prompt: `Follow these steps:
 1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 
-2. Create a branch for your work. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit to directly to main, master, or production.
+2. Create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly - always use ${ghPullfrogMcpName} MCP tools for git operations.
 
 3. Understand the requirements and any existing plan
 
-4. Make the necessary code changes. Create intermediate commits if called for.
+4. Make the necessary code changes using file operations. Then use ${ghPullfrogMcpName}/commit_files to commit your changes, and ${ghPullfrogMcpName}/push_branch to push the branch. Do NOT use git commands like \`git commit\` or \`git push\` directly.
 
-5. Test your changes to ensure they work correctly${progressStep}
+5. Test your changes to ensure they work correctly
 
-7. When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123").
+6. ${reportProgressInstruction}
 
-8. By default, create a PR with an informative title and body. However, if the user explicitly requests a branch without a PR (e.g. "implement X in a new branch", "don't create a PR", "branch only"), just make changes the changes in a branch and push them.${finalProgressStep}`,
+7. When you are done, use ${ghPullfrogMcpName}/create_pull_request to create a PR. If relevant, indicate which issue the PR addresses in the PR body (e.g. "Fixes #123").
+
+8. By default, create a PR with an informative title and body. However, if the user explicitly requests a branch without a PR (e.g. "implement X in a new branch", "don't create a PR", "branch only"), you still need to use ${ghPullfrogMcpName}/create_pull_request to ensure commits are properly attributed - you can note in the PR description that it's branch-only if needed. 
+
+9. Call report_progress one final time ONLY if you haven't already included all the important information (PR links, branch links, summary) in a previous report_progress call. If you already called report_progress with complete information including PR links after creating the PR, you do NOT need to call it again. Only make a final call if you need to add missing information. When making the final call, ensure it includes:
+  - A summary of what was accomplished
+  - Links to any artifacts created (PRs, branches, issues)
+  - If you created a PR, ALWAYS include the PR link. e.g.: 
+    \`\`\`md
+    [View PR ➔](https://github.com/org/repo/pull/123)
+    \`\`\`
+  - If you created a branch without a PR, ALWAYS include a "Create PR" link and a link to the branch. e.g.:
+    
+    \`\`\`md
+    [\`pullfrog/branch-name\`](https://github.com/pullfrog/scratch/tree/pullfrog/branch-name) • [Create PR ➔](https://github.com/pullfrog/scratch/compare/main...pullfrog/branch-name?quick_pull=1&title=<informative_title>&body=<informative_body>)
+    \`\`\`
+  
+  **IMPORTANT**: Do NOT overwrite a good comment with links/details with a generic message like "I have completed the task. Please review the PR." If your previous report_progress call already contains all the necessary information and links, skip the final call entirely.
+`,
     },
     {
       name: "Address Reviews",
@@ -66,7 +68,10 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
 
 6. Test your changes to ensure they work correctly.${disableProgressComment ? "" : `\n\n7. ${reportProgressInstruction}`}
 
-8. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.${disableProgressComment ? "" : "\n\n9. Call report_progress one final time with a summary of all changes made."}`,
+8. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.
+
+9. Call report_progress one final time ONLY if you haven't already included a complete summary in a previous report_progress call. If you already called report_progress with complete information, you do NOT need to call it again. Only make a final call if you need to add missing information. **IMPORTANT**: Do NOT overwrite a good comment with details with a generic message.
+`,
     },
     {
       name: "Review",
@@ -104,13 +109,17 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
 1. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.${disableProgressComment ? "" : "\n\n2. When creating comments, always use report_progress. Do not use create_issue_comment."}
 
 2. If the task involves making code changes:
-   - Create a branch for your work. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit to directly to main, master, or production.
-   - Make the necessary code changes. Create intermediate commits if called for.
+   - Create a branch using ${ghPullfrogMcpName}/create_branch. Branch names should be prefixed with "pullfrog/" and reflect the exact changes you are making. Never commit directly to main, master, or production.
+   - Use file operations to create/modify files with your changes.
+   - Use ${ghPullfrogMcpName}/commit_files to commit your changes, then ${ghPullfrogMcpName}/push_branch to push the branch. Do NOT use git commands directly (\`git commit\`, \`git push\`, \`git checkout\`, \`git branch\`) as these will use incorrect credentials.
    - Test your changes to ensure they work correctly.
-   - When you are done, create a final commit. If relevant, indicate which issue the PR addresses somewhere in the commit message (e.g. "Fixes #123"). Create a PR with an informative title and body. If relevant, include links to the issue or comment that triggered the PR.${disableProgressComment ? "" : `\n\n3. ${reportProgressInstruction}\n\n4. When finished with the task, use report_progress one final time to update the comment with a summary of the results and links to any created issues, PRs, etc.`}`,
+   - When you are done, use ${ghPullfrogMcpName}/create_pull_request to create a PR. If relevant, indicate which issue the PR addresses in the PR body (e.g. "Fixes #123"). Include links to the issue or comment that triggered the PR in the PR body.
+
+3. ${reportProgressInstruction}
+
+4. When finished with the task, use report_progress one final time ONLY if you haven't already included all the important information (summary, links to PRs/issues) in a previous report_progress call. If you already called report_progress with complete information including links after creating artifacts, you do NOT need to call it again. **IMPORTANT**: Do NOT overwrite a good comment with links/details with a generic message like "I have completed the task."`,
     },
   ];
 }
 
-// default modes for backward compatibility
 export const modes: Mode[] = getModes({ disableProgressComment: undefined });

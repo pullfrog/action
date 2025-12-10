@@ -1,3 +1,1 @@
-Add an empty commit to https://github.com/pullfrog/pullfrog/pull/5
-
-And push it
+Use the debug_shell_command MCP tool to run `git status` and tell me what agent is running
