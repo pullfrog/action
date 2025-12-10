@@ -14,17 +14,22 @@
 
 <br/>
 
+> **🚀 Pullfrog is in beta!** We're onboarding users in waves. [Get on the waitlist →](https://pullfrog.com/join-waitlist)
+
+<br/>
+
 ## What is Pullfrog?
 
 Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
 
+<!-- 
 <a href="https://github.com/apps/pullfrog/installations/new">
   <img src="https://pullfrog.com/add-to-github.png" alt="Add to GitHub" width="150px" />
 </a>
 
 <br />
 
-Once added, you can start triggering agent runs.
+Once added, you can start triggering agent runs. -->
 
 - **Tag `@pullfrog`** — Tag `@pullfrog` in a comment anywhere in your repo. It will pull in any relevant context using the action's internal MCP server and perform the appropriate task.
 - **Prompt from the web** — Trigger arbitrary tasks from the Pullfrog dashboard
@@ -47,6 +52,7 @@ Pullfrog is the bridge between GitHub and your preferred coding agents and GitHu
 - **Agent-agnostic** — Switch between agents with the click of a radio button.
 - ** -->
 
+<!-- 
 ## Get started
 
 Install the Pullfrog GitHub App on your personal or organization account. During installation you can choose to limit access to a specific repo or repos. After installation, you'll be redirected to the Pullfrog dashboard where you'll see an onboarding flow. This flow will create your `pullfrog.yml` workflow and prompt you to set up API keys. Once you finish those steps (2 minutes) you're ready to rock.
@@ -65,7 +71,7 @@ To manually set up the Pullfrog action, you need to set up two workflow files in
 Create a file at `.github/workflows/pullfrog.yml`. This is a reusable workflow that runs the Pullfrog action.
 
 ```yaml
-# PULLFROG ACTION — DO NOT EDIT EXCEPT WHERE INDICATED
+# PULLFROG ACTION — DO NOT EDIT EXCEPT WHERE INDICATED
 name: Pullfrog
 on:
   workflow_dispatch:
@@ -150,3 +156,4 @@ jobs:
 ```
 
 </details>
+-->
