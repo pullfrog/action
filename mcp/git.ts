@@ -30,8 +30,9 @@ export const CreateBranchTool = tool({
     // fetch base branch to ensure we're up to date
     $("git", ["fetch", "origin", baseBranch, "--depth=1"]);
 
-    // checkout base branch
-    $("git", ["checkout", baseBranch]);
+    // checkout base branch, ensuring it matches the remote version
+    // -B creates or resets the branch to match origin/baseBranch
+    $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
     // create and checkout new branch
     $("git", ["checkout", "-b", branchName]);
