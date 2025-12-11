@@ -37,8 +37,7 @@
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "fastmcp": "^3.20.0",
-    "table": "^6.9.0",
-    "zod": "^3.25.76"
+    "table": "^6.9.0"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
