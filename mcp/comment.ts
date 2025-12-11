@@ -1,7 +1,10 @@
+import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
+import { LEAPING_INTO_ACTION_PREFIX } from "../../utils/github/leapingComment.ts";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
-import { parseRepoContext } from "../utils/github.ts";
+import { fetchWorkflowRunInfo } from "../utils/api.ts";
+import { getGitHubInstallationToken, parseRepoContext } from "../utils/github.ts";
 import { contextualize, getMcpContext, tool } from "./shared.ts";
 
 const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
@@ -178,8 +181,7 @@ export async function reportProgress({ body }: { body: string }): Promise<
   // no existing comment - create one
   const issueNumber = ctx.payload.event.issue_number;
   if (issueNumber === undefined) {
-    // fail silently - cannot create comment without issue_number
-    return undefined;
+    throw new Error("cannot create progress comment: no issue_number found in the payload event");
   }
 
   const result = await ctx.octokit.rest.issues.createComment({
@@ -209,13 +211,6 @@ export const ReportProgressTool = tool({
   execute: contextualize(async ({ body }) => {
     const result = await reportProgress({ body });
 
-    if (!result) {
-      return {
-        success: false,
-        message: "cannot create progress comment: no issue_number found in the payload event",
-      };
-    }
-
     return {
       success: true,
       ...result,
@@ -234,39 +229,93 @@ export function wasProgressCommentUpdated(): boolean {
  * Ensure the progress comment is updated with a generic error message if it was never updated.
  * This should be called after agent execution completes to handle cases where the agent
  * exited without ever calling reportProgress.
+ *
+ * Works even if MCP context is not initialized (e.g., if error occurs before MCP server starts).
+ * Will fetch comment ID from database if not available in environment variable.
  */
-export async function ensureProgressCommentUpdated(): Promise<void> {
-  // only update if we have a progress comment ID from env var and it was never updated
-  const existingCommentId = getProgressCommentId();
-  if (!existingCommentId || progressCommentWasUpdated) {
+export async function ensureProgressCommentUpdated(payload?: Payload): Promise<void> {
+  // skip if comment was already updated during execution
+  if (progressCommentWasUpdated) {
     return;
   }
 
-  // check if MCP context is initialized (MCP server started)
+  // try to get comment ID from env var first, then from database if needed
+  let existingCommentId = getProgressCommentId();
+
+  // if not in env var, try fetching from database using run ID
+  if (!existingCommentId) {
+    const runId = process.env.GITHUB_RUN_ID;
+    if (runId) {
+      try {
+        const workflowRunInfo = await fetchWorkflowRunInfo(runId);
+        if (workflowRunInfo.progressCommentId) {
+          existingCommentId = parseInt(workflowRunInfo.progressCommentId, 10);
+          // cache it in env var for future use
+          if (!Number.isNaN(existingCommentId)) {
+            process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+          }
+        }
+      } catch {
+        // database fetch failed, continue without comment ID
+      }
+    }
+  }
+
+  // if still no comment ID, nothing to update
+  if (!existingCommentId) {
+    return;
+  }
+
+  // check if comment still says "leaping into action" - if it's been updated with an error, don't overwrite it
+  const repoContext = parseRepoContext();
+  const token = getGitHubInstallationToken();
+  const octokit = new Octokit({ auth: token });
+
+  try {
+    const existingComment = await octokit.rest.issues.getComment({
+      owner: repoContext.owner,
+      repo: repoContext.name,
+      comment_id: existingCommentId,
+    });
+
+    const commentBody = existingComment.data.body || "";
+    // if comment doesn't start with the leaping prefix, it's already been updated with an error or progress
+    if (!commentBody.startsWith(LEAPING_INTO_ACTION_PREFIX)) {
+      return;
+    }
+  } catch {
+    // can't fetch comment, skip update
+    return;
+  }
+
+  // try to get payload from MCP context if available, otherwise use provided payload
+  let resolvedPayload: Payload | undefined;
   try {
     const ctx = getMcpContext();
-    const repoContext = parseRepoContext();
-    const runId = process.env.GITHUB_RUN_ID;
-    const workflowRunLink = runId
-      ? `[workflow](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
-      : "workflow";
+    resolvedPayload = ctx.payload;
+  } catch {
+    // MCP context not initialized, use provided payload
+    resolvedPayload = payload;
+  }
 
-    const errorMessage = `❌ this run croaked
+  const runId = process.env.GITHUB_RUN_ID;
+  const workflowRunLink = runId
+    ? `[workflow](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
+    : "workflow";
+
+  const errorMessage = `❌ this run croaked
 
 The workflow encountered an error before any progress could be reported. Please check the ${workflowRunLink} for details.`;
 
-    const bodyWithFooter = addFooter(errorMessage, ctx.payload);
+  // add footer if we have payload, otherwise use plain message
+  const body = resolvedPayload ? addFooter(errorMessage, resolvedPayload) : errorMessage;
 
-    await ctx.octokit.rest.issues.updateComment({
-      owner: ctx.owner,
-      repo: ctx.name,
-      comment_id: existingCommentId,
-      body: bodyWithFooter,
-    });
-  } catch {
-    // fail silently - MCP context not initialized or other error
-    // don't want to fail the workflow if we can't update the comment
-  }
+  await octokit.rest.issues.updateComment({
+    owner: repoContext.owner,
+    repo: repoContext.name,
+    comment_id: existingCommentId,
+    body,
+  });
 }
 
 export const ReplyToReviewComment = type({

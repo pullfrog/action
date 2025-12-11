@@ -52,12 +52,13 @@ export interface MainResult {
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   let mcpServerClose: (() => Promise<void>) | undefined;
+  let payload: Payload | undefined;
 
   try {
     const timer = new Timer();
 
     // parse payload early to extract agent
-    const payload = parsePayload(inputs);
+    payload = parsePayload(inputs);
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as MainContext;
@@ -86,21 +87,29 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const result = await runAgent(ctx);
     const mainResult = await handleAgentResult(result);
-    // ensure progress comment is updated if it was never updated during execution
-    await ensureProgressCommentUpdated();
     return mainResult;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     log.error(errorMessage);
-    await reportErrorToComment({ error: errorMessage });
+    try {
+      await reportErrorToComment({ error: errorMessage });
+    } catch {
+      // error reporting failed, but don't let it mask the original error
+    }
     await log.writeSummary();
-    // ensure progress comment is updated if it was never updated during execution
-    await ensureProgressCommentUpdated();
     return {
       success: false,
       error: errorMessage,
     };
   } finally {
+    // ensure progress comment is updated if it was never updated during execution
+    // do this before revoking the token so we can still make API calls
+    try {
+      await ensureProgressCommentUpdated(payload);
+    } catch {
+      // error updating comment, but don't let it mask the original error
+    }
+
     if (mcpServerClose) {
       await mcpServerClose();
     }
