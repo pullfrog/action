@@ -1,6 +1,5 @@
 import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
-import { LEAPING_INTO_ACTION_PREFIX } from "../../utils/github/leapingComment.ts";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
 import { fetchWorkflowRunInfo } from "../utils/api.ts";
@@ -8,6 +7,13 @@ import { getGitHubInstallationToken, parseRepoContext } from "../utils/github.ts
 import { contextualize, getMcpContext, tool } from "./shared.ts";
 
 const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
+
+/**
+ * The prefix text for the initial "leaping into action" comment.
+ * This is used to identify if a comment is still in its initial state
+ * and hasn't been updated with progress or error messages.
+ */
+export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
 
 function buildCommentFooter(payload: Payload): string {
   const repoContext = parseRepoContext();
