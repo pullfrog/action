@@ -8,7 +8,7 @@ import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
 import type { AgentName, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
-import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
+import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, modes } from "./modes.ts";
@@ -77,6 +77,18 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     await startMcpServer(ctx);
     mcpServerClose = ctx.mcpServerClose;
     timer.checkpoint("startMcpServer");
+
+    // check for empty comment_ids in fix_review trigger - report and exit early
+    if (
+      ctx.payload.event.trigger === "fix_review" &&
+      Array.isArray(ctx.payload.event.comment_ids) &&
+      ctx.payload.event.comment_ids.length === 0
+    ) {
+      await reportProgress({
+        body: `👍 **No approved comments found**\n\nTo use "Fix 👍s", add a 👍 reaction to one or more inline review comments you want fixed.`,
+      });
+      return { success: true };
+    }
 
     setupMcpServers(ctx);
 

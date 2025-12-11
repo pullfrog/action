@@ -1,12 +1,14 @@
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
+import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
+import { deleteProgressComment } from "./comment.ts";
 import { contextualize, tool } from "./shared.ts";
 
 export const Review = type({
   pull_number: type.number.describe("The pull request number to review"),
   body: type.string
     .describe(
-      "Brief summary or general feedback that doesn't apply to specific code locations. Keep it concise - most feedback should be in the 'comments' array."
+      "1-2 sentence high-level summary ONLY. Include urgency level and critical callouts (e.g., API key leak). ALL specific feedback MUST go in 'comments' array instead."
     )
     .optional(),
   commit_id: type.string
@@ -23,14 +25,16 @@ export const Review = type({
         "Side of the diff: LEFT (old code) or RIGHT (new code). Defaults to RIGHT if not provided."
       )
       .optional(),
-    body: type.string.describe("The comment text for this specific line"),
+    body: type.string.describe(
+      "The comment text for this specific line. For issues appearing multiple times, comment on the first occurrence and reference others."
+    ),
     start_line: type.number
       .describe("Start line for multi-line comments (optional, for commenting on ranges)")
       .optional(),
   })
     .array()
     .describe(
-      "REQUIRED: Array of inline comments for specific code issues. Use this for all location-specific feedback. Use 'git diff origin/<base>...origin/<head>' to find the correct line numbers (typically use the line numbers shown on the RIGHT side for new code, LEFT side for old code)."
+      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use 'git diff origin/<base>...origin/<head>' to find correct line numbers (RIGHT side for new code, LEFT for old)."
     )
     .optional(),
 });
@@ -38,19 +42,19 @@ export const Review = type({
 export const ReviewTool = tool({
   name: "submit_pull_request_review",
   description:
-    "Submit a review (approve, request changes, or comment) for an existing pull request. " +
-    "IMPORTANT: Use 'comments' array for ALL specific code issues at the line-level. " +
-    "Only use 'body' for a brief summary or feedback that doesn't apply to a specific location.",
+    "Submit a review for an existing pull request. " +
+    "IMPORTANT: 95%+ of feedback should be in 'comments' array with file paths and line numbers. " +
+    "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts.",
   parameters: Review,
   execute: contextualize(async ({ pull_number, body, commit_id, comments = [] }, ctx) => {
-    // Get the PR to determine the head commit if commit_id not provided
+    // get the PR to determine the head commit if commit_id not provided
     const pr = await ctx.octokit.rest.pulls.get({
       owner: ctx.owner,
       repo: ctx.name,
       pull_number,
     });
 
-    // Compose the request
+    // compose the request
     const params: RestEndpointMethodTypes["pulls"]["createReview"]["parameters"] = {
       owner: ctx.owner,
       repo: ctx.name,
@@ -65,7 +69,7 @@ export const ReviewTool = tool({
     }
     if (comments.length > 0) {
       type ReviewComment = (typeof params.comments & {})[number];
-      // Convert comments to the format expected by GitHub API
+      // convert comments to the format expected by GitHub API
       params.comments = comments.map((comment) => {
         const reviewComment: ReviewComment = {
           ...comment,
@@ -79,9 +83,33 @@ export const ReviewTool = tool({
       });
     }
     const result = await ctx.octokit.rest.pulls.createReview(params);
+    const reviewId = result.data.id;
+
+    // build quick links footer and update the review body
+    const apiUrl = process.env.API_URL || "https://pullfrog.com";
+    const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pull_number}?action=fix&review_id=${reviewId}`;
+    const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
+
+    const footer = buildPullfrogFooter({
+      customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
+    });
+
+    const updatedBody = (body || "") + footer;
+
+    // update the review with the footer
+    await ctx.octokit.rest.pulls.updateReview({
+      owner: ctx.owner,
+      repo: ctx.name,
+      pull_number,
+      review_id: reviewId,
+      body: updatedBody,
+    });
+
+    await deleteProgressComment();
+
     return {
       success: true,
-      reviewId: result.data.id,
+      reviewId,
       html_url: result.data.html_url,
       state: result.data.state,
       user: result.data.user?.login,

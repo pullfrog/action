@@ -3,10 +3,9 @@ import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
 import { fetchWorkflowRunInfo } from "../utils/api.ts";
+import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { getGitHubInstallationToken, parseRepoContext } from "../utils/github.ts";
 import { contextualize, getMcpContext, tool } from "./shared.ts";
-
-const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
 
 /**
  * The prefix text for the initial "leaping into action" comment.
@@ -21,25 +20,15 @@ function buildCommentFooter(payload: Payload): string {
 
   const agentName = payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
-  const agentDisplayName = agentInfo?.displayName || "Unknown agent";
-  const agentUrl = agentInfo?.url || "https://pullfrog.com";
 
-  // build workflow run link or show unavailable message
-  const workflowRunPart = runId
-    ? `[View workflow run](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
-    : "View workflow run";
-
-  return `
-${PULLFROG_DIVIDER}
-<sup><a href="https://pullfrog.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/logos/frog-white-full-128px.png"><img src="https://pullfrog.com/logos/frog-green-full-128px.png" width="9px" height="9px" style="vertical-align: middle; " alt="Pullfrog"></picture></a>&nbsp;&nbsp;｜ Triggered by [Pullfrog](https://pullfrog.com) ｜ Using [${agentDisplayName}](${agentUrl}) ｜ ${workflowRunPart} ｜ [𝕏](https://x.com/pullfrogai)</sup>`;
-}
-
-function stripExistingFooter(body: string): string {
-  const dividerIndex = body.indexOf(PULLFROG_DIVIDER);
-  if (dividerIndex === -1) {
-    return body;
-  }
-  return body.substring(0, dividerIndex).trimEnd();
+  return buildPullfrogFooter({
+    triggeredBy: true,
+    agent: {
+      displayName: agentInfo?.displayName || "Unknown agent",
+      url: agentInfo?.url || "https://pullfrog.com",
+    },
+    workflowRun: runId ? { owner: repoContext.owner, repo: repoContext.name, runId } : undefined,
+  });
 }
 
 function addFooter(body: string, payload: Payload): string {
@@ -55,7 +44,8 @@ export const Comment = type({
 
 export const CreateCommentTool = tool({
   name: "create_issue_comment",
-  description: "Create a comment on a GitHub issue",
+  description:
+    "Create a comment on a GitHub issue. NOTE: Do NOT use this for progress updates or status summaries - use report_progress instead, which updates the existing progress comment.",
   parameters: Comment,
   execute: contextualize(async ({ issueNumber, body }, ctx) => {
     const bodyWithFooter = addFooter(body, ctx.payload);
@@ -232,6 +222,32 @@ export function wasProgressCommentUpdated(): boolean {
 }
 
 /**
+ * Delete the progress comment if it exists.
+ * Used after submitting a PR review since the review body contains all necessary info.
+ */
+export async function deleteProgressComment(): Promise<boolean> {
+  const existingCommentId = getProgressCommentId();
+  if (!existingCommentId) {
+    return false;
+  }
+
+  const ctx = getMcpContext();
+
+  await ctx.octokit.rest.issues.deleteComment({
+    owner: ctx.owner,
+    repo: ctx.name,
+    comment_id: existingCommentId,
+  });
+
+  // reset state but mark as "updated" so ensureProgressCommentUpdated doesn't try to handle it
+  progressCommentId = null;
+  progressCommentIdInitialized = true; // keep initialized so we don't re-fetch from env
+  progressCommentWasUpdated = true; // mark as handled so ensureProgressCommentUpdated skips
+
+  return true;
+}
+
+/**
  * Ensure the progress comment is updated with a generic error message if it was never updated.
  * This should be called after agent execution completes to handle cases where the agent
  * exited without ever calling reportProgress.
@@ -327,13 +343,15 @@ The workflow encountered an error before any progress could be reported. Please 
 export const ReplyToReviewComment = type({
   pull_number: type.number.describe("the pull request number"),
   comment_id: type.number.describe("the ID of the review comment to reply to"),
-  body: type.string.describe("the reply text explaining how the feedback was addressed"),
+  body: type.string.describe(
+    "extremely brief reply (1 sentence max) explaining what was fixed, e.g. 'Fixed by renaming to X' or 'Added null check'"
+  ),
 });
 
 export const ReplyToReviewCommentTool = tool({
   name: "reply_to_review_comment",
   description:
-    "Reply to a PR review comment thread explaining how the feedback was addressed. Use this after addressing each review comment to provide specific context about the changes made.",
+    "Reply to a PR review comment thread. Call this for EACH comment you address. Keep replies extremely brief (1 sentence max).",
   parameters: ReplyToReviewComment,
   execute: contextualize(async ({ pull_number, comment_id, body }, ctx) => {
     const bodyWithFooter = addFooter(body, ctx.payload);

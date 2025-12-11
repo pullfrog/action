@@ -150,6 +150,15 @@ export type PayloadEvent =
       [key: string]: any;
     }
   | {
+      trigger: "fix_review";
+      issue_number: number;
+      review_id: number;
+      /** "all" to fix all comments, or specific comment IDs to fix */
+      comment_ids: number[] | "all";
+      branch: string;
+      [key: string]: any;
+    }
+  | {
       trigger: "unknown";
       [key: string]: any;
     };

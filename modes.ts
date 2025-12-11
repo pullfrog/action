@@ -64,14 +64,19 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
 
 4. Make the necessary code changes to address the feedback. Work through each review comment systematically.
 
-5. After addressing each review comment, use ${ghPullfrogMcpName}/reply_to_review_comment to reply directly to that comment thread explaining what change was made (keep replies concise, 1-2 sentences).
+5. **CRITICAL: Reply to EACH review comment individually.** After fixing each comment, use ${ghPullfrogMcpName}/reply_to_review_comment to reply directly to that comment thread. Keep replies extremely brief (1 sentence max, e.g., "Fixed by renaming to X" or "Added null check").
 
-6. Test your changes to ensure they work correctly.${disableProgressComment ? "" : `\n\n7. ${reportProgressInstruction}`}
+6. Test your changes to ensure they work correctly.
 
-8. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.
+7. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.
+${
+  disableProgressComment
+    ? ""
+    : `
+8. ${reportProgressInstruction}
 
-9. Call report_progress one final time ONLY if you haven't already included a complete summary in a previous report_progress call. If you already called report_progress with complete information, you do NOT need to call it again. Only make a final call if you need to add missing information. **IMPORTANT**: Do NOT overwrite a good comment with details with a generic message.
-`,
+**CRITICAL: Keep the progress comment extremely brief.** The summary should be 1-2 sentences max (e.g., "Fixed 3 review comments and pushed changes."). Almost all detail belongs in the individual reply_to_review_comment calls, NOT in the progress comment.`
+}`,
     },
     {
       name: "Review",
@@ -82,11 +87,16 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
 
 2. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
 
-3. Read files from the checked-out PR branch to understand the implementation${disableProgressComment ? "" : `\n\n4. ${reportProgressInstruction}`}
+3. Read files from the checked-out PR branch to understand the implementation
 
-5. When submitting review: use the 'comments' array for ALL specific code issues - include the file path and line position from the diff
+4. Submit review using ${ghPullfrogMcpName}/submit_pull_request_review
 
-6. Only use the 'body' field for a brief summary (1-2 sentences) or for feedback that doesn't apply to a specific code location`,
+**CRITICAL: Prioritize per-line feedback over summary text.**
+- ALL specific feedback MUST go in the 'comments' array with file paths and line numbers from the diff
+- for issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y" or "similar issue in otherFile.ts:42")
+- the 'body' field is ONLY for: (1) a 1-2 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
+- 95%+ of review content should be in per-line comments; the body should be just a couple sentences
+- the review body will include quick action links for addressing feedback, so keep it concise`,
     },
     {
       name: "Plan",
