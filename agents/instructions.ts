@@ -223,5 +223,9 @@ The following is structured data about the GitHub event that triggered this run 
 ${encodedEvent}`
     : ""
 }
+
+************* RUNTIME CONTEXT *************
+
+working_directory: ${process.cwd()}
 `;
 };

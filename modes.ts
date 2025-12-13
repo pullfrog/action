@@ -85,11 +85,16 @@ ${
       prompt: `Follow these steps:
 1. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
 
-2. View diff: git diff origin/<base>...origin/<head> (use line numbers from this for inline comments, replace <base> and <head> with 'base' and 'head' from PR info)
+2. View diff: \`git diff origin/<base>...origin/<head>\` (replace <base> and <head> with 'base' and 'head' from PR info)
 
-3. Read files from the checked-out PR branch to understand the implementation
+3. Read files from the checked-out PR branch to understand the implementation. Always use **relative paths** from repo root (e.g., \`src/index.ts\`), never absolute paths.
 
 4. Submit review using ${ghPullfrogMcpName}/submit_pull_request_review
+
+**CRITICAL: File paths and line numbers for inline comments**
+- Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
+- For line numbers, use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
+- Only comment on lines that appear in the diff - GitHub will reject comments on unchanged lines
 
 **CRITICAL: Prioritize per-line feedback over summary text.**
 - ALL specific feedback MUST go in the 'comments' array with file paths and line numbers from the diff
