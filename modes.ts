@@ -91,17 +91,25 @@ ${
 
 4. Submit review using ${ghPullfrogMcpName}/submit_pull_request_review
 
-**CRITICAL: File paths and line numbers for inline comments**
-- Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
-- For line numbers, use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
-- Only comment on lines that appear in the diff - GitHub will reject comments on unchanged lines
+**GENERAL GUIDANCE**
 
-**CRITICAL: Prioritize per-line feedback over summary text.**
-- ALL specific feedback MUST go in the 'comments' array with file paths and line numbers from the diff
-- for issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y" or "similar issue in otherFile.ts:42")
-- the 'body' field is ONLY for: (1) a 1-2 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
-- 95%+ of review content should be in per-line comments; the body should be just a couple sentences
-- the review body will include quick action links for addressing feedback, so keep it concise`,
+- *CRITICAL* — Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
+  - For line numbers, use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
+  - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
+- **CRITICAL: Prioritize per-line feedback over summary text.**
+  - ALL specific feedback MUST go in the 'comments' array with file paths and line numbers from the diff
+  - For issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y" or "similar issue in otherFile.ts:42")
+  - The "body" field is ONLY for: (1) a 1-2 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
+  - 95%+ of review content should be in per-line comments; the body should be just a couple sentences
+  - The review body will include quick action links for addressing feedback, so keep it concise
+- Do not nitpick unless instructed explicity to do so by the user's additional instructions. This includes: requesting documentation/docstrings/JSDoc. 
+- Do not leave any comments that are not potentially actionable. 
+- The review should be thoughtful. When evaluating complex changes, consider the following conceptual approach:
+  - 1) conceptualize the changes made. make sure you understand it.
+  - 2) evaluate conceptual approach. leave feedback as needed.
+  - 3) if the conceptual approach looks sound, evaluate the implementation. leave feedback as needed. consider everything, but especially edge cases, security, correctness, and performance. leave feedback as needed.
+  - 4) only leave nitpick/housekeeping comments if instructed explicity to do so by the user's additional instructions.
+  `,
     },
     {
       name: "Plan",
