@@ -109,15 +109,45 @@ export function setupGitBranch(payload: Payload): void {
 
   log.info(`🌿 Setting up git branch: ${branch}`);
 
+  // if event has issue_number and branch, it's likely a PR - try PR ref first (works for forks)
+  const issueNumber = "issue_number" in payload.event ? payload.event.issue_number : undefined;
+  const isLikelyPR = issueNumber !== undefined && branch !== undefined;
+
+  if (isLikelyPR) {
+    try {
+      // use GitHub's PR ref which works for both fork and non-fork PRs
+      log.debug(`Fetching PR #${issueNumber} using refs/pull/${issueNumber}/head`);
+      execSync(`git fetch origin refs/pull/${issueNumber}/head`, {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+
+      // checkout from FETCH_HEAD (the PR ref we just fetched)
+      log.debug(`Checking out branch: ${branch}`);
+      execSync(`git checkout -B ${branch} FETCH_HEAD`, {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+
+      log.info(`✓ Successfully checked out PR branch: ${branch}`);
+      return;
+    } catch (error) {
+      // if PR ref fetch fails, fall back to branch name fetch
+      log.debug(
+        `PR ref fetch failed, falling back to branch name fetch: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  // fallback: fetch by branch name (for non-PR contexts or if PR ref fetch failed)
   try {
-    // Fetch the branch from origin
     log.debug(`Fetching branch from origin: ${branch}`);
     execSync(`git fetch origin ${branch}`, {
       cwd: repoDir,
       stdio: "pipe",
     });
 
-    // Checkout the branch, creating local tracking branch
+    // checkout the branch, creating local tracking branch
     log.debug(`Checking out branch: ${branch}`);
     execSync(`git checkout -B ${branch} origin/${branch}`, {
       cwd: repoDir,
@@ -126,8 +156,8 @@ export function setupGitBranch(payload: Payload): void {
 
     log.info(`✓ Successfully checked out branch: ${branch}`);
   } catch (error) {
-    // If git operations fail, log warning but don't fail the action
-    // The agent might still be able to work with the default branch
+    // if git operations fail, log warning but don't fail the action
+    // the agent might still be able to work with the default branch
     log.warning(
       `Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`
     );

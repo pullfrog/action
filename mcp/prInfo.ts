@@ -32,12 +32,14 @@ export const PullRequestInfoTool = tool({
     log.info(`Fetching base branch: origin/${baseBranch}`);
     $("git", ["fetch", "origin", baseBranch, "--depth=20"]);
 
-    log.info(`Fetching PR branch: origin/${headBranch}`);
-    $("git", ["fetch", "origin", headBranch]);
+    // use GitHub's PR ref which works for both fork and non-fork PRs
+    // refs/pull/{number}/head always points to the PR head commit
+    log.info(`Fetching PR #${pull_number} using refs/pull/${pull_number}/head`);
+    $("git", ["fetch", "origin", `refs/pull/${pull_number}/head`]);
 
-    log.info(`Checking out PR branch: origin/${headBranch}`);
-    // check out a local branch tracking the remote branch so we can push changes
-    $("git", ["checkout", "-B", headBranch, `origin/${headBranch}`]);
+    log.info(`Checking out PR branch: ${headBranch}`);
+    // check out a local branch from FETCH_HEAD (the PR ref we just fetched)
+    $("git", ["checkout", "-B", headBranch, "FETCH_HEAD"]);
 
     return {
       number: data.number,
