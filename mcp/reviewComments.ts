@@ -2,12 +2,15 @@ import { type } from "arktype";
 import { contextualize, tool } from "./shared.ts";
 
 // graphql query to fetch all review threads with comments and replies
+// note: diffSide and startDiffSide are on the thread, not the comment
 const REVIEW_THREADS_QUERY = `
 query ($owner: String!, $repo: String!, $pullNumber: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $pullNumber) {
       reviewThreads(first: 100) {
         nodes {
+          diffSide
+          startDiffSide
           comments(first: 100) {
             nodes {
               id
@@ -16,8 +19,6 @@ query ($owner: String!, $repo: String!, $pullNumber: Int!) {
               path
               line
               startLine
-              diffSide
-              startSide
               url
               author {
                 login
@@ -47,8 +48,6 @@ type GraphQLReviewComment = {
   path: string;
   line: number | null;
   startLine: number | null;
-  diffSide: "LEFT" | "RIGHT";
-  startSide: "LEFT" | "RIGHT" | null;
   url: string;
   author: {
     login: string;
@@ -64,10 +63,12 @@ type GraphQLReviewComment = {
 };
 
 type GraphQLReviewThread = {
+  diffSide: "LEFT" | "RIGHT";
+  startDiffSide: "LEFT" | "RIGHT" | null;
   comments: {
     nodes: (GraphQLReviewComment | null)[] | null;
   } | null;
-};
+} | null;
 
 type GraphQLResponse = {
   repository: {
@@ -152,6 +153,7 @@ export const GetReviewCommentsTool = tool({
       if (!threadBelongsToReview) continue;
 
       // include all comments from this thread (original + replies)
+      // side info comes from thread level, not comment level
       for (const comment of threadComments) {
         allComments.push({
           id: comment.databaseId,
@@ -159,8 +161,8 @@ export const GetReviewCommentsTool = tool({
           path: comment.path,
           line: comment.line,
           start_line: comment.startLine,
-          side: comment.diffSide,
-          start_side: comment.startSide,
+          side: thread.diffSide,
+          start_side: thread.startDiffSide,
           user: comment.author?.login ?? null,
           created_at: comment.createdAt,
           updated_at: comment.updatedAt,
