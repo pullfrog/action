@@ -64,7 +64,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const ctx = partialCtx as Context;
     timer.checkpoint("initializeContext");
 
-    const { pushRemote } = setupGit(ctx);
+    const { pushRemote } = await setupGit(ctx);
     ctx.pushRemote = pushRemote;
     timer.checkpoint("setupGit");
 

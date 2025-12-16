@@ -152,20 +152,24 @@ export function PushBranchTool(ctx: Context) {
     execute: execute(ctx, async ({ branchName, force }) => {
       const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
-      log.info(`Pushing branch ${branch} to ${remote}`);
+      // skip -u flag when pushing to URL (can't set upstream without a remote name)
+      const isUrl = remote.startsWith("https://");
+      const args = force
+        ? ["push", "--force", ...(isUrl ? [] : ["-u"]), remote, branch]
+        : ["push", ...(isUrl ? [] : ["-u"]), remote, branch];
+
+      log.info(`Pushing branch ${branch} to ${isUrl ? "(fork URL)" : remote}`);
       if (force) {
         log.warning(`Force pushing - this will overwrite remote history`);
-        $("git", ["push", "--force", "-u", remote, branch]);
-      } else {
-        $("git", ["push", "-u", remote, branch]);
       }
+      $("git", args);
 
       return {
         success: true,
         branch,
-        remote,
+        remote: isUrl ? "(fork URL)" : remote,
         force,
-        message: `Successfully pushed branch ${branch} to ${remote}`,
+        message: `Successfully pushed branch ${branch}`,
       };
     }),
   });

@@ -68,11 +68,10 @@ export type SetupGitResult = {
 
 /**
  * Unified git setup: configures authentication and checks out PR branch if applicable.
- * Uses gh as credential helper so git push works with any remote (including forks).
- * For PR events, gh pr checkout sets up proper remote tracking.
- * Returns the remote to push to (detected from branch tracking after checkout).
+ * For fork PRs, returns a full URL to push to (since gh pr checkout doesn't set up remotes in Actions).
+ * For same-repo PRs, returns "origin".
  */
-export function setupGit(ctx: Context): SetupGitResult {
+export async function setupGit(ctx: Context): Promise<SetupGitResult> {
   const repoDir = process.cwd();
 
   log.info("🔧 Setting up git authentication...");
@@ -99,7 +98,7 @@ export function setupGit(ctx: Context): SetupGitResult {
     return { pushRemote: "origin" };
   }
 
-  // checkout PR branch - gh pr checkout handles fork remotes and tracking automatically
+  // checkout PR branch
   const prNumber = ctx.payload.event.issue_number;
   log.info(`🌿 Checking out PR #${prNumber}...`);
   $("gh", ["pr", "checkout", prNumber.toString()], {
@@ -108,31 +107,32 @@ export function setupGit(ctx: Context): SetupGitResult {
   });
   log.info(`✓ Successfully checked out PR #${prNumber}`);
 
-  // detect the push remote from branch tracking (set by gh pr checkout)
-  const pushRemote = detectPushRemote();
-  if (pushRemote !== "origin") {
-    log.info(`🍴 Fork PR detected, will push to remote: ${pushRemote}`);
-    // embed token in fork remote URL too
-    const forkUrl = $("git", ["remote", "get-url", pushRemote], { cwd: repoDir, log: false });
-    const authedForkUrl = forkUrl.replace(
-      "https://github.com/",
-      `https://x-access-token:${ctx.githubInstallationToken}@github.com/`
-    );
-    $("git", ["remote", "set-url", pushRemote, authedForkUrl], { cwd: repoDir });
-    log.info(`✓ Updated ${pushRemote} URL with authentication token`);
-  }
-  return { pushRemote };
-}
+  // check if this is a fork PR - gh pr checkout in Actions doesn't set up remotes for forks
+  const pr = await ctx.octokit.rest.pulls.get({
+    owner: ctx.owner,
+    repo: ctx.name,
+    pull_number: prNumber,
+  });
 
-function detectPushRemote(): string {
-  try {
-    const branch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
-    const upstream = $("git", ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], {
-      log: false,
-    });
-    // upstream is like "remote/branch", extract remote name
-    return upstream.split("/")[0];
-  } catch {
-    return "origin";
+  const headRepo = pr.data.head.repo;
+  const baseRepo = pr.data.base.repo;
+
+  // not a fork - push to origin
+  if (!headRepo || headRepo.full_name === baseRepo.full_name) {
+    return { pushRemote: "origin" };
   }
+
+  // fork PR - return the full URL with auth token embedded
+  // git push accepts URLs directly, no remote needed
+  if (!pr.data.maintainer_can_modify) {
+    log.warning(
+      `⚠️ Fork PR from ${headRepo.owner.login} does not allow maintainer edits. Push may fail.`
+    );
+  }
+
+  // use GITHUB_TOKEN for fork push - it has the right permissions in Actions
+  const token = process.env.GITHUB_TOKEN || ctx.githubInstallationToken;
+  const forkUrl = `https://x-access-token:${token}@github.com/${headRepo.full_name}.git`;
+  log.info(`🍴 Fork PR detected, will push to: ${headRepo.full_name}`);
+  return { pushRemote: forkUrl };
 }
