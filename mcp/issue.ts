@@ -1,5 +1,6 @@
 import { type } from "arktype";
-import { contextualize, tool } from "./shared.ts";
+import type { Context } from "../main.ts";
+import { execute, tool } from "./shared.ts";
 
 export const Issue = type({
   title: type.string.describe("the title of the issue"),
@@ -14,29 +15,31 @@ export const Issue = type({
     .optional(),
 });
 
-export const IssueTool = tool({
-  name: "create_issue",
-  description: "Create a new GitHub issue",
-  parameters: Issue,
-  execute: contextualize(async ({ title, body, labels, assignees }, ctx) => {
-    const result = await ctx.octokit.rest.issues.create({
-      owner: ctx.owner,
-      repo: ctx.name,
-      title: title,
-      body: body,
-      labels: labels ?? [],
-      assignees: assignees ?? [],
-    });
+export function IssueTool(ctx: Context) {
+  return tool({
+    name: "create_issue",
+    description: "Create a new GitHub issue",
+    parameters: Issue,
+    execute: execute(ctx, async ({ title, body, labels, assignees }) => {
+      const result = await ctx.octokit.rest.issues.create({
+        owner: ctx.owner,
+        repo: ctx.name,
+        title: title,
+        body: body,
+        labels: labels ?? [],
+        assignees: assignees ?? [],
+      });
 
-    return {
-      success: true,
-      issueId: result.data.id,
-      number: result.data.number,
-      url: result.data.html_url,
-      title: result.data.title,
-      state: result.data.state,
-      labels: result.data.labels?.map((label) => (typeof label === "string" ? label : label.name)),
-      assignees: result.data.assignees?.map((assignee) => assignee.login),
-    };
-  }),
-});
+      return {
+        success: true,
+        issueId: result.data.id,
+        number: result.data.number,
+        url: result.data.html_url,
+        title: result.data.title,
+        state: result.data.state,
+        labels: result.data.labels?.map((label) => (typeof label === "string" ? label : label.name)),
+        assignees: result.data.assignees?.map((assignee) => assignee.login),
+      };
+    }),
+  });
+}

@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import type { MainContext } from "../main.ts";
+import type { Context } from "../main.ts";
 import { log } from "./cli.ts";
 import { $ } from "./shell.ts";
 
@@ -72,7 +72,7 @@ export type SetupGitResult = {
  * For PR events, gh pr checkout sets up proper remote tracking.
  * Returns the remote to push to (detected from branch tracking after checkout).
  */
-export function setupGit(ctx: MainContext): SetupGitResult {
+export function setupGit(ctx: Context): SetupGitResult {
   const { githubInstallationToken, payload } = ctx;
   const repoDir = process.cwd();
 

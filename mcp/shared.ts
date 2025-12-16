@@ -1,63 +1,59 @@
-import { Octokit } from "@octokit/rest";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
-import type { Payload } from "../external.ts";
-import type { Mode } from "../modes.ts";
-import { getGitHubInstallationToken, parseRepoContext, type RepoContext } from "../utils/github.ts";
-
-export interface McpInitContext {
-  payload: Payload;
-  modes: Mode[];
-  agentName?: string;
-  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
-  pushRemote: string;
-}
-
-let mcpInitContext: McpInitContext | undefined;
-let cachedMcpContext: McpContext | undefined;
-
-// this must be called on mcp server initialization
-export function initMcpContext(state: McpInitContext): void {
-  mcpInitContext = state;
-  // clear cached context when reinitializing
-  cachedMcpContext = undefined;
-}
-
-export interface McpContext extends McpInitContext, RepoContext {
-  octokit: Octokit;
-  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
-}
-
-export async function getMcpContext(): Promise<McpContext> {
-  if (!mcpInitContext) {
-    throw new Error("MCP context not initialized. Call initializeMcpContext first.");
-  }
-
-  // return cached context if available
-  if (cachedMcpContext) {
-    return cachedMcpContext;
-  }
-
-  const repoContext = parseRepoContext();
-  const octokit = new Octokit({
-    auth: getGitHubInstallationToken(),
-  });
-
-  cachedMcpContext = {
-    ...mcpInitContext,
-    ...repoContext,
-    octokit,
-    repo: mcpInitContext.repo,
-  };
-
-  return cachedMcpContext;
-}
-
-export function isProgressCommentDisabled(): boolean {
-  return mcpInitContext?.payload.disableProgressComment === true;
-}
+import type { Context } from "../main.ts";
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
+
+export interface ToolResult {
+  content: {
+    type: "text";
+    text: string;
+  }[];
+  isError?: boolean;
+}
+
+export const handleToolSuccess = (data: Record<string, any>): ToolResult => {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(data, null, 2),
+      },
+    ],
+  };
+};
+
+export const handleToolError = (error: unknown): ToolResult => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return {
+    content: [
+      {
+        type: "text",
+        text: `Error: ${errorMessage}`,
+      },
+    ],
+    isError: true,
+  };
+};
+
+/**
+ * Helper to wrap a tool execute function with error handling.
+ * Captures ctx in closure so tools don't need to handle try/catch.
+ */
+export const execute = <T>(ctx: Context, fn: (params: T) => Promise<Record<string, any>>) => {
+  return async (params: T): Promise<ToolResult> => {
+    try {
+      const result = await fn(params);
+      return handleToolSuccess(result);
+    } catch (error) {
+      return handleToolError(error);
+    }
+  };
+};
+
+export function isProgressCommentDisabled(ctx: Context): boolean {
+  return ctx.payload.disableProgressComment === true;
+}
 
 /**
  * Sanitize JSON schema to remove problematic fields that Gemini CLI/API can't handle
@@ -180,61 +176,14 @@ function sanitizeTool<T extends Tool<any, any>>(tool: T): T {
   } as T;
 }
 
-export const addTools = (server: FastMCP, tools: Tool<any, any>[]) => {
+export const addTools = (ctx: Context, server: FastMCP, tools: Tool<any, any>[]) => {
   // sanitize schemas for gemini agent and opencode (when using Google API)
   // both have issues with draft-2020-12 schemas and any_of enum constructs
-  const shouldSanitize =
-    mcpInitContext?.agentName === "gemini" || mcpInitContext?.agentName === "opencode";
+  const shouldSanitize = ctx.agentName === "gemini" || ctx.agentName === "opencode";
 
   for (const tool of tools) {
     const processedTool = shouldSanitize ? sanitizeTool(tool) : tool;
     server.addTool(processedTool);
   }
   return server;
-};
-
-export const contextualize = <T>(
-  executor: (params: T, ctx: McpContext) => Promise<Record<string, any>>
-) => {
-  return async (params: T): Promise<ToolResult> => {
-    try {
-      const ctx = await getMcpContext();
-      const result = await executor(params, ctx);
-      return handleToolSuccess(result);
-    } catch (error) {
-      return handleToolError(error);
-    }
-  };
-};
-
-export interface ToolResult {
-  content: {
-    type: "text";
-    text: string;
-  }[];
-  isError?: boolean;
-}
-
-const handleToolSuccess = (data: Record<string, any>): ToolResult => {
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(data, null, 2),
-      },
-    ],
-  };
-};
-
-const handleToolError = (error: unknown): ToolResult => {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Error: ${errorMessage}`,
-      },
-    ],
-    isError: true,
-  };
 };

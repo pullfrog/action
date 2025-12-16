@@ -48,16 +48,9 @@ export async function reportErrorToComment({
     }
   }
 
-  // if no comment ID available, try using reportProgress (requires MCP context)
+  // if no comment ID available, can't update comment
   if (!commentId) {
-    try {
-      const { reportProgress } = await import("../mcp/comment.ts");
-      await reportProgress({ body: formattedError });
-      return;
-    } catch {
-      // MCP context not available, can't create/update comment
-      return;
-    }
+    return;
   }
 
   // update comment directly using GitHub API

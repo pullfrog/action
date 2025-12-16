@@ -12,14 +12,13 @@ import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
-import { getModes, modes } from "./modes.ts";
+import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { fetchRepoSettings, fetchWorkflowRunInfo } from "./utils/api.ts";
+import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
 import {
   parseRepoContext,
-  type RepoContext,
   revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
@@ -62,7 +61,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     payload = parsePayload(inputs);
 
     const partialCtx = await initializeContext(inputs, payload);
-    const ctx = partialCtx as MainContext;
+    const ctx = partialCtx as Context;
     timer.checkpoint("initializeContext");
 
     const { pushRemote } = setupGit(ctx);
@@ -82,7 +81,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       Array.isArray(ctx.payload.event.comment_ids) &&
       ctx.payload.event.comment_ids.length === 0
     ) {
-      await reportProgress({
+      await reportProgress(ctx, {
         body: `👍 **No approved comments found**\n\nTo use "Fix 👍s", add a 👍 reaction to one or more inline review comments you want fixed.`,
       });
       return { success: true };
@@ -155,36 +154,26 @@ function getAllPossibleKeyNames(): string[] {
 /**
  * Throw an error for missing API key with helpful message linking to repo settings
  */
-async function throwMissingApiKeyError({
-  agent,
-  repoContext,
-}: {
-  agent: (typeof agents)[AgentName] | null;
-  repoContext: RepoContext;
-}): Promise<never> {
+async function throwMissingApiKeyError(ctx: Context): Promise<never> {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
-  const settingsUrl = `${apiUrl}/console/${repoContext.owner}/${repoContext.name}`;
+  const settingsUrl = `${apiUrl}/console/${ctx.owner}/${ctx.name}`;
 
-  const githubRepoUrl = `https://github.com/${repoContext.owner}/${repoContext.name}`;
+  const githubRepoUrl = `https://github.com/${ctx.owner}/${ctx.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
 
   // for OpenCode, use a generic message since it accepts any API key
-  const isOpenCode = agent?.name === "opencode";
+  const isOpenCode = ctx.agent?.name === "opencode";
   let secretNameList: string;
   if (isOpenCode) {
     secretNameList =
       "any API key (e.g., `OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)";
   } else {
-    const inputKeys = agent?.apiKeyNames || getAllPossibleKeyNames();
+    const inputKeys = ctx.agent?.apiKeyNames || getAllPossibleKeyNames();
     const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
     secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
   }
 
-  let message = `${
-    agent === null
-      ? "Pullfrog has no agent configured and no API keys are available in the environment."
-      : `Pullfrog is configured to use ${agent.displayName}, but the associated API key was not provided.`
-  }
+  const message = `Pullfrog is configured to use ${ctx.agent.displayName}, but the associated API key was not provided.
 
 To fix this, add the required secret to your GitHub repository:
 
@@ -192,30 +181,45 @@ To fix this, add the required secret to your GitHub repository:
 2. Click "New repository secret"
 3. Set the name to ${secretNameList}
 4. Set the value to your API key
-5. Click "Add secret"`;
+5. Click "Add secret"
 
-  if (agent === null) {
-    message += `\n\nAlternatively, configure Pullfrog to use an agent at ${settingsUrl}`;
-  }
+Alternatively, configure Pullfrog to use a different agent at ${settingsUrl}`;
 
   // report to comment if MCP context is available (server has started)
   await reportErrorToComment({ error: message });
   throw new Error(message);
 }
 
-export interface MainContext {
+export interface Context {
+  // flattened from RepoContext
+  owner: string;
+  name: string;
+
+  // core fields
   inputs: Inputs;
-  githubInstallationToken: string;
-  repoContext: RepoContext;
+  payload: Payload;
   repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
   agentName: AgentName;
   agent: (typeof agents)[AgentName];
-  sharedTempDir: string;
-  payload: Payload;
+  githubInstallationToken: string;
+  octokit: Octokit;
+
+  // repo settings from Pullfrog API
+  repoSettings: RepoSettings;
+
+  // modes for MCP tools
+  modes: Mode[];
+
+  // setup fields
   pushRemote: string;
+  sharedTempDir: string;
+
+  // mcp fields
   mcpServerUrl: string;
   mcpServerClose: () => Promise<void>;
   mcpServers: ReturnType<typeof createMcpConfigs>;
+
+  // agent fields
   cliPath: string;
   apiKey: string;
   apiKeys: Record<string, string>;
@@ -226,7 +230,7 @@ async function initializeContext(
   payload: Payload
 ): Promise<
   Omit<
-    MainContext,
+    Context,
     | "mcpServerUrl"
     | "mcpServerClose"
     | "mcpServers"
@@ -241,58 +245,65 @@ async function initializeContext(
   setupGitConfig();
 
   const githubInstallationToken = await setupGitHubInstallationToken();
-  const repoContext = parseRepoContext();
+  const { owner, name } = parseRepoContext();
 
-  // fetch repo data
+  // create octokit instance
   const octokit = new Octokit({
     auth: githubInstallationToken,
   });
-  let repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
-  try {
-    const response = await octokit.repos.get({
-      owner: repoContext.owner,
-      repo: repoContext.name,
-    });
-    repo = response.data;
-  } catch {
-    // fallback to minimal repo data if API call fails
-    repo = {
-      default_branch: "main",
-    } as Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
-  }
+
+  // fetch repo data
+  const response = await octokit.repos.get({
+    owner,
+    repo: name,
+  });
+  const repo = response.data;
+
+  // fetch repo settings
+  const repoSettings = await fetchRepoSettings({
+    token: githubInstallationToken,
+    repoContext: { owner, name },
+  });
 
   // resolve agent and update payload with resolved agent name
-  const { agentName, agent } = await resolveAgent(
+  const { agentName, agent } = resolveAgent({
     inputs,
     payload,
-    githubInstallationToken,
-    repoContext
-  );
+    repoSettings,
+  });
   const resolvedPayload = { ...payload, agent: agentName };
 
+  // compute modes from defaults + payload overrides
+  const computedModes = [
+    ...getModes({ disableProgressComment: resolvedPayload.disableProgressComment }),
+    ...(resolvedPayload.modes || []),
+  ];
+
   return {
+    owner,
+    name,
     inputs,
     githubInstallationToken,
-    repoContext,
+    octokit,
     repo,
     agentName,
     agent,
     payload: resolvedPayload,
+    repoSettings,
+    modes: computedModes,
     sharedTempDir: "",
   };
 }
 
-async function resolveAgent(
-  inputs: Inputs,
-  payload: Payload,
-  githubInstallationToken: string,
-  repoContext: RepoContext
-): Promise<{ agentName: AgentName; agent: (typeof agents)[AgentName] }> {
-  const repoSettings = await fetchRepoSettings({
-    token: githubInstallationToken,
-    repoContext,
-  });
-
+function resolveAgent({
+  inputs,
+  payload,
+  repoSettings,
+}: {
+  inputs: Inputs;
+  payload: Payload;
+  repoSettings: RepoSettings;
+}): { agentName: AgentName; agent: (typeof agents)[AgentName] } {
   const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
   const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
@@ -337,10 +348,8 @@ async function resolveAgent(
   log.debug(`Available agents: ${availableAgentNames || "none"}`);
 
   if (availableAgents.length === 0) {
-    await throwMissingApiKeyError({
-      agent: null,
-      repoContext,
-    });
+    // this will be caught and reported later in validateApiKey
+    throw new Error("no agents available - missing API keys");
   }
 
   const agentName = availableAgents[0].name;
@@ -349,7 +358,7 @@ async function resolveAgent(
   return { agentName, agent };
 }
 
-async function setupTempDirectory(ctx: MainContext): Promise<void> {
+async function setupTempDirectory(ctx: Context): Promise<void> {
   ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
   log.info(`📂 PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
@@ -375,7 +384,7 @@ function parsePayload(inputs: Inputs): Payload {
   }
 }
 
-async function startMcpServer(ctx: MainContext): Promise<void> {
+async function startMcpServer(ctx: Context): Promise<void> {
   // fetch the pre-created progress comment ID from the database
   // this must be set BEFORE starting the MCP server so comment.ts can read it
   const runId = process.env.GITHUB_RUN_ID;
@@ -387,28 +396,18 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
     }
   }
 
-  const allModes = [
-    ...getModes({ disableProgressComment: ctx.payload.disableProgressComment }),
-    ...(ctx.payload.modes || []),
-  ];
-  const { url, close } = await startMcpHttpServer({
-    payload: ctx.payload,
-    modes: allModes,
-    agentName: ctx.agentName,
-    repo: ctx.repo,
-    pushRemote: ctx.pushRemote,
-  });
+  const { url, close } = await startMcpHttpServer(ctx);
   ctx.mcpServerUrl = url;
   ctx.mcpServerClose = close;
   log.info(`🚀 MCP server started at ${url}`);
 }
 
-function setupMcpServers(ctx: MainContext): void {
+function setupMcpServers(ctx: Context): void {
   ctx.mcpServers = createMcpConfigs(ctx.mcpServerUrl);
   log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 
-async function installAgentCli(ctx: MainContext): Promise<void> {
+async function installAgentCli(ctx: Context): Promise<void> {
   // gemini is the only agent that needs githubInstallationToken for install
   if (ctx.agentName === "gemini") {
     ctx.cliPath = await ctx.agent.install(ctx.githubInstallationToken);
@@ -417,7 +416,7 @@ async function installAgentCli(ctx: MainContext): Promise<void> {
   }
 }
 
-async function validateApiKey(ctx: MainContext): Promise<void> {
+async function validateApiKey(ctx: Context): Promise<void> {
   // collect all matching API keys for this agent
   const apiKeys: Record<string, string> = {};
   for (const inputKey of ctx.agent.apiKeyNames) {
@@ -439,10 +438,7 @@ async function validateApiKey(ctx: MainContext): Promise<void> {
   }
 
   if (Object.keys(apiKeys).length === 0) {
-    await throwMissingApiKeyError({
-      agent: ctx.agent,
-      repoContext: ctx.repoContext,
-    });
+    await throwMissingApiKeyError(ctx);
     // unreachable - throwMissingApiKeyError always throws
     return;
   }
@@ -452,7 +448,7 @@ async function validateApiKey(ctx: MainContext): Promise<void> {
   ctx.apiKeys = apiKeys;
 }
 
-async function runAgent(ctx: MainContext): Promise<AgentResult> {
+async function runAgent(ctx: Context): Promise<AgentResult> {
   log.info(`Running ${ctx.agentName}...`);
   // strip context from event
   const { context: _context, ...eventWithoutContext } = ctx.payload.event;

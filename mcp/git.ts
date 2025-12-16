@@ -1,10 +1,11 @@
 import { type } from "arktype";
+import type { Context } from "../main.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
-import { contextualize, type McpContext, tool } from "./shared.ts";
+import { execute, tool } from "./shared.ts";
 
-export function CreateBranchTool(ctx: McpContext) {
+export function CreateBranchTool(ctx: Context) {
   const defaultBranch = ctx.repo.default_branch || "main";
   const CreateBranch = type({
     branchName: type.string.describe(
@@ -20,7 +21,7 @@ export function CreateBranchTool(ctx: McpContext) {
     description:
       "Create a new git branch from the specified base branch. The branch will be created locally and pushed to the remote repository.",
     parameters: CreateBranch,
-    execute: contextualize(async ({ branchName, baseBranch }) => {
+    execute: execute(ctx, async ({ branchName, baseBranch }) => {
       // baseBranch should always be defined due to default, but TypeScript needs help
       const resolvedBaseBranch = baseBranch || ctx.repo.default_branch || "main";
 
@@ -68,67 +69,69 @@ export const CommitFiles = type({
     ),
 });
 
-export const CommitFilesTool = tool({
-  name: "commit_files",
-  description:
-    "Stage and commit files with a commit message. If files array is empty, commits all staged changes. The commit will be attributed to the correct bot account.",
-  parameters: CommitFiles,
-  execute: contextualize(async ({ message, files }) => {
-    // validate commit message for secrets
-    if (containsSecrets(message)) {
-      throw new Error(
-        "Commit blocked: secrets detected in commit message. " +
-          "Please remove any sensitive information (API keys, tokens, passwords) before committing."
-      );
-    }
+export function CommitFilesTool(ctx: Context) {
+  return tool({
+    name: "commit_files",
+    description:
+      "Stage and commit files with a commit message. If files array is empty, commits all staged changes. The commit will be attributed to the correct bot account.",
+    parameters: CommitFiles,
+    execute: execute(ctx, async ({ message, files }) => {
+      // validate commit message for secrets
+      if (containsSecrets(message)) {
+        throw new Error(
+          "Commit blocked: secrets detected in commit message. " +
+            "Please remove any sensitive information (API keys, tokens, passwords) before committing."
+        );
+      }
 
-    // validate files for secrets if provided
-    if (files.length > 0) {
-      for (const file of files) {
-        try {
-          // try to read file content - if it exists, check for secrets
-          const content = $("cat", [file], { log: false });
-          if (containsSecrets(content)) {
-            throw new Error(
-              `Commit blocked: secrets detected in file ${file}. ` +
-                "Please remove any sensitive information (API keys, tokens, passwords) before committing."
-            );
+      // validate files for secrets if provided
+      if (files.length > 0) {
+        for (const file of files) {
+          try {
+            // try to read file content - if it exists, check for secrets
+            const content = $("cat", [file], { log: false });
+            if (containsSecrets(content)) {
+              throw new Error(
+                `Commit blocked: secrets detected in file ${file}. ` +
+                  "Please remove any sensitive information (API keys, tokens, passwords) before committing."
+              );
+            }
+          } catch (error) {
+            // if error is about secrets, re-throw it
+            if (error instanceof Error && error.message.includes("Commit blocked")) {
+              throw error;
+            }
+            // if file doesn't exist (cat fails), that's ok - it will be created by git add
+            // other errors are also ok - git add will handle them
           }
-        } catch (error) {
-          // if error is about secrets, re-throw it
-          if (error instanceof Error && error.message.includes("Commit blocked")) {
-            throw error;
-          }
-          // if file doesn't exist (cat fails), that's ok - it will be created by git add
-          // other errors are also ok - git add will handle them
         }
       }
-    }
 
-    const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
-    log.info(`Committing files on branch ${currentBranch}`);
+      const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
+      log.info(`Committing files on branch ${currentBranch}`);
 
-    // stage files if provided, otherwise stage all changes
-    if (files.length > 0) {
-      $("git", ["add", ...files]);
-    } else {
-      $("git", ["add", "."]);
-    }
+      // stage files if provided, otherwise stage all changes
+      if (files.length > 0) {
+        $("git", ["add", ...files]);
+      } else {
+        $("git", ["add", "."]);
+      }
 
-    // commit with message
-    $("git", ["commit", "-m", message]);
+      // commit with message
+      $("git", ["commit", "-m", message]);
 
-    const commitSha = $("git", ["rev-parse", "HEAD"], { log: false });
-    log.info(`Successfully committed: ${commitSha.substring(0, 7)}`);
+      const commitSha = $("git", ["rev-parse", "HEAD"], { log: false });
+      log.info(`Successfully committed: ${commitSha.substring(0, 7)}`);
 
-    return {
-      success: true,
-      commitSha,
-      branch: currentBranch,
-      message: `Committed ${files.length > 0 ? files.length + " file(s)" : "all changes"} with message: ${message}`,
-    };
-  }),
-});
+      return {
+        success: true,
+        commitSha,
+        branch: currentBranch,
+        message: `Committed ${files.length > 0 ? files.length + " file(s)" : "all changes"} with message: ${message}`,
+      };
+    }),
+  });
+}
 
 export const PushBranch = type({
   branchName: type.string
@@ -137,7 +140,7 @@ export const PushBranch = type({
   force: type.boolean.describe("Force push (use with caution)").default(false),
 });
 
-export function PushBranchTool(ctx: McpContext) {
+export function PushBranchTool(ctx: Context) {
   const remote = ctx.pushRemote;
 
   return tool({
@@ -145,7 +148,7 @@ export function PushBranchTool(ctx: McpContext) {
     description:
       "Push the current branch (or specified branch) to the remote repository. Never force push unless explicitly requested.",
     parameters: PushBranch,
-    execute: contextualize(async ({ branchName, force }) => {
+    execute: execute(ctx, async ({ branchName, force }) => {
       const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
       log.info(`Pushing branch ${branch} to ${remote}`);

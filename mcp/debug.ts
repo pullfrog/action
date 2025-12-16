@@ -1,7 +1,6 @@
 import { type } from "arktype";
 import { $ } from "../utils/shell.ts";
-import type { ToolResult } from "./shared.ts";
-import { tool } from "./shared.ts";
+import { handleToolError, handleToolSuccess, tool, type ToolResult } from "./shared.ts";
 
 export const DebugShellCommand = type({});
 
@@ -13,33 +12,13 @@ export const DebugShellCommandTool = tool({
   execute: async (): Promise<ToolResult> => {
     try {
       const result = $("git", ["status"]);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                success: true,
-                command: "git status",
-                output: result.trim(),
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return handleToolSuccess({
+        success: true,
+        command: "git status",
+        output: result.trim(),
+      });
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      return handleToolError(error);
     }
   },
 });

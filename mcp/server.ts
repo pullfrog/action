@@ -3,6 +3,7 @@ import "./arkConfig.ts";
 import { createServer } from "node:net";
 import { FastMCP, type Tool } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
+import type { Context } from "../main.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
@@ -22,13 +23,7 @@ import { PullRequestInfoTool } from "./prInfo.ts";
 import { ReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
-import {
-  addTools,
-  getMcpContext,
-  initMcpContext,
-  isProgressCommentDisabled,
-  type McpInitContext,
-} from "./shared.ts";
+import { addTools, isProgressCommentDisabled } from "./shared.ts";
 
 /**
  * Find an available port starting from the given port
@@ -63,46 +58,42 @@ async function findAvailablePort(startPort: number): Promise<number> {
  * Start the MCP HTTP server and return the URL and close function
  */
 export async function startMcpHttpServer(
-  state: McpInitContext
+  ctx: Context
 ): Promise<{ url: string; close: () => Promise<void> }> {
-  initMcpContext(state);
-
   const server = new FastMCP({
     name: ghPullfrogMcpName,
     version: "0.0.1",
   });
 
-  // get context for dynamic tool creation
-  const ctx = await getMcpContext();
-
+  // create all tools as factories, passing ctx
   const tools: Tool<any, any>[] = [
-    SelectModeTool,
-    CreateCommentTool,
-    EditCommentTool,
-    ReplyToReviewCommentTool,
-    IssueTool,
-    IssueInfoTool,
-    GetIssueCommentsTool,
-    GetIssueEventsTool,
-    PullRequestTool,
-    ReviewTool,
-    PullRequestInfoTool,
-    GetReviewCommentsTool,
-    ListPullRequestReviewsTool,
-    GetCheckSuiteLogsTool,
+    SelectModeTool(ctx),
+    CreateCommentTool(ctx),
+    EditCommentTool(ctx),
+    ReplyToReviewCommentTool(ctx),
+    IssueTool(ctx),
+    IssueInfoTool(ctx),
+    GetIssueCommentsTool(ctx),
+    GetIssueEventsTool(ctx),
+    PullRequestTool(ctx),
+    ReviewTool(ctx),
+    PullRequestInfoTool(ctx),
+    GetReviewCommentsTool(ctx),
+    ListPullRequestReviewsTool(ctx),
+    GetCheckSuiteLogsTool(ctx),
     DebugShellCommandTool,
-    AddLabelsTool,
+    AddLabelsTool(ctx),
     CreateBranchTool(ctx),
-    CommitFilesTool,
+    CommitFilesTool(ctx),
     PushBranchTool(ctx),
   ];
 
   // only include ReportProgressTool if progress comment is not disabled
-  if (!isProgressCommentDisabled()) {
-    tools.push(ReportProgressTool);
+  if (!isProgressCommentDisabled(ctx)) {
+    tools.push(ReportProgressTool(ctx));
   }
 
-  addTools(server, tools);
+  addTools(ctx, server, tools);
 
   const port = await findAvailablePort(3764);
   const host = "127.0.0.1";

@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import { $ } from "../utils/shell.ts";
-import { contextualize, tool } from "./shared.ts";
+import { handleToolError, handleToolSuccess, tool, type ToolResult } from "./shared.ts";
 
 export const ListFiles = type({
   path: type.string
@@ -8,12 +8,13 @@ export const ListFiles = type({
     .default("."),
 });
 
+// static tool - doesn't need ctx, just runs git/find commands
 export const ListFilesTool = tool({
   name: "list_files",
   description:
     "List files in the repository using git ls-files. Useful for discovering the file structure and locating files.",
   parameters: ListFiles,
-  execute: contextualize(async ({ path }) => {
+  execute: async ({ path }: { path?: string }): Promise<ToolResult> => {
     try {
       // Use git ls-files to list tracked files
       // This respects .gitignore and gives a clean list of source files
@@ -30,19 +31,15 @@ export const ListFilesTool = tool({
           [pathStr, "-maxdepth", "3", "-not", "-path", "*/.*", "-type", "f"],
           { log: false }
         );
-        return {
+        return handleToolSuccess({
           files: findOutput.split("\n").filter((f) => f.trim() !== ""),
           method: "find",
-        };
+        });
       }
 
-      return { files, method: "git" };
+      return handleToolSuccess({ files, method: "git" });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        error: `Failed to list files: ${errorMessage}`,
-        hint: "Try using a specific path if the repository root is not the current directory.",
-      };
+      return handleToolError(error);
     }
-  }),
+  },
 });
