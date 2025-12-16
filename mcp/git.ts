@@ -2,54 +2,62 @@ import { type } from "arktype";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
-import { contextualize, tool } from "./shared.ts";
+import { contextualize, type McpContext, tool } from "./shared.ts";
 
-export const CreateBranch = type({
-  branchName: type.string.describe(
-    "The name of the branch to create (e.g., 'pullfrog/123-fix-bug')"
-  ),
-  baseBranch: type.string.describe("The base branch to create from (e.g., 'main')").default("main"),
-});
+export function CreateBranchTool(ctx: McpContext) {
+  const defaultBranch = ctx.repo.default_branch || "main";
+  const CreateBranch = type({
+    branchName: type.string.describe(
+      "The name of the branch to create (e.g., 'pullfrog/123-fix-bug')"
+    ),
+    baseBranch: type.string
+      .describe(`The base branch to create from (defaults to '${defaultBranch}')`)
+      .default(defaultBranch),
+  });
 
-export const CreateBranchTool = tool({
-  name: "create_branch",
-  description:
-    "Create a new git branch from the specified base branch. The branch will be created locally and pushed to the remote repository.",
-  parameters: CreateBranch,
-  execute: contextualize(async ({ branchName, baseBranch }) => {
-    // validate branch name for secrets
-    if (containsSecrets(branchName)) {
-      throw new Error(
-        "Branch creation blocked: secrets detected in branch name. " +
-          "Please remove any sensitive information (API keys, tokens, passwords) before creating a branch."
-      );
-    }
+  return tool({
+    name: "create_branch",
+    description:
+      "Create a new git branch from the specified base branch. The branch will be created locally and pushed to the remote repository.",
+    parameters: CreateBranch,
+    execute: contextualize(async ({ branchName, baseBranch }) => {
+      // baseBranch should always be defined due to default, but TypeScript needs help
+      const resolvedBaseBranch = baseBranch || ctx.repo.default_branch || "main";
 
-    log.info(`Creating branch ${branchName} from ${baseBranch}`);
+      // validate branch name for secrets
+      if (containsSecrets(branchName)) {
+        throw new Error(
+          "Branch creation blocked: secrets detected in branch name. " +
+            "Please remove any sensitive information (API keys, tokens, passwords) before creating a branch."
+        );
+      }
 
-    // fetch base branch to ensure we're up to date
-    $("git", ["fetch", "origin", baseBranch, "--depth=1"]);
+      log.info(`Creating branch ${branchName} from ${resolvedBaseBranch}`);
 
-    // checkout base branch, ensuring it matches the remote version
-    // -B creates or resets the branch to match origin/baseBranch
-    $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
+      // fetch base branch to ensure we're up to date
+      $("git", ["fetch", "origin", resolvedBaseBranch, "--depth=1"]);
 
-    // create and checkout new branch
-    $("git", ["checkout", "-b", branchName]);
+      // checkout base branch, ensuring it matches the remote version
+      // -B creates or resets the branch to match origin/baseBranch
+      $("git", ["checkout", "-B", resolvedBaseBranch, `origin/${resolvedBaseBranch}`]);
 
-    // push branch to remote (set upstream)
-    $("git", ["push", "-u", "origin", branchName]);
+      // create and checkout new branch
+      $("git", ["checkout", "-b", branchName]);
 
-    log.info(`Successfully created and pushed branch ${branchName}`);
+      // push branch to remote (set upstream)
+      $("git", ["push", "-u", "origin", branchName]);
 
-    return {
-      success: true,
-      branchName,
-      baseBranch,
-      message: `Branch ${branchName} created from ${baseBranch} and pushed to remote`,
-    };
-  }),
-});
+      log.info(`Successfully created and pushed branch ${branchName}`);
+
+      return {
+        success: true,
+        branchName,
+        baseBranch: resolvedBaseBranch,
+        message: `Branch ${branchName} created from ${resolvedBaseBranch} and pushed to remote`,
+      };
+    }),
+  });
+}
 
 export const CommitFiles = type({
   message: type.string.describe("The commit message"),
@@ -129,27 +137,32 @@ export const PushBranch = type({
   force: type.boolean.describe("Force push (use with caution)").default(false),
 });
 
-export const PushBranchTool = tool({
-  name: "push_branch",
-  description:
-    "Push the current branch (or specified branch) to the remote repository. Never force push unless explicitly requested.",
-  parameters: PushBranch,
-  execute: contextualize(async ({ branchName, force }) => {
-    const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
+export function PushBranchTool(ctx: McpContext) {
+  const remote = ctx.pushRemote;
 
-    if (force) {
-      log.warning(`Force pushing branch ${branch} - this will overwrite remote history`);
-      $("git", ["push", "--force", "origin", branch]);
-    } else {
-      log.info(`Pushing branch ${branch} to remote`);
-      $("git", ["push", "origin", branch]);
-    }
+  return tool({
+    name: "push_branch",
+    description:
+      "Push the current branch (or specified branch) to the remote repository. Never force push unless explicitly requested.",
+    parameters: PushBranch,
+    execute: contextualize(async ({ branchName, force }) => {
+      const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
-    return {
-      success: true,
-      branch,
-      force,
-      message: `Successfully pushed branch ${branch} to remote`,
-    };
-  }),
-});
+      log.info(`Pushing branch ${branch} to ${remote}`);
+      if (force) {
+        log.warning(`Force pushing - this will overwrite remote history`);
+        $("git", ["push", "--force", "-u", remote, branch]);
+      } else {
+        $("git", ["push", "-u", remote, branch]);
+      }
+
+      return {
+        success: true,
+        branch,
+        remote,
+        force,
+        message: `Successfully pushed branch ${branch} to ${remote}`,
+      };
+    }),
+  });
+}

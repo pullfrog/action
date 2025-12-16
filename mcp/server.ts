@@ -24,6 +24,7 @@ import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComme
 import { SelectModeTool } from "./selectMode.ts";
 import {
   addTools,
+  getMcpContext,
   initMcpContext,
   isProgressCommentDisabled,
   type McpInitContext,
@@ -71,6 +72,9 @@ export async function startMcpHttpServer(
     version: "0.0.1",
   });
 
+  // get context for dynamic tool creation
+  const ctx = await getMcpContext();
+
   const tools: Tool<any, any>[] = [
     SelectModeTool,
     CreateCommentTool,
@@ -88,9 +92,9 @@ export async function startMcpHttpServer(
     GetCheckSuiteLogsTool,
     DebugShellCommandTool,
     AddLabelsTool,
-    CreateBranchTool,
+    CreateBranchTool(ctx),
     CommitFilesTool,
-    PushBranchTool,
+    PushBranchTool(ctx),
   ];
 
   // only include ReportProgressTool if progress comment is not disabled

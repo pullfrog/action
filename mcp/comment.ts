@@ -150,7 +150,7 @@ export async function reportProgress({ body }: { body: string }): Promise<
     }
   | undefined
 > {
-  const ctx = getMcpContext();
+  const ctx = await getMcpContext();
 
   const bodyWithFooter = addFooter(body, ctx.payload);
   const existingCommentId = getProgressCommentId();
@@ -242,7 +242,7 @@ export async function deleteProgressComment(): Promise<boolean> {
     return false;
   }
 
-  const ctx = getMcpContext();
+  const ctx = await getMcpContext();
 
   await ctx.octokit.rest.issues.deleteComment({
     owner: ctx.owner,
@@ -324,7 +324,7 @@ export async function ensureProgressCommentUpdated(payload?: Payload): Promise<v
   // try to get payload from MCP context if available, otherwise use provided payload
   let resolvedPayload: Payload | undefined;
   try {
-    const ctx = getMcpContext();
+    const ctx = await getMcpContext();
     resolvedPayload = ctx.payload;
   } catch {
     // MCP context not initialized, use provided payload

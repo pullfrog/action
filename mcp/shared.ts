@@ -9,30 +9,48 @@ export interface McpInitContext {
   payload: Payload;
   modes: Mode[];
   agentName?: string;
+  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
+  pushRemote: string;
 }
 
 let mcpInitContext: McpInitContext | undefined;
+let cachedMcpContext: McpContext | undefined;
 
 // this must be called on mcp server initialization
 export function initMcpContext(state: McpInitContext): void {
   mcpInitContext = state;
+  // clear cached context when reinitializing
+  cachedMcpContext = undefined;
 }
 
 export interface McpContext extends McpInitContext, RepoContext {
   octokit: Octokit;
+  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
 }
 
-export function getMcpContext(): McpContext {
+export async function getMcpContext(): Promise<McpContext> {
   if (!mcpInitContext) {
     throw new Error("MCP context not initialized. Call initializeMcpContext first.");
   }
-  return {
+
+  // return cached context if available
+  if (cachedMcpContext) {
+    return cachedMcpContext;
+  }
+
+  const repoContext = parseRepoContext();
+  const octokit = new Octokit({
+    auth: getGitHubInstallationToken(),
+  });
+
+  cachedMcpContext = {
     ...mcpInitContext,
-    ...parseRepoContext(),
-    octokit: new Octokit({
-      auth: getGitHubInstallationToken(),
-    }),
+    ...repoContext,
+    octokit,
+    repo: mcpInitContext.repo,
   };
+
+  return cachedMcpContext;
 }
 
 export function isProgressCommentDisabled(): boolean {
@@ -180,7 +198,7 @@ export const contextualize = <T>(
 ) => {
   return async (params: T): Promise<ToolResult> => {
     try {
-      const ctx = getMcpContext();
+      const ctx = await getMcpContext();
       const result = await executor(params, ctx);
       return handleToolSuccess(result);
     } catch (error) {

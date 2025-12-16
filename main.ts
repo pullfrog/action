@@ -2,6 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
+import { Octokit } from "@octokit/rest";
 import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
@@ -22,7 +23,7 @@ import {
   revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
-import { setupGitAuth, setupGitBranch, setupGitConfig } from "./utils/setup.ts";
+import { setupGit, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
 // runtime validation using agents (needed for ArkType)
@@ -64,15 +65,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const ctx = partialCtx as MainContext;
     timer.checkpoint("initializeContext");
 
-    setupGitAuth({
-      githubInstallationToken: ctx.githubInstallationToken,
-      repoContext: ctx.repoContext,
-    });
+    const { pushRemote } = setupGit(ctx);
+    ctx.pushRemote = pushRemote;
+    timer.checkpoint("setupGit");
 
     await setupTempDirectory(ctx);
     timer.checkpoint("setupTempDirectory");
-
-    setupGitBranch(ctx.payload);
 
     await startMcpServer(ctx);
     mcpServerClose = ctx.mcpServerClose;
@@ -205,14 +203,16 @@ To fix this, add the required secret to your GitHub repository:
   throw new Error(message);
 }
 
-interface MainContext {
+export interface MainContext {
   inputs: Inputs;
   githubInstallationToken: string;
   repoContext: RepoContext;
+  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
   agentName: AgentName;
   agent: (typeof agents)[AgentName];
   sharedTempDir: string;
   payload: Payload;
+  pushRemote: string;
   mcpServerUrl: string;
   mcpServerClose: () => Promise<void>;
   mcpServers: ReturnType<typeof createMcpConfigs>;
@@ -227,7 +227,13 @@ async function initializeContext(
 ): Promise<
   Omit<
     MainContext,
-    "mcpServerUrl" | "mcpServerClose" | "mcpServers" | "cliPath" | "apiKey" | "apiKeys"
+    | "mcpServerUrl"
+    | "mcpServerClose"
+    | "mcpServers"
+    | "cliPath"
+    | "apiKey"
+    | "apiKeys"
+    | "pushRemote"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
@@ -236,6 +242,24 @@ async function initializeContext(
 
   const githubInstallationToken = await setupGitHubInstallationToken();
   const repoContext = parseRepoContext();
+
+  // fetch repo data
+  const octokit = new Octokit({
+    auth: githubInstallationToken,
+  });
+  let repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
+  try {
+    const response = await octokit.repos.get({
+      owner: repoContext.owner,
+      repo: repoContext.name,
+    });
+    repo = response.data;
+  } catch {
+    // fallback to minimal repo data if API call fails
+    repo = {
+      default_branch: "main",
+    } as Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
+  }
 
   // resolve agent and update payload with resolved agent name
   const { agentName, agent } = await resolveAgent(
@@ -250,6 +274,7 @@ async function initializeContext(
     inputs,
     githubInstallationToken,
     repoContext,
+    repo,
     agentName,
     agent,
     payload: resolvedPayload,
@@ -324,9 +349,7 @@ async function resolveAgent(
   return { agentName, agent };
 }
 
-async function setupTempDirectory(
-  ctx: Omit<MainContext, "payload" | "mcpServers" | "cliPath" | "apiKey">
-): Promise<void> {
+async function setupTempDirectory(ctx: MainContext): Promise<void> {
   ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
   log.info(`📂 PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
@@ -372,6 +395,8 @@ async function startMcpServer(ctx: MainContext): Promise<void> {
     payload: ctx.payload,
     modes: allModes,
     agentName: ctx.agentName,
+    repo: ctx.repo,
+    pushRemote: ctx.pushRemote,
   });
   ctx.mcpServerUrl = url;
   ctx.mcpServerClose = close;

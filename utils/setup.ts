@@ -1,8 +1,7 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import type { Payload } from "../external.ts";
+import type { MainContext } from "../main.ts";
 import { log } from "./cli.ts";
-import { getGitHubInstallationToken, type RepoContext } from "./github.ts";
 import { $ } from "./shell.ts";
 
 export interface SetupOptions {
@@ -63,20 +62,23 @@ export function setupGitConfig(): void {
   }
 }
 
+export type SetupGitResult = {
+  pushRemote: string;
+};
+
 /**
- * Setup git authentication using GitHub installation token
- * Always uses the installation token, scoped to the current repo only
+ * Unified git setup: configures authentication and checks out PR branch if applicable.
+ * Uses gh as credential helper so git push works with any remote (including forks).
+ * For PR events, gh pr checkout sets up proper remote tracking.
+ * Returns the remote to push to (detected from branch tracking after checkout).
  */
-export function setupGitAuth(ctx: {
-  githubInstallationToken: string;
-  repoContext: RepoContext;
-}): void {
+export function setupGit(ctx: MainContext): SetupGitResult {
+  const { githubInstallationToken, payload } = ctx;
   const repoDir = process.cwd();
 
-  log.info("🔐 Setting up git authentication...");
+  log.info("🔧 Setting up git configuration...");
 
-  // Remove existing git auth headers that actions/checkout might have set
-  // Use --local to scope to this repo only
+  // remove existing git auth headers that actions/checkout might have set
   try {
     execSync("git config --local --unset-all http.https://github.com/.extraheader", {
       cwd: repoDir,
@@ -87,36 +89,46 @@ export function setupGitAuth(ctx: {
     log.debug("No existing authentication headers to remove");
   }
 
-  // Update remote URL to embed the token
-  // This is scoped to the repo's .git/config, not the user's global config
-  const remoteUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.repoContext.owner}/${ctx.repoContext.name}.git`;
-  $("git", ["remote", "set-url", "origin", remoteUrl], { cwd: repoDir });
-  log.info("✓ Updated remote URL with authentication token (scoped to repo)");
-}
+  // set up gh as credential helper - this makes git use GH_TOKEN for any remote
+  $("git", ["config", "--local", "credential.helper", ""], { cwd: repoDir });
+  $("git", ["config", "--local", "--add", "credential.helper", "!gh auth git-credential"], {
+    cwd: repoDir,
+    env: { GH_TOKEN: githubInstallationToken },
+  });
+  log.info("✓ Configured gh as credential helper");
 
-/**
- * Setup git branch based on payload event context.
- * For PR events, uses `gh pr checkout` which handles fork PRs automatically.
- * For non-PR events, stays on the default branch.
- */
-export function setupGitBranch(payload: Payload): void {
-  // only checkout for PR events - use issue_number directly (no dependency on branch field)
+  // non-PR events: stay on default branch, push to origin
   if (payload.event.is_pr !== true || !payload.event.issue_number) {
     log.debug("Not a PR event, staying on default branch");
-    return;
+    return { pushRemote: "origin" };
   }
 
+  // checkout PR branch - gh pr checkout handles fork remotes and tracking automatically
   const prNumber = payload.event.issue_number;
-  const repoDir = process.cwd();
-
   log.info(`🌿 Checking out PR #${prNumber}...`);
-
-  // gh pr checkout handles fork PRs by setting up remotes automatically
-  const token = getGitHubInstallationToken();
   $("gh", ["pr", "checkout", prNumber.toString()], {
     cwd: repoDir,
-    env: { GH_TOKEN: token },
+    env: { GH_TOKEN: githubInstallationToken },
   });
-
   log.info(`✓ Successfully checked out PR #${prNumber}`);
+
+  // detect the push remote from branch tracking (set by gh pr checkout)
+  const pushRemote = detectPushRemote();
+  if (pushRemote !== "origin") {
+    log.info(`🍴 Fork PR detected, will push to remote: ${pushRemote}`);
+  }
+  return { pushRemote };
+}
+
+function detectPushRemote(): string {
+  try {
+    const branch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
+    const upstream = $("git", ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], {
+      log: false,
+    });
+    // upstream is like "remote/branch", extract remote name
+    return upstream.split("/")[0];
+  } catch {
+    return "origin";
+  }
 }
