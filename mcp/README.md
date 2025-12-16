@@ -30,7 +30,7 @@ await mcp.call("gh_pullfrog/get_check_suite_logs", {
 ### review tools
 
 #### `get_review_comments`
-get all line-by-line comments for a specific pull request review.
+get all line-by-line comments and their replies for a specific pull request review.
 
 **parameters:**
 - `pull_number` (number): the pull request number
@@ -39,11 +39,11 @@ get all line-by-line comments for a specific pull request review.
 **replaces:** `gh api repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/comments`
 
 **returns:**
-array of review comments including:
+array of review comments including threaded replies:
 - file path, line number, comment body
 - side (LEFT/RIGHT) and position in diff
 - user, timestamps, html_url
-- in_reply_to_id for threaded comments
+- in_reply_to_id for threaded comments (replies have this set to the parent comment id)
 
 **example:**
 ```typescript

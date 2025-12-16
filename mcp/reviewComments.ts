@@ -1,6 +1,84 @@
 import { type } from "arktype";
 import { contextualize, tool } from "./shared.ts";
 
+// graphql query to fetch all review threads with comments and replies
+const REVIEW_THREADS_QUERY = `
+query ($owner: String!, $repo: String!, $pullNumber: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pullNumber) {
+      reviewThreads(first: 100) {
+        nodes {
+          comments(first: 100) {
+            nodes {
+              id
+              databaseId
+              body
+              path
+              line
+              startLine
+              diffSide
+              startSide
+              url
+              author {
+                login
+              }
+              createdAt
+              updatedAt
+              pullRequestReview {
+                databaseId
+              }
+              replyTo {
+                databaseId
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+// graphql response types (nodes arrays can contain nulls per GitHub GraphQL spec)
+type GraphQLReviewComment = {
+  id: string;
+  databaseId: number;
+  body: string;
+  path: string;
+  line: number | null;
+  startLine: number | null;
+  diffSide: "LEFT" | "RIGHT";
+  startSide: "LEFT" | "RIGHT" | null;
+  url: string;
+  author: {
+    login: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  pullRequestReview: {
+    databaseId: number;
+  } | null;
+  replyTo: {
+    databaseId: number;
+  } | null;
+};
+
+type GraphQLReviewThread = {
+  comments: {
+    nodes: (GraphQLReviewComment | null)[] | null;
+  } | null;
+};
+
+type GraphQLResponse = {
+  repository: {
+    pullRequest: {
+      reviewThreads: {
+        nodes: (GraphQLReviewThread | null)[] | null;
+      } | null;
+    } | null;
+  } | null;
+};
+
 export const GetReviewComments = type({
   pull_number: type.number.describe("The pull request number"),
   review_id: type.number.describe("The review ID to get comments for"),
@@ -9,36 +87,95 @@ export const GetReviewComments = type({
 export const GetReviewCommentsTool = tool({
   name: "get_review_comments",
   description:
-    "Get all review comments for a specific pull request review. Returns line-by-line comments that were left on specific code locations.",
+    "Get all review comments and their replies for a specific pull request review. Returns line-by-line comments that were left on specific code locations, including any threaded replies.",
   parameters: GetReviewComments,
   execute: contextualize(async ({ pull_number, review_id }, ctx) => {
-    const comments = await ctx.octokit.paginate(ctx.octokit.rest.pulls.listCommentsForReview, {
+    // fetch all review threads using graphql
+    const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
       owner: ctx.owner,
       repo: ctx.name,
-      pull_number,
-      review_id,
+      pullNumber: pull_number,
     });
+
+    const pullRequest = response.repository?.pullRequest;
+    if (!pullRequest) {
+      return {
+        review_id,
+        pull_number,
+        comments: [],
+        count: 0,
+      };
+    }
+
+    const threadNodes = pullRequest.reviewThreads?.nodes;
+    if (!threadNodes) {
+      return {
+        review_id,
+        pull_number,
+        comments: [],
+        count: 0,
+      };
+    }
+
+    const allComments: {
+      id: number;
+      body: string;
+      path: string;
+      line: number | null;
+      side: "LEFT" | "RIGHT";
+      start_line: number | null;
+      start_side: "LEFT" | "RIGHT" | null;
+      user: string | null;
+      created_at: string;
+      updated_at: string;
+      html_url: string;
+      in_reply_to_id: number | null;
+      pull_request_review_id: number | null;
+    }[] = [];
+
+    // iterate through all threads (filter out nulls)
+    for (const thread of threadNodes) {
+      if (!thread?.comments?.nodes) continue;
+
+      // filter out null comments
+      const threadComments = thread.comments.nodes.filter(
+        (c): c is GraphQLReviewComment => c !== null
+      );
+      if (threadComments.length === 0) continue;
+
+      // find the root comment (the one with replyTo == null) to determine thread ownership
+      const rootComment = threadComments.find((c) => c.replyTo === null);
+      if (!rootComment) continue;
+
+      // check if this thread belongs to the target review using the root comment
+      const threadBelongsToReview = rootComment.pullRequestReview?.databaseId === review_id;
+      if (!threadBelongsToReview) continue;
+
+      // include all comments from this thread (original + replies)
+      for (const comment of threadComments) {
+        allComments.push({
+          id: comment.databaseId,
+          body: comment.body,
+          path: comment.path,
+          line: comment.line,
+          start_line: comment.startLine,
+          side: comment.diffSide,
+          start_side: comment.startSide,
+          user: comment.author?.login ?? null,
+          created_at: comment.createdAt,
+          updated_at: comment.updatedAt,
+          html_url: comment.url,
+          in_reply_to_id: comment.replyTo?.databaseId ?? null,
+          pull_request_review_id: comment.pullRequestReview?.databaseId ?? null,
+        });
+      }
+    }
 
     return {
       review_id,
       pull_number,
-      comments: comments.map((comment) => ({
-        id: comment.id,
-        body: comment.body,
-        path: comment.path,
-        line: comment.line,
-        side: comment.side,
-        start_line: comment.start_line,
-        start_side: comment.start_side,
-        user: typeof comment.user === "string" ? comment.user : comment.user?.login,
-        created_at: comment.created_at,
-        updated_at: comment.updated_at,
-        html_url: comment.html_url,
-        in_reply_to_id: comment.in_reply_to_id,
-        diff_hunk: comment.diff_hunk,
-        reactions: comment.reactions,
-      })),
-      count: comments.length,
+      comments: allComments,
+      count: allComments.length,
     };
   }),
 });
