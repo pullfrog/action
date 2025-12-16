@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import type { Payload } from "../external.ts";
 import { log } from "./cli.ts";
-import type { RepoContext } from "./github.ts";
+import { getGitHubInstallationToken, type RepoContext } from "./github.ts";
 import { $ } from "./shell.ts";
 
 export interface SetupOptions {
@@ -95,62 +95,28 @@ export function setupGitAuth(ctx: {
 }
 
 /**
- * Setup git branch based on payload event context
- * Automatically checks out the appropriate branch before agent execution
+ * Setup git branch based on payload event context.
+ * For PR events, uses `gh pr checkout` which handles fork PRs automatically.
+ * For non-PR events, stays on the default branch.
  */
 export function setupGitBranch(payload: Payload): void {
-  const branch = payload.event.branch;
-  const repoDir = process.cwd();
-
-  if (!branch) {
-    log.debug("No branch specified in payload, using default branch");
+  // only checkout for PR events - use issue_number directly (no dependency on branch field)
+  if (payload.event.is_pr !== true || !payload.event.issue_number) {
+    log.debug("Not a PR event, staying on default branch");
     return;
   }
 
-  log.info(`🌿 Setting up git branch: ${branch}`);
+  const prNumber = payload.event.issue_number;
+  const repoDir = process.cwd();
 
-  // if this is a PR-related event, use gh pr checkout which handles fork PRs automatically
-  if (payload.event.is_pr === true && payload.event.issue_number) {
-    const prNumber = payload.event.issue_number;
-    try {
-      // gh pr checkout handles fork PRs by setting up remotes automatically
-      log.debug(`Checking out PR #${prNumber} using gh pr checkout`);
-      execSync(`gh pr checkout ${prNumber}`, {
-        cwd: repoDir,
-        stdio: "pipe",
-      });
+  log.info(`🌿 Checking out PR #${prNumber}...`);
 
-      log.info(`✓ Successfully checked out PR branch: ${branch}`);
-      return;
-    } catch (error) {
-      // if gh pr checkout fails, fall back to branch name fetch
-      log.debug(
-        `gh pr checkout failed, falling back to branch name fetch: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
+  // gh pr checkout handles fork PRs by setting up remotes automatically
+  const token = getGitHubInstallationToken();
+  $("gh", ["pr", "checkout", prNumber.toString()], {
+    cwd: repoDir,
+    env: { GH_TOKEN: token },
+  });
 
-  // fallback: fetch by branch name (for non-PR contexts or if PR ref fetch failed)
-  try {
-    log.debug(`Fetching branch from origin: ${branch}`);
-    execSync(`git fetch origin ${branch}`, {
-      cwd: repoDir,
-      stdio: "pipe",
-    });
-
-    // checkout the branch, creating local tracking branch
-    log.debug(`Checking out branch: ${branch}`);
-    execSync(`git checkout -B ${branch} origin/${branch}`, {
-      cwd: repoDir,
-      stdio: "pipe",
-    });
-
-    log.info(`✓ Successfully checked out branch: ${branch}`);
-  } catch (error) {
-    // if git operations fail, log warning but don't fail the action
-    // the agent might still be able to work with the default branch
-    log.warning(
-      `Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+  log.info(`✓ Successfully checked out PR #${prNumber}`);
 }

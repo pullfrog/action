@@ -14,6 +14,7 @@ interface ShellOptions {
     | "ucs2"
     | "utf16le";
   log?: boolean;
+  env?: Record<string, string>;
   onError?: (result: { status: number; stdout: string; stderr: string }) => void;
 }
 
@@ -36,6 +37,7 @@ export function $(cmd: string, args: string[], options?: ShellOptions): string {
     stdio: ["ignore", "pipe", "pipe"],
     encoding,
     cwd: options?.cwd,
+    env: options?.env ? { ...process.env, ...options.env } : undefined,
   });
 
   const stdout = result.stdout ?? "";

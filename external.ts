@@ -193,7 +193,6 @@ interface FixReviewEvent extends BasePayloadEvent {
   review_id: number;
   /** "all" to fix all comments, or specific comment IDs to fix */
   comment_ids: number[] | "all";
-  branch: string;
 }
 
 interface UnknownEvent extends BasePayloadEvent {

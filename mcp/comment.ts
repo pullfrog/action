@@ -177,7 +177,8 @@ export async function reportProgress({ body }: { body: string }): Promise<
   // no existing comment - create one
   const issueNumber = ctx.payload.event.issue_number;
   if (issueNumber === undefined) {
-    throw new Error("cannot create progress comment: no issue_number found in the payload event");
+    // cannot create comment without issue_number (e.g., workflow_dispatch events)
+    return undefined;
   }
 
   const result = await ctx.octokit.rest.issues.createComment({
@@ -206,6 +207,16 @@ export const ReportProgressTool = tool({
   parameters: ReportProgress,
   execute: contextualize(async ({ body }) => {
     const result = await reportProgress({ body });
+
+    if (!result) {
+      // gracefully handle case where no comment can be created
+      // this happens for workflow_dispatch events or when there's no associated issue/PR
+      return {
+        success: false,
+        message:
+          "cannot create progress comment: no issue_number found in the payload event. this may occur for workflow_dispatch events or when there is no associated issue/PR. if you need to comment on a specific issue or PR, use create_issue_comment with an explicit issueNumber.",
+      };
+    }
 
     return {
       success: true,
