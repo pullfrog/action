@@ -68,8 +68,8 @@ export type SetupGitResult = {
 
 /**
  * Unified git setup: configures authentication and checks out PR branch if applicable.
- * For fork PRs, returns a full URL to push to (since gh pr checkout doesn't set up remotes in Actions).
- * For same-repo PRs, returns "origin".
+ * For PR events, always returns a push URL constructed from the PR's head repo.
+ * This works for both same-repo and fork PRs with a single code path.
  */
 export async function setupGit(ctx: Context): Promise<SetupGitResult> {
   const repoDir = process.cwd();
@@ -87,27 +87,16 @@ export async function setupGit(ctx: Context): Promise<SetupGitResult> {
     log.debug("No existing authentication headers to remove");
   }
 
-  // embed token directly in origin URL - simple and doesn't expose token in env
-  const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
-  $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
-  log.info("✓ Updated origin URL with authentication token");
-
-  // non-PR events: stay on default branch, push to origin
+  // non-PR events: set up origin with token, stay on default branch
   if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
-    log.debug("Not a PR event, staying on default branch");
+    const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+    $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
+    log.info("✓ Updated origin URL with authentication token");
     return { pushRemote: "origin" };
   }
 
-  // checkout PR branch
+  // PR event: fetch PR info to get branch name and head repo
   const prNumber = ctx.payload.event.issue_number;
-  log.info(`🌿 Checking out PR #${prNumber}...`);
-  $("gh", ["pr", "checkout", prNumber.toString()], {
-    cwd: repoDir,
-    env: { GH_TOKEN: ctx.githubInstallationToken },
-  });
-  log.info(`✓ Successfully checked out PR #${prNumber}`);
-
-  // check if this is a fork PR - gh pr checkout in Actions doesn't set up remotes for forks
   const pr = await ctx.octokit.rest.pulls.get({
     owner: ctx.owner,
     repo: ctx.name,
@@ -115,24 +104,23 @@ export async function setupGit(ctx: Context): Promise<SetupGitResult> {
   });
 
   const headRepo = pr.data.head.repo;
-  const baseRepo = pr.data.base.repo;
-
-  // not a fork - push to origin
-  if (!headRepo || headRepo.full_name === baseRepo.full_name) {
-    return { pushRemote: "origin" };
+  if (!headRepo) {
+    throw new Error(`PR #${prNumber} source repository was deleted`);
   }
 
-  // fork PR - return the full URL with auth token embedded
-  // git push accepts URLs directly, no remote needed
-  if (!pr.data.maintainer_can_modify) {
-    log.warning(
-      `⚠️ Fork PR from ${headRepo.owner.login} does not allow maintainer edits. Push may fail.`
-    );
-  }
+  // checkout PR branch using plain git (no gh cli needed)
+  const branch = pr.data.head.ref;
+  log.info(`🌿 Checking out PR #${prNumber} (${branch})...`);
+  $("git", ["fetch", "origin", `pull/${prNumber}/head:${branch}`], { cwd: repoDir });
+  $("git", ["checkout", branch], { cwd: repoDir });
+  log.info(`✓ Successfully checked out PR #${prNumber}`);
 
-  // use GITHUB_TOKEN for fork push - it has the right permissions in Actions
+  // unified push URL - works for both same-repo and fork PRs
   const token = process.env.GITHUB_TOKEN || ctx.githubInstallationToken;
-  const forkUrl = `https://x-access-token:${token}@github.com/${headRepo.full_name}.git`;
-  log.info(`🍴 Fork PR detected, will push to: ${headRepo.full_name}`);
-  return { pushRemote: forkUrl };
+  const pushUrl = `https://x-access-token:${token}@github.com/${headRepo.full_name}.git`;
+  const isFork = headRepo.full_name !== pr.data.base.repo.full_name;
+  if (isFork) {
+    log.info(`🍴 Fork PR detected, will push to: ${headRepo.full_name}`);
+  }
+  return { pushRemote: pushUrl };
 }
