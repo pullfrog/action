@@ -89,11 +89,14 @@ export function setupGit(ctx: Context): SetupGitResult {
     log.debug("No existing authentication headers to remove");
   }
 
+  // set GH_TOKEN in process.env so gh auth git-credential uses the installation token
+  // (not the default GITHUB_TOKEN which has different permissions)
+  process.env.GH_TOKEN = githubInstallationToken;
+
   // set up gh as credential helper - this makes git use GH_TOKEN for any remote
   $("git", ["config", "--local", "credential.helper", ""], { cwd: repoDir });
   $("git", ["config", "--local", "--add", "credential.helper", "!gh auth git-credential"], {
     cwd: repoDir,
-    env: { GH_TOKEN: githubInstallationToken },
   });
   log.info("✓ Configured gh as credential helper");
 

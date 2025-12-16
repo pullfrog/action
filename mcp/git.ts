@@ -7,6 +7,7 @@ import { execute, tool } from "./shared.ts";
 
 export function CreateBranchTool(ctx: Context) {
   const defaultBranch = ctx.repo.default_branch || "main";
+
   const CreateBranch = type({
     branchName: type.string.describe(
       "The name of the branch to create (e.g., 'pullfrog/123-fix-bug')"
