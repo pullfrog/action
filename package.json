@@ -34,6 +34,7 @@
     "@opencode-ai/sdk": "^1.0.143",
     "@standard-schema/spec": "1.0.0",
     "arktype": "2.1.28",
+    "package-manager-detector": "^1.6.0",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "fastmcp": "^3.20.0",

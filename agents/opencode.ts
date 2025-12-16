@@ -304,7 +304,7 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath }) => {
+  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, prepResults }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
@@ -313,7 +313,7 @@ export const opencode = agent({
     configureOpenCodeMcpServers({ mcpServers });
     configureOpenCodeSandbox({ sandbox: payload.sandbox ?? false });
 
-    const prompt = addInstructions(payload);
+    const prompt = addInstructions({ payload, prepResults });
     const args = ["run", "--format", "json", prompt];
 
     if (payload.sandbox) {

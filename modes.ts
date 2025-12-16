@@ -8,18 +8,26 @@ export interface Mode {
 
 export interface GetModesParams {
   disableProgressComment: true | undefined;
+  dependenciesPreinstalled: true | undefined;
 }
 
 const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to share progress and results. Continue calling it as you make progress - it will update the same comment. Never create additional comments manually.`;
 
-export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
+export function getModes({
+  disableProgressComment,
+  dependenciesPreinstalled,
+}: GetModesParams): Mode[] {
+  const depsContext = dependenciesPreinstalled
+    ? "Dependencies have already been installed."
+    : "understand how to install dependencies,";
+
   return [
     {
       name: "Build",
       description:
         "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
       prompt: `Follow these steps:
-1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, ${depsContext} run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 
 2. Create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly - always use ${ghPullfrogMcpName} MCP tools for git operations.
 
@@ -116,7 +124,7 @@ ${
       description:
         "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
       prompt: `Follow these steps:
-1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, understand how to install dependencies, run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, ${depsContext} run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 
 2. Analyze the request and break it down into clear, actionable tasks
 
@@ -145,4 +153,7 @@ ${
   ];
 }
 
-export const modes: Mode[] = getModes({ disableProgressComment: undefined });
+export const modes: Mode[] = getModes({
+  disableProgressComment: undefined,
+  dependenciesPreinstalled: undefined,
+});

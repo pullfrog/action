@@ -154,14 +154,14 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath }) => {
+  run: async ({ payload, apiKey, mcpServers, cliPath, prepResults }) => {
     configureGeminiMcpServers({ mcpServers, cliPath });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions(payload);
+    const sessionPrompt = addInstructions({ payload, prepResults });
     log.info(`Starting Gemini CLI with prompt: ${payload.prompt.substring(0, 100)}...`);
 
     // configure sandbox mode if enabled

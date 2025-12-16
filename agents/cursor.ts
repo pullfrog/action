@@ -91,7 +91,7 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers }) => {
+  run: async ({ payload, apiKey, cliPath, mcpServers, prepResults }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
     configureCursorSandbox({ sandbox: payload.sandbox ?? false });
 
@@ -166,7 +166,7 @@ export const cursor = agent({
     };
 
     try {
-      const fullPrompt = addInstructions(payload);
+      const fullPrompt = addInstructions({ payload, prepResults });
 
       // configure sandbox mode if enabled
       // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings

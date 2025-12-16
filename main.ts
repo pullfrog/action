@@ -14,6 +14,7 @@ import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
+import { type PrepResult, runPrepPhase } from "./prep/index.ts";
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
@@ -71,6 +72,21 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     await setupTempDirectory(ctx);
     timer.checkpoint("setupTempDirectory");
 
+    // run agent CLI installation and prep phase in parallel
+    const [, prepResults] = await Promise.all([installAgentCli(ctx), runPrepPhase()]);
+    ctx.prepResults = prepResults;
+
+    // recompute modes now that we know if dependencies were preinstalled
+    const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
+    ctx.modes = [
+      ...getModes({
+        disableProgressComment: ctx.payload.disableProgressComment,
+        dependenciesPreinstalled,
+      }),
+      ...(ctx.payload.modes || []),
+    ];
+    timer.checkpoint("installAgentCli+prepPhase");
+
     await startMcpServer(ctx);
     mcpServerClose = ctx.mcpServerClose;
     timer.checkpoint("startMcpServer");
@@ -88,9 +104,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     }
 
     setupMcpServers(ctx);
-
-    await installAgentCli(ctx);
-    timer.checkpoint("installAgentCli");
 
     await validateApiKey(ctx);
 
@@ -223,6 +236,9 @@ export interface Context {
   cliPath: string;
   apiKey: string;
   apiKeys: Record<string, string>;
+
+  // prep phase results
+  prepResults: PrepResult[];
 }
 
 async function initializeContext(
@@ -238,6 +254,7 @@ async function initializeContext(
     | "apiKey"
     | "apiKeys"
     | "pushRemote"
+    | "prepResults"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
@@ -274,8 +291,12 @@ async function initializeContext(
   const resolvedPayload = { ...payload, agent: agentName };
 
   // compute modes from defaults + payload overrides
+  // note: dependenciesPreinstalled is undefined here since prepPhase runs after this
   const computedModes = [
-    ...getModes({ disableProgressComment: resolvedPayload.disableProgressComment }),
+    ...getModes({
+      disableProgressComment: resolvedPayload.disableProgressComment,
+      dependenciesPreinstalled: undefined,
+    }),
     ...(resolvedPayload.modes || []),
   ];
 
@@ -462,6 +483,7 @@ async function runAgent(ctx: Context): Promise<AgentResult> {
     apiKey: ctx.apiKey,
     apiKeys: ctx.apiKeys,
     cliPath: ctx.cliPath,
+    prepResults: ctx.prepResults,
   });
 }
 

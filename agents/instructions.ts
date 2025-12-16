@@ -2,92 +2,79 @@ import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
+import type { PrepResult } from "../prep/index.ts";
 
 /**
- * Extract only essential fields from event data to reduce token usage.
- * Removes verbose GitHub API metadata (user objects, repository metadata, etc.)
- * and keeps only the fields agents actually need.
+ * Format prep results into a human-readable string for the agent prompt
  */
-// function extractEssentialEventData(event: Payload["event"]): Record<string, unknown> {
-//   const trigger = event.trigger;
-//   const essential: Record<string, unknown> = { trigger };
+function formatPrepResults(results: PrepResult[]): string {
+  if (results.length === 0) {
+    return "";
+  }
 
-//   // common fields
-//   if ("issue_number" in event) {
-//     essential.issue_number = event.issue_number;
-//   }
-//   if ("branch" in event && event.branch) {
-//     essential.branch = event.branch;
-//   }
+  const lines: string[] = [];
 
-//   // trigger-specific fields
-//   switch (trigger) {
-//     case "issue_comment_created":
-//       if ("comment_id" in event) essential.comment_id = event.comment_id;
-//       if ("comment_body" in event) essential.comment_body = event.comment_body;
-//       // include issue title/body if available in context (but not the entire context object)
-//       if ("context" in event && event.context && typeof event.context === "object") {
-//         const ctx = event.context as Record<string, unknown>;
-//         if (ctx.issue && typeof ctx.issue === "object") {
-//           const issue = ctx.issue as Record<string, unknown>;
-//           if (issue.title) essential.issue_title = issue.title;
-//           if (issue.body) essential.issue_body = issue.body;
-//         }
-//       }
-//       break;
+  for (const result of results) {
+    if (result.language === "unknown") {
+      continue;
+    }
 
-//     case "issues_opened":
-//     case "issues_assigned":
-//     case "issues_labeled":
-//       if ("issue_title" in event) essential.issue_title = event.issue_title;
-//       if ("issue_body" in event) essential.issue_body = event.issue_body;
-//       break;
+    const langDisplay = result.language === "node" ? "Node.js" : "Python";
 
-//     case "pull_request_opened":
-//     case "pull_request_review_requested":
-//       if ("pr_title" in event) essential.pr_title = event.pr_title;
-//       if ("pr_body" in event) essential.pr_body = event.pr_body;
-//       if ("branch" in event) essential.branch = event.branch;
-//       break;
+    if (result.language === "node") {
+      if (result.dependenciesInstalled) {
+        lines.push(
+          `✅ ${langDisplay} dependencies installed successfully via \`${result.packageManager}\`.`
+        );
+      } else {
+        lines.push(
+          `⚠️ ${langDisplay} dependency installation FAILED (using \`${result.packageManager}\`).`
+        );
+        for (const issue of result.issues) {
+          lines.push(`   - ${issue}`);
+        }
+        lines.push(
+          `   You may need to run \`${result.packageManager} install\` or address this issue before proceeding.`
+        );
+      }
+    }
 
-//     case "pull_request_review_submitted":
-//       if ("review_id" in event) essential.review_id = event.review_id;
-//       if ("review_body" in event) essential.review_body = event.review_body;
-//       if ("review_state" in event) essential.review_state = event.review_state;
-//       if ("branch" in event) essential.branch = event.branch;
-//       break;
+    if (result.language === "python") {
+      if (result.dependenciesInstalled) {
+        lines.push(
+          `✅ ${langDisplay} dependencies installed successfully via \`${result.packageManager}\` (from ${result.configFile}).`
+        );
+      } else {
+        lines.push(
+          `⚠️ ${langDisplay} dependency installation FAILED (using \`${result.packageManager}\` from ${result.configFile}).`
+        );
+        for (const issue of result.issues) {
+          lines.push(`   - ${issue}`);
+        }
+        lines.push(
+          `   You may need to run the appropriate install command or address this issue before proceeding.`
+        );
+      }
+    }
+  }
 
-//     case "pull_request_review_comment_created":
-//       if ("comment_id" in event) essential.comment_id = event.comment_id;
-//       if ("comment_body" in event) essential.comment_body = event.comment_body;
-//       if ("pr_title" in event) essential.pr_title = event.pr_title;
-//       if ("branch" in event) essential.branch = event.branch;
-//       break;
+  if (lines.length === 0) {
+    return "";
+  }
 
-//     case "check_suite_completed":
-//       if ("pr_title" in event) essential.pr_title = event.pr_title;
-//       if ("pr_body" in event) essential.pr_body = event.pr_body;
-//       if ("branch" in event) essential.branch = event.branch;
-//       if ("check_suite" in event) {
-//         essential.check_suite = {
-//           id: event.check_suite.id,
-//           head_sha: event.check_suite.head_sha,
-//           head_branch: event.check_suite.head_branch,
-//           status: event.check_suite.status,
-//           conclusion: event.check_suite.conclusion,
-//         };
-//       }
-//       break;
+  return `************* ENVIRONMENT SETUP *************
 
-//     case "workflow_dispatch":
-//       if ("inputs" in event) essential.inputs = event.inputs;
-//       break;
-//   }
+${lines.join("\n")}
 
-//   return essential;
-// }
+`;
+}
 
-export const addInstructions = (payload: Payload) => {
+interface AddInstructionsParams {
+  payload: Payload;
+  prepResults: PrepResult[];
+}
+
+export const addInstructions = ({ payload, prepResults }: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -98,6 +85,9 @@ export const addInstructions = (payload: Payload) => {
     // const essentialEvent = payload.event;
     encodedEvent = toonEncode(payload.event);
   }
+
+  const envSetup = formatPrepResults(prepResults);
+  const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
 
   return `
 ***********************************************
@@ -195,7 +185,7 @@ Before starting any work, you must first determine which mode to use by examinin
 
 Available modes:
 
-${[...getModes({ disableProgressComment: payload.disableProgressComment }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...getModes({ disableProgressComment: payload.disableProgressComment, dependenciesPreinstalled }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 **Required first step**: 
 1. Examine the user's request/prompt carefully
@@ -229,5 +219,6 @@ ${encodedEvent}`
 ************* RUNTIME CONTEXT *************
 
 working_directory: ${process.cwd()}
-`;
+
+${envSetup}`;
 };
