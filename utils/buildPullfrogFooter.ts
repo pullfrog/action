@@ -40,8 +40,9 @@ export function buildPullfrogFooter(params: BuildPullfrogFooterParams): string {
   }
 
   if (params.workflowRun) {
-    const { owner, repo, runId } = params.workflowRun;
-    parts.push(`[View workflow run](https://github.com/${owner}/${repo}/actions/runs/${runId})`);
+    parts.push(
+      `[View workflow run](https://github.com/${params.workflowRun.owner}/${params.workflowRun.repo}/actions/runs/${params.workflowRun.runId})`
+    );
   }
 
   if (params.customParts) {

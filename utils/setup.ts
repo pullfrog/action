@@ -73,10 +73,9 @@ export type SetupGitResult = {
  * Returns the remote to push to (detected from branch tracking after checkout).
  */
 export function setupGit(ctx: Context): SetupGitResult {
-  const { githubInstallationToken, payload } = ctx;
   const repoDir = process.cwd();
 
-  log.info("🔧 Setting up git configuration...");
+  log.info("🔧 Setting up git authentication...");
 
   // remove existing git auth headers that actions/checkout might have set
   try {
@@ -89,29 +88,23 @@ export function setupGit(ctx: Context): SetupGitResult {
     log.debug("No existing authentication headers to remove");
   }
 
-  // set GH_TOKEN in process.env so gh auth git-credential uses the installation token
-  // (not the default GITHUB_TOKEN which has different permissions)
-  process.env.GH_TOKEN = githubInstallationToken;
-
-  // set up gh as credential helper - this makes git use GH_TOKEN for any remote
-  $("git", ["config", "--local", "credential.helper", ""], { cwd: repoDir });
-  $("git", ["config", "--local", "--add", "credential.helper", "!gh auth git-credential"], {
-    cwd: repoDir,
-  });
-  log.info("✓ Configured gh as credential helper");
+  // embed token directly in origin URL - simple and doesn't expose token in env
+  const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+  $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
+  log.info("✓ Updated origin URL with authentication token");
 
   // non-PR events: stay on default branch, push to origin
-  if (payload.event.is_pr !== true || !payload.event.issue_number) {
+  if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
     log.debug("Not a PR event, staying on default branch");
     return { pushRemote: "origin" };
   }
 
   // checkout PR branch - gh pr checkout handles fork remotes and tracking automatically
-  const prNumber = payload.event.issue_number;
+  const prNumber = ctx.payload.event.issue_number;
   log.info(`🌿 Checking out PR #${prNumber}...`);
   $("gh", ["pr", "checkout", prNumber.toString()], {
     cwd: repoDir,
-    env: { GH_TOKEN: githubInstallationToken },
+    env: { GH_TOKEN: ctx.githubInstallationToken },
   });
   log.info(`✓ Successfully checked out PR #${prNumber}`);
 
@@ -119,6 +112,14 @@ export function setupGit(ctx: Context): SetupGitResult {
   const pushRemote = detectPushRemote();
   if (pushRemote !== "origin") {
     log.info(`🍴 Fork PR detected, will push to remote: ${pushRemote}`);
+    // embed token in fork remote URL too
+    const forkUrl = $("git", ["remote", "get-url", pushRemote], { cwd: repoDir, log: false });
+    const authedForkUrl = forkUrl.replace(
+      "https://github.com/",
+      `https://x-access-token:${ctx.githubInstallationToken}@github.com/`
+    );
+    $("git", ["remote", "set-url", pushRemote, authedForkUrl], { cwd: repoDir });
+    log.info(`✓ Updated ${pushRemote} URL with authentication token`);
   }
   return { pushRemote };
 }
