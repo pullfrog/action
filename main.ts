@@ -72,6 +72,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     await setupTempDirectory(ctx);
     timer.checkpoint("setupTempDirectory");
 
+    // TODO: david fix this garbage
     // run agent CLI installation and prep phase in parallel
     const [, prepResults] = await Promise.all([installAgentCli(ctx), runPrepPhase()]);
     ctx.prepResults = prepResults;
