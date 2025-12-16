@@ -51,117 +51,171 @@ export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
+// base interface for common payload event fields
+interface BasePayloadEvent {
+  issue_number?: number;
+  is_pr?: boolean;
+  branch?: string;
+  pr_title?: string;
+  pr_body?: string | null;
+  issue_title?: string;
+  issue_body?: string | null;
+  comment_id?: number;
+  comment_body?: string;
+  review_id?: number;
+  review_body?: string | null;
+  review_state?: string;
+  review_comments?: any[];
+  context?: any;
+  thread?: any;
+  pull_request?: any;
+  check_suite?: {
+    id: number;
+    head_sha: string;
+    head_branch: string | null;
+    status: string | null;
+    conclusion: string | null;
+    url: string;
+  };
+  comment_ids?: number[] | "all";
+  [key: string]: any;
+}
+
+interface PullRequestOpenedEvent extends BasePayloadEvent {
+  trigger: "pull_request_opened";
+  issue_number: number;
+  is_pr: true;
+  pr_title: string;
+  pr_body: string | null;
+  branch: string;
+}
+
+interface PullRequestReadyForReviewEvent extends BasePayloadEvent {
+  trigger: "pull_request_ready_for_review";
+  issue_number: number;
+  is_pr: true;
+  pr_title: string;
+  pr_body: string | null;
+  branch: string;
+}
+
+interface PullRequestReviewRequestedEvent extends BasePayloadEvent {
+  trigger: "pull_request_review_requested";
+  issue_number: number;
+  is_pr: true;
+  pr_title: string;
+  pr_body: string | null;
+  branch: string;
+}
+
+interface PullRequestReviewSubmittedEvent extends BasePayloadEvent {
+  trigger: "pull_request_review_submitted";
+  issue_number: number;
+  is_pr: true;
+  review_id: number;
+  review_body: string | null;
+  review_state: string;
+  review_comments: any[];
+  context: any;
+  branch: string;
+}
+
+interface PullRequestReviewCommentCreatedEvent extends BasePayloadEvent {
+  trigger: "pull_request_review_comment_created";
+  issue_number: number;
+  is_pr: true;
+  pr_title: string;
+  comment_id: number;
+  comment_body: string;
+  thread?: any;
+  branch: string;
+}
+
+interface IssuesOpenedEvent extends BasePayloadEvent {
+  trigger: "issues_opened";
+  issue_number: number;
+  issue_title: string;
+  issue_body: string | null;
+}
+
+interface IssuesAssignedEvent extends BasePayloadEvent {
+  trigger: "issues_assigned";
+  issue_number: number;
+  issue_title: string;
+  issue_body: string | null;
+}
+
+interface IssuesLabeledEvent extends BasePayloadEvent {
+  trigger: "issues_labeled";
+  issue_number: number;
+  issue_title: string;
+  issue_body: string | null;
+}
+
+interface IssueCommentCreatedEvent extends BasePayloadEvent {
+  trigger: "issue_comment_created";
+  comment_id: number;
+  comment_body: string;
+  issue_number: number;
+  // PR-specific fields (only present when is_pr is true)
+  is_pr?: true;
+  branch?: string;
+  pr_title?: string;
+  pr_body?: string | null;
+}
+
+interface CheckSuiteCompletedEvent extends BasePayloadEvent {
+  trigger: "check_suite_completed";
+  issue_number: number;
+  is_pr: true;
+  pr_title: string;
+  pr_body: string | null;
+  pull_request: any;
+  branch: string;
+  check_suite: {
+    id: number;
+    head_sha: string;
+    head_branch: string | null;
+    status: string | null;
+    conclusion: string | null;
+    url: string;
+  };
+}
+
+interface WorkflowDispatchEvent extends BasePayloadEvent {
+  trigger: "workflow_dispatch";
+}
+
+interface FixReviewEvent extends BasePayloadEvent {
+  trigger: "fix_review";
+  issue_number: number;
+  is_pr: true;
+  review_id: number;
+  /** "all" to fix all comments, or specific comment IDs to fix */
+  comment_ids: number[] | "all";
+  branch: string;
+}
+
+interface UnknownEvent extends BasePayloadEvent {
+  trigger: "unknown";
+}
+
 // discriminated union for payload event based on trigger
 // note: all events use issue_number for consistency (PRs are issues in GitHub's API)
 export type PayloadEvent =
-  | {
-      trigger: "pull_request_opened";
-      issue_number: number;
-      pr_title: string;
-      pr_body: string | null;
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "pull_request_ready_for_review";
-      issue_number: number;
-      pr_title: string;
-      pr_body: string | null;
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "pull_request_review_requested";
-      issue_number: number;
-      pr_title: string;
-      pr_body: string | null;
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "pull_request_review_submitted";
-      issue_number: number;
-      review_id: number;
-      review_body: string | null;
-      review_state: string;
-      review_comments: any[];
-      context: any;
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "pull_request_review_comment_created";
-      issue_number: number;
-      pr_title: string;
-      comment_id: number;
-      comment_body: string;
-      thread?: any;
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "issues_opened";
-      issue_number: number;
-      issue_title: string;
-      issue_body: string | null;
-      [key: string]: any;
-    }
-  | {
-      trigger: "issues_assigned";
-      issue_number: number;
-      issue_title: string;
-      issue_body: string | null;
-      [key: string]: any;
-    }
-  | {
-      trigger: "issues_labeled";
-      issue_number: number;
-      issue_title: string;
-      issue_body: string | null;
-      [key: string]: any;
-    }
-  | {
-      trigger: "issue_comment_created";
-      comment_id: number;
-      comment_body: string;
-      issue_number: number;
-      branch?: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "check_suite_completed";
-      issue_number: number;
-      pr_title: string;
-      pr_body: string | null;
-      pull_request: any;
-      branch: string;
-      check_suite: {
-        id: number;
-        head_sha: string;
-        head_branch: string | null;
-        status: string | null;
-        conclusion: string | null;
-        url: string;
-      };
-      [key: string]: any;
-    }
-  | {
-      trigger: "workflow_dispatch";
-      [key: string]: any;
-    }
-  | {
-      trigger: "fix_review";
-      issue_number: number;
-      review_id: number;
-      /** "all" to fix all comments, or specific comment IDs to fix */
-      comment_ids: number[] | "all";
-      branch: string;
-      [key: string]: any;
-    }
-  | {
-      trigger: "unknown";
-      [key: string]: any;
-    };
+  | PullRequestOpenedEvent
+  | PullRequestReadyForReviewEvent
+  | PullRequestReviewRequestedEvent
+  | PullRequestReviewSubmittedEvent
+  | PullRequestReviewCommentCreatedEvent
+  | IssuesOpenedEvent
+  | IssuesAssignedEvent
+  | IssuesLabeledEvent
+  | IssueCommentCreatedEvent
+  | CheckSuiteCompletedEvent
+  | WorkflowDispatchEvent
+  | FixReviewEvent
+  | UnknownEvent;
 
 export interface DispatchOptions {
   /**

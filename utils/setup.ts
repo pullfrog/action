@@ -109,22 +109,13 @@ export function setupGitBranch(payload: Payload): void {
 
   log.info(`🌿 Setting up git branch: ${branch}`);
 
-  // if event has issue_number and branch, it's likely a PR - try PR ref first (works for forks)
-  const issueNumber = "issue_number" in payload.event ? payload.event.issue_number : undefined;
-  const isLikelyPR = issueNumber !== undefined && branch !== undefined;
-
-  if (isLikelyPR) {
+  // if this is a PR-related event, use gh pr checkout which handles fork PRs automatically
+  if (payload.event.is_pr === true && payload.event.issue_number) {
+    const prNumber = payload.event.issue_number;
     try {
-      // use GitHub's PR ref which works for both fork and non-fork PRs
-      log.debug(`Fetching PR #${issueNumber} using refs/pull/${issueNumber}/head`);
-      execSync(`git fetch origin refs/pull/${issueNumber}/head`, {
-        cwd: repoDir,
-        stdio: "pipe",
-      });
-
-      // checkout from FETCH_HEAD (the PR ref we just fetched)
-      log.debug(`Checking out branch: ${branch}`);
-      execSync(`git checkout -B ${branch} FETCH_HEAD`, {
+      // gh pr checkout handles fork PRs by setting up remotes automatically
+      log.debug(`Checking out PR #${prNumber} using gh pr checkout`);
+      execSync(`gh pr checkout ${prNumber}`, {
         cwd: repoDir,
         stdio: "pipe",
       });
@@ -132,9 +123,9 @@ export function setupGitBranch(payload: Payload): void {
       log.info(`✓ Successfully checked out PR branch: ${branch}`);
       return;
     } catch (error) {
-      // if PR ref fetch fails, fall back to branch name fetch
+      // if gh pr checkout fails, fall back to branch name fetch
       log.debug(
-        `PR ref fetch failed, falling back to branch name fetch: ${error instanceof Error ? error.message : String(error)}`
+        `gh pr checkout failed, falling back to branch name fetch: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

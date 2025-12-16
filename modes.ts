@@ -85,7 +85,7 @@ ${
       prompt: `Follow these steps:
 1. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
 
-2. View diff: \`git diff origin/<base>...origin/<head>\` (replace <base> and <head> with 'base' and 'head' from PR info)
+2. **IMPORTANT**: After calling ${ghPullfrogMcpName}/get_pull_request, the PR branch is already checked out locally. View diff using: \`git diff origin/<base>...HEAD\` (replace <base> with 'base' from PR info). Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch.
 
 3. Read files from the checked-out PR branch to understand the implementation. Always use **relative paths** from repo root (e.g., \`src/index.ts\`), never absolute paths.
 

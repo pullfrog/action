@@ -111,7 +111,7 @@ see individual files for documentation on other tools:
 
 ## usage in agents
 
-agents should never use the `gh` cli. instead, they should use the mcp tools provided by this server.
+agents should prefer using the mcp tools provided by this server. the `gh` cli is available as a fallback if needed, but mcp tools handle authentication and provide better integration.
 
 the agent instructions automatically include guidance on using these tools.
 
