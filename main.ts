@@ -65,8 +65,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const ctx = partialCtx as Context;
     timer.checkpoint("initializeContext");
 
-    const { pushRemote } = await setupGit(ctx);
-    ctx.pushRemote = pushRemote;
+    await setupGit(ctx);
     timer.checkpoint("setupGit");
 
     await setupTempDirectory(ctx);
@@ -225,7 +224,6 @@ export interface Context {
   modes: Mode[];
 
   // setup fields
-  pushRemote: string;
   sharedTempDir: string;
 
   // mcp fields
@@ -240,6 +238,10 @@ export interface Context {
 
   // prep phase results
   prepResults: PrepResult[];
+
+  // workflow run info
+  runId: string;
+  jobId: string | undefined;
 }
 
 async function initializeContext(
@@ -254,8 +256,9 @@ async function initializeContext(
     | "cliPath"
     | "apiKey"
     | "apiKeys"
-    | "pushRemote"
     | "prepResults"
+    | "runId"
+    | "jobId"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
@@ -407,14 +410,32 @@ function parsePayload(inputs: Inputs): Payload {
 }
 
 async function startMcpServer(ctx: Context): Promise<void> {
+  const runId = process.env.GITHUB_RUN_ID;
+  if (!runId) {
+    throw new Error("GITHUB_RUN_ID environment variable is required");
+  }
+  ctx.runId = runId;
+
   // fetch the pre-created progress comment ID from the database
   // this must be set BEFORE starting the MCP server so comment.ts can read it
-  const runId = process.env.GITHUB_RUN_ID;
-  if (runId) {
-    const workflowRunInfo = await fetchWorkflowRunInfo(runId);
-    if (workflowRunInfo.progressCommentId) {
-      process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
-      log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+  const workflowRunInfo = await fetchWorkflowRunInfo(ctx.runId);
+  if (workflowRunInfo.progressCommentId) {
+    process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+    log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+  }
+
+  // fetch job ID by matching GITHUB_JOB name
+  const jobName = process.env.GITHUB_JOB;
+  if (jobName) {
+    const jobs = await ctx.octokit.rest.actions.listJobsForWorkflowRun({
+      owner: ctx.owner,
+      repo: ctx.name,
+      run_id: parseInt(ctx.runId, 10),
+    });
+    const matchingJob = jobs.data.jobs.find((job) => job.name === jobName);
+    if (matchingJob) {
+      ctx.jobId = String(matchingJob.id);
+      log.info(`📋 Found job ID: ${ctx.jobId}`);
     }
   }
 
@@ -485,6 +506,11 @@ async function runAgent(ctx: Context): Promise<AgentResult> {
     apiKeys: ctx.apiKeys,
     cliPath: ctx.cliPath,
     prepResults: ctx.prepResults,
+    repo: {
+      owner: ctx.owner,
+      name: ctx.name,
+      defaultBranch: ctx.repo.default_branch,
+    },
   });
 }
 

@@ -64,10 +64,11 @@ export function getModes({
       description:
         "Address PR review feedback; respond to reviewer comments; make requested changes to an existing PR",
       prompt: `Follow these steps:
-1. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically fetches and checks out the PR branch)
+1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and configures push settings (including for fork PRs).
 
 2. Review the feedback provided. Understand each review comment and what changes are being requested.
    - **EVENT DATA may contain review comment details**: If available, \`approved_comments\` are comments to address, \`unapproved_comments\` are for context only. The \`triggerer\` field indicates who initiated this action - prioritize their replies when deciding how to implement fixes.
+   - You can use ${ghPullfrogMcpName}/get_pull_request to get PR metadata if needed.
 
 3. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists.
 
@@ -77,7 +78,7 @@ export function getModes({
 
 6. Test your changes to ensure they work correctly.
 
-7. When done, commit and push your changes to the existing PR branch. Do not create a new branch or PR - you are updating an existing one.
+7. When done, commit your changes with ${ghPullfrogMcpName}/commit_files, then push with ${ghPullfrogMcpName}/push_branch. The push will automatically go to the correct remote (including fork repos). Do not create a new branch or PR - you are updating an existing one.
 ${
   disableProgressComment
     ? ""
@@ -92,9 +93,9 @@ ${
       description:
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
       prompt: `Follow these steps:
-1. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically prepares the repository by fetching and checking out the PR branch)
+1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and base branch, preparing the repo for review.
 
-2. **IMPORTANT**: After calling ${ghPullfrogMcpName}/get_pull_request, the PR branch is already checked out locally. View diff using: \`git diff origin/<base>...HEAD\` (replace <base> with 'base' from PR info). Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch.
+2. **IMPORTANT**: After calling checkout_pr, the PR branch is checked out locally. View diff using: \`git diff origin/<base>..HEAD\` (replace <base> with 'base' from checkout_pr result, e.g., \`git diff origin/main..HEAD\`). Use two dots (..) not three dots (...) for reliable diffs. Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch. This works for both same-repo and fork PRs.
 
 3. Read files from the checked-out PR branch to understand the implementation. Always use **relative paths** from repo root (e.g., \`src/index.ts\`), never absolute paths.
 
@@ -102,7 +103,8 @@ ${
 
 **GENERAL GUIDANCE**
 
-- *CRITICAL* — Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
+- Do not leave any comments that are not potentially actionable. Do not leave complimentary comments just to be nice.
+- *CRITICAL* — Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
   - For line numbers, use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
   - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
 - **CRITICAL: Prioritize per-line feedback over summary text.**
@@ -112,7 +114,6 @@ ${
   - 95%+ of review content should be in per-line comments; the body should be just a couple sentences
   - The review body will include quick action links for addressing feedback, so keep it concise
 - Do not nitpick unless instructed explicity to do so by the user's additional instructions. This includes: requesting documentation/docstrings/JSDoc. 
-- Do not leave any comments that are not potentially actionable. 
 - The review should be thoughtful. When evaluating complex changes, consider the following conceptual approach:
   - 1) conceptualize the changes made. make sure you understand it.
   - 2) evaluate conceptual approach. leave feedback as needed.

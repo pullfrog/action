@@ -35,7 +35,9 @@ export const Review = type({
   })
     .array()
     .describe(
-      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use 'git diff origin/<base>...origin/<head>' to find correct line numbers (RIGHT side for new code, LEFT for old)."
+      // FORK PR NOTE: use HEAD not origin/<head> - for fork PRs, origin/<head> doesn't exist
+      // because the head branch is in a different repo (the fork). HEAD is the locally checked out PR branch.
+      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use 'git diff origin/<base>..HEAD' to find correct line numbers (RIGHT side for new code, LEFT for old). Works for both fork and same-repo PRs."
     )
     .optional(),
 });
@@ -93,6 +95,7 @@ export function ReviewTool(ctx: Context) {
       const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
 
       const footer = buildPullfrogFooter({
+        workflowRun: { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId },
         customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
       });
 

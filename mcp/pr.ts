@@ -1,6 +1,9 @@
 import { type } from "arktype";
+import { agentsManifest } from "../external.ts";
 import type { Context } from "../main.ts";
+import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
+import { parseRepoContext } from "../utils/github.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
@@ -10,6 +13,23 @@ export const PullRequest = type({
   body: type.string.describe("the body content of the pull request"),
   base: type.string.describe("the base branch to merge into (e.g., 'main')"),
 });
+
+function buildPrBodyWithFooter(ctx: Context, body: string): string {
+  const repoContext = parseRepoContext();
+  const runId = process.env.GITHUB_RUN_ID;
+
+  const agentName = ctx.payload.agent;
+  const agentInfo = agentName ? agentsManifest[agentName] : null;
+
+  const footer = buildPullfrogFooter({
+    triggeredBy: true,
+    agent: agentInfo ? { displayName: agentInfo.displayName, url: agentInfo.url } : undefined,
+    workflowRun: runId ? { owner: repoContext.owner, repo: repoContext.name, runId } : undefined,
+  });
+
+  const bodyWithoutFooter = stripExistingFooter(body);
+  return `${bodyWithoutFooter}${footer}`;
+}
 
 export function PullRequestTool(ctx: Context) {
   return tool({
@@ -29,7 +49,9 @@ export function PullRequestTool(ctx: Context) {
       }
 
       // validate all changes that would be in the PR (from base to HEAD)
-      const diff = $("git", ["diff", `origin/${base}...HEAD`], { log: false });
+      // FORK PR NOTE: origin/<base> is fetched by setupGit, so this works for both fork and same-repo PRs
+      // use two-dot (..) not three-dot (...) for reliable diffs with shallow clones
+      const diff = $("git", ["diff", `origin/${base}..HEAD`], { log: false });
       if (containsSecrets(diff)) {
         throw new Error(
           "PR creation blocked: secrets detected in changes. " +
@@ -37,11 +59,13 @@ export function PullRequestTool(ctx: Context) {
         );
       }
 
+      const bodyWithFooter = buildPrBodyWithFooter(ctx, body);
+
       const result = await ctx.octokit.rest.pulls.create({
         owner: ctx.owner,
         repo: ctx.name,
         title: title,
-        body: body,
+        body: bodyWithFooter,
         head: currentBranch,
         base: base,
       });
