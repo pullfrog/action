@@ -63,6 +63,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as Context;
+    ctx.toolState = {};
     timer.checkpoint("initializeContext");
 
     await setupGit(ctx);
@@ -242,6 +243,18 @@ export interface Context {
   // workflow run info
   runId: string;
   jobId: string | undefined;
+
+  // tool state - mutable scratchpad for tools
+  toolState: ToolState;
+}
+
+export interface ToolState {
+  prNumber?: number;
+  issueNumber?: number;
+  review?: {
+    id: number; // REST API database ID (for fix URLs)
+    nodeId: string; // GraphQL node ID (for mutations)
+  };
 }
 
 async function initializeContext(
@@ -259,6 +272,7 @@ async function initializeContext(
     | "prepResults"
     | "runId"
     | "jobId"
+    | "toolState"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);

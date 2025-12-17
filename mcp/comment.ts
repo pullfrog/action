@@ -204,7 +204,9 @@ export async function reportProgress(
   }
 
   // no existing comment - create one
-  const issueNumber = ctx.payload.event.issue_number;
+  // use fallback chain: dynamically set context > event payload
+  const issueNumber =
+    ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   if (issueNumber === undefined) {
     // cannot create comment without issue_number (e.g., workflow_dispatch events)
     return undefined;

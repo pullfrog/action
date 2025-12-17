@@ -1,3 +1,6 @@
+import { randomBytes } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
 import type { Context } from "../main.ts";
@@ -5,6 +8,253 @@ import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
 import { deleteProgressComment } from "./comment.ts";
 import { execute, tool } from "./shared.ts";
 
+// graphql mutation to create a pending review
+const ADD_PULL_REQUEST_REVIEW = `
+mutation AddPullRequestReview($pullRequestId: ID!) {
+  addPullRequestReview(input: { pullRequestId: $pullRequestId, event: PENDING }) {
+    pullRequestReview {
+      id
+      databaseId
+    }
+  }
+}
+`;
+
+// graphql mutation to add a comment thread to a pending review
+const ADD_PULL_REQUEST_REVIEW_THREAD = `
+mutation AddPullRequestReviewThread($pullRequestReviewId: ID!, $path: String!, $line: Int!, $body: String!, $side: DiffSide) {
+  addPullRequestReviewThread(input: {
+    pullRequestReviewId: $pullRequestReviewId,
+    path: $path,
+    line: $line,
+    body: $body,
+    side: $side
+  }) {
+    thread {
+      id
+    }
+  }
+}
+`;
+
+// graphql mutation to submit a pending review
+const SUBMIT_PULL_REQUEST_REVIEW = `
+mutation SubmitPullRequestReview($pullRequestReviewId: ID!, $body: String, $event: PullRequestReviewEvent!) {
+  submitPullRequestReview(input: {
+    pullRequestReviewId: $pullRequestReviewId,
+    body: $body,
+    event: $event
+  }) {
+    pullRequestReview {
+      id
+      databaseId
+      state
+      url
+    }
+  }
+}
+`;
+
+// graphql response types
+type AddPullRequestReviewResponse = {
+  addPullRequestReview: {
+    pullRequestReview: {
+      id: string;
+      databaseId: number;
+    };
+  };
+};
+
+type AddPullRequestReviewThreadResponse = {
+  addPullRequestReviewThread: {
+    thread: {
+      id: string;
+    };
+  };
+};
+
+type SubmitPullRequestReviewResponse = {
+  submitPullRequestReview: {
+    pullRequestReview: {
+      id: string;
+      databaseId: number;
+      state: string;
+      url: string;
+    };
+  };
+};
+
+// start_review tool
+export const StartReview = type({
+  pull_number: type.number.describe("The pull request number to review"),
+});
+
+export function StartReviewTool(ctx: Context) {
+  return tool({
+    name: "start_review",
+    description:
+      "Start a new review session for a pull request. Creates a scratchpad file for gathering thoughts and a pending review on GitHub. Must be called before add_review_comment.",
+    parameters: StartReview,
+    execute: execute(ctx, async ({ pull_number }) => {
+      // check if review already started
+      if (ctx.toolState.review) {
+        throw new Error(
+          `Review session already in progress. Call submit_review first to finish it.`
+        );
+      }
+
+      // get the PR to get its node_id for GraphQL
+      const pr = await ctx.octokit.rest.pulls.get({
+        owner: ctx.owner,
+        repo: ctx.name,
+        pull_number,
+      });
+
+      // create pending review via GraphQL
+      const response = await ctx.octokit.graphql<AddPullRequestReviewResponse>(
+        ADD_PULL_REQUEST_REVIEW,
+        {
+          pullRequestId: pr.data.node_id,
+        }
+      );
+
+      const reviewId = response.addPullRequestReview.pullRequestReview.id;
+      const reviewDatabaseId = response.addPullRequestReview.pullRequestReview.databaseId;
+
+      // create scratchpad file
+      const scratchpadId = randomBytes(4).toString("hex");
+      const scratchpadPath = join(ctx.sharedTempDir, `pullfrog-review-${scratchpadId}.md`);
+      const scratchpadContent = `# Review ${scratchpadId}\n\n`;
+      writeFileSync(scratchpadPath, scratchpadContent);
+
+      // set PR context and review state
+      ctx.toolState.prNumber = pull_number;
+      ctx.toolState.review = {
+        nodeId: reviewId,
+        id: reviewDatabaseId,
+      };
+
+      return {
+        reviewId: scratchpadId,
+        scratchpadPath,
+        message: `Review session started. Use the scratchpad file to gather your thoughts, then call add_review_comment for each comment.`,
+      };
+    }),
+  });
+}
+
+// add_review_comment tool
+export const AddReviewComment = type({
+  path: type.string.describe("The file path to comment on (relative to repo root)"),
+  line: type.number.describe(
+    "The line number in the file (use line numbers from the diff - the NEW file line number)"
+  ),
+  body: type.string.describe("The comment text for this specific line"),
+  side: type
+    .enumerated("LEFT", "RIGHT")
+    .describe("Side of the diff: LEFT (old code) or RIGHT (new code). Defaults to RIGHT.")
+    .optional(),
+});
+
+export function AddReviewCommentTool(ctx: Context) {
+  return tool({
+    name: "add_review_comment",
+    description:
+      "Add a comment to the current review session. Must call start_review first. Comments are stored in draft state until submit_review is called.",
+    parameters: AddReviewComment,
+    execute: execute(ctx, async ({ path, line, body, side }) => {
+      // check if review started
+      if (!ctx.toolState.review) {
+        throw new Error("No review session started. Call start_review first.");
+      }
+
+      // add comment thread via GraphQL
+      await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
+        ADD_PULL_REQUEST_REVIEW_THREAD,
+        {
+          pullRequestReviewId: ctx.toolState.review.nodeId,
+          path,
+          line,
+          body,
+          side: side || "RIGHT",
+        }
+      );
+
+      return {
+        success: true,
+        message: `Comment added to ${path}:${line}`,
+      };
+    }),
+  });
+}
+
+// submit_review tool
+export const SubmitReview = type({
+  body: type.string
+    .describe(
+      "Review body text. Typically 1-3 sentences with high-level overview and urgency level. Action links are auto-appended."
+    )
+    .optional(),
+});
+
+export function SubmitReviewTool(ctx: Context) {
+  return tool({
+    name: "submit_review",
+    description:
+      "Submit the current review session. All comments added via add_review_comment will be published. Must call start_review first.",
+    parameters: SubmitReview,
+    execute: execute(ctx, async ({ body }) => {
+      // check if review started
+      if (!ctx.toolState.review) {
+        throw new Error("No review session started. Call start_review first.");
+      }
+      if (ctx.toolState.prNumber === undefined) {
+        throw new Error("No PR context. Call checkout_pr or start_review first.");
+      }
+
+      const reviewId = ctx.toolState.review.id;
+
+      // build quick links footer
+      const apiUrl = process.env.API_URL || "https://pullfrog.com";
+      const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix&review_id=${reviewId}`;
+      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix-approved&review_id=${reviewId}`;
+
+      const footer = buildPullfrogFooter({
+        workflowRun: { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId },
+        customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
+      });
+
+      const bodyWithFooter = (body || "") + footer;
+
+      // submit the review via GraphQL
+      const response = await ctx.octokit.graphql<SubmitPullRequestReviewResponse>(
+        SUBMIT_PULL_REQUEST_REVIEW,
+        {
+          pullRequestReviewId: ctx.toolState.review.nodeId,
+          body: bodyWithFooter,
+          event: "COMMENT",
+        }
+      );
+
+      const result = response.submitPullRequestReview.pullRequestReview;
+
+      // clear review state
+      delete ctx.toolState.review;
+
+      // delete progress comment
+      await deleteProgressComment(ctx);
+
+      return {
+        success: true,
+        reviewId: result.databaseId,
+        html_url: result.url,
+        state: result.state,
+      };
+    }),
+  });
+}
+
+// legacy tool - kept for backwards compatibility
 export const Review = type({
   pull_number: type.number.describe("The pull request number to review"),
   body: type.string
@@ -46,11 +296,15 @@ export function ReviewTool(ctx: Context) {
   return tool({
     name: "submit_pull_request_review",
     description:
+      "DEPRECATED: Use start_review, add_review_comment, and submit_review instead for iterative review workflow. " +
       "Submit a review for an existing pull request. " +
       "IMPORTANT: 95%+ of feedback should be in 'comments' array with file paths and line numbers. " +
       "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts.",
     parameters: Review,
     execute: execute(ctx, async ({ pull_number, body, commit_id, comments = [] }) => {
+      // set PR context
+      ctx.toolState.prNumber = pull_number;
+
       // get the PR to determine the head commit if commit_id not provided
       const pr = await ctx.octokit.rest.pulls.get({
         owner: ctx.owner,
