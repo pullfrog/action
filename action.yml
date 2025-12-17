@@ -22,9 +22,6 @@ inputs:
   cursor_api_key:
     description: "Cursor API key for Cursor authentication"
     required: false
-  log_level:
-    description: "Log level (debug, info, warn, error)"
-    required: false
 
 runs:
   using: "node20"

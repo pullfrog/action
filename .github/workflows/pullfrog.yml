@@ -30,6 +30,8 @@ jobs:
 
       - name: Run agent
         uses: pullfrog/action@main
+        env: 
+          log_level: ${{ vars.LOG_LEVEL }}
         with:
           prompt: ${{ github.event.inputs.prompt }}
 

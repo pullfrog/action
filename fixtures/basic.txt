@@ -1,1 +1,1 @@
-inspect your MCP servers, log them all, and call a tool as a test
+echo the value of the MY_SECRET env var
