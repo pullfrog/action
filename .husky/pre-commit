@@ -5,23 +5,8 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
     git add pnpm-lock.yaml
 fi
 
-# Check if entry needs rebuilding
-# Rebuild if: entry.ts/esbuild.config.js/.ts files are staged, OR if entry is out of date
-NEEDS_REBUILD=false
-
-# Check staged files
+# Check if entry needs rebuilding (entry.ts, esbuild.config.js, or any .ts files)
 if git diff --cached --name-only | grep -qE "^(entry\.ts|esbuild\.config\.js|.*\.ts)$"; then
-    NEEDS_REBUILD=true
-fi
-
-# Check if entry is out of date compared to entry.ts
-if [ -f entry.ts ] && [ -f entry ]; then
-    if [ entry.ts -nt entry ] || [ esbuild.config.js -nt entry ]; then
-        NEEDS_REBUILD=true
-    fi
-fi
-
-if [ "$NEEDS_REBUILD" = true ]; then
     echo "🔨 Building action..."
     pnpm build
     git add entry
