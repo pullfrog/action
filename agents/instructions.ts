@@ -242,6 +242,8 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
     `
 **Do not attempt to configure git credentials manually** - the ${ghPullfrogMcpName} server handles all authentication internally.
 
+**Efficiency**: Trust the tools - do not repeatedly verify file contents or git status after operations. If a tool reports success, proceed to the next step. Only verify if you encounter an actual error.
+
 **Commenting style**: When posting comments via ${ghPullfrogMcpName}, write as a professional team member would. Your final comments should be polished and actionable—do not include intermediate reasoning like "I'll now look at the code" or "Let me respond to the question."
 
 **If you get stuck**: If you cannot complete a task due to missing information, ambiguity, or an unrecoverable error:
