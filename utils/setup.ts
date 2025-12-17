@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import type { Context } from "../main.ts";
+import { checkoutPrBranch } from "../mcp/checkout.ts";
 import { log } from "./cli.ts";
 import { $ } from "./shell.ts";
 
@@ -72,11 +73,11 @@ export function setupGitConfig(): void {
 
 /**
  * Setup git authentication for the repository.
- * PR checkout is handled dynamically by the checkout_pr MCP tool.
+ * For PR events, uses the shared checkoutPrBranch helper (also used by checkout_pr MCP tool).
  *
- * FORK PR ARCHITECTURE (handled by checkout_pr tool):
+ * FORK PR ARCHITECTURE:
  * - origin: always points to BASE REPO (where PR targets)
- * - checkout_pr sets per-branch pushRemote config for fork PRs
+ * - checkoutPrBranch sets per-branch pushRemote config for fork PRs
  * - diff operations use: git diff origin/<base>..HEAD
  */
 export async function setupGit(ctx: Context): Promise<void> {
@@ -103,45 +104,13 @@ export async function setupGit(ctx: Context): Promise<void> {
     return;
   }
 
-  // PR event: checkout PR branch (same approach as checkout_pr MCP tool)
+  // PR event: checkout PR branch using shared helper
   const prNumber = ctx.payload.event.issue_number;
-  const pr = await ctx.octokit.rest.pulls.get({
-    owner: ctx.owner,
-    repo: ctx.name,
-    pull_number: prNumber,
-  });
 
-  const headRepo = pr.data.head.repo;
-  if (!headRepo) {
-    throw new Error(`PR #${prNumber} source repository was deleted`);
-  }
-
-  const branch = pr.data.head.ref;
-  const baseBranch = pr.data.base.ref;
-  const isFork = headRepo.full_name !== pr.data.base.repo.full_name;
-
-  log.info(`🌿 Checking out PR #${prNumber} (${branch})...`);
-
-  // ensure origin is configured with auth token
+  // ensure origin is configured with auth token before checkout
   const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
   $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
 
-  // fetch base branch so origin/<base> exists for diff operations
-  $("git", ["fetch", "--no-tags", "origin", baseBranch], { cwd: repoDir });
-
-  // checkout base branch first to avoid "refusing to fetch into current branch" error
-  // if we're already on the PR branch (e.g., from actions/checkout)
-  // -B creates or resets the branch to match origin/baseBranch
-  $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`], { cwd: repoDir });
-
-  // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-  // this is the same approach used by checkout_pr MCP tool
-  $("git", ["fetch", "--no-tags", "origin", `pull/${prNumber}/head:${branch}`], { cwd: repoDir });
-  $("git", ["checkout", branch], { cwd: repoDir });
-
-  log.info(`✓ Checked out PR #${prNumber}`);
-
-  if (isFork) {
-    log.info(`🍴 Fork PR detected (${headRepo.full_name})`);
-  }
+  // use shared checkout helper (handles fork remotes, push config, etc.)
+  await checkoutPrBranch(ctx, prNumber);
 }

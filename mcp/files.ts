@@ -22,6 +22,7 @@ export const ListFilesTool = tool({
 
       // Get git-tracked files
       let gitFiles: string[] = [];
+      let gitFailed = false;
       try {
         const gitArgs = pathStr === "." ? ["ls-files"] : ["ls-files", pathStr];
         const gitOutput = $("git", gitArgs, { log: false });
@@ -31,15 +32,19 @@ export const ListFilesTool = tool({
           .map((f) => f.trim());
       } catch {
         // git might fail, that's ok - we'll use find instead
+        gitFailed = true;
       }
 
       // Always also check filesystem for untracked files
       // This is important because newly created files won't be in git yet
       let filesystemFiles: string[] = [];
+      let findFailed = false;
       try {
-        const findOutput = $("find", [pathStr, "-not", "-path", "*/.*", "-type", "f"], {
-          log: false,
-        });
+        const findOutput = $(
+          "find",
+          [pathStr, "-maxdepth", "3", "-not", "-path", "*/.*", "-type", "f"],
+          { log: false }
+        );
         filesystemFiles = findOutput
           .split("\n")
           .filter((f) => f.trim() !== "")
@@ -54,6 +59,17 @@ export const ListFilesTool = tool({
           });
       } catch {
         // find might fail, that's ok - we'll just use git files
+        findFailed = true;
+      }
+
+      // if both methods failed, return an error
+      if (gitFailed && findFailed) {
+        return handleToolError(
+          new Error(
+            `Failed to list files: both git ls-files and find commands failed. ` +
+              `Path: ${pathStr}, working directory: ${cwd}`
+          )
+        );
       }
 
       // Create a Set of git files for efficient lookup
