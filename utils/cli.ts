@@ -277,7 +277,10 @@ export const log = {
   debug: (message: string): void => {
     if (isDebugEnabled()) {
       if (isGitHubActions) {
-        core.debug(message);
+        // using this instead of core.debug
+        // because core.debug only logs when ACTIONS_STEP_DEBUG is set to true
+        // we are using LOG_LEVEL
+        core.info(`[DEBUG] ${message}`);
       } else {
         core.info(`[DEBUG] ${message}`);
       }

@@ -1,7 +1,8 @@
 import { relative, resolve } from "node:path";
 import { type } from "arktype";
 import { $ } from "../utils/shell.ts";
-import { handleToolError, handleToolSuccess, type ToolResult, tool } from "./shared.ts";
+import type { Context } from "../main.ts";
+import { execute, tool } from "./shared.ts";
 
 export const ListFiles = type({
   path: type.string
@@ -9,14 +10,13 @@ export const ListFiles = type({
     .default("."),
 });
 
-// static tool - doesn't need ctx, just runs git/find commands
-export const ListFilesTool = tool({
-  name: "list_files",
-  description:
-    "List files in the repository, including both git-tracked and untracked files. Useful for discovering the file structure and locating files, including newly created files that haven't been committed yet.",
-  parameters: ListFiles,
-  execute: async ({ path }: { path?: string }): Promise<ToolResult> => {
-    try {
+export function ListFilesTool(_ctx: Context) {
+  return tool({
+    name: "list_files",
+    description:
+      "List files in the repository, including both git-tracked and untracked files. Useful for discovering the file structure and locating files, including newly created files that haven't been committed yet.",
+    parameters: ListFiles,
+    execute: execute(_ctx, async ({ path }: { path?: string }) => {
       const pathStr = path ?? ".";
       const cwd = process.cwd();
 
@@ -62,13 +62,11 @@ export const ListFilesTool = tool({
         findFailed = true;
       }
 
-      // if both methods failed, return an error
+      // if both methods failed, throw an error (execute helper will handle it)
       if (gitFailed && findFailed) {
-        return handleToolError(
-          new Error(
-            `Failed to list files: both git ls-files and find commands failed. ` +
-              `Path: ${pathStr}, working directory: ${cwd}`
-          )
+        throw new Error(
+          `Failed to list files: both git ls-files and find commands failed. ` +
+            `Path: ${pathStr}, working directory: ${cwd}`
         );
       }
 
@@ -82,14 +80,12 @@ export const ListFilesTool = tool({
       const untrackedFiles = filesystemFiles.filter((f) => !gitFilesSet.has(f));
       const untrackedCount = untrackedFiles.length;
 
-      return handleToolSuccess({
+      return {
         files: allFiles,
         method: "combined",
         trackedCount: gitFiles.length,
         untrackedCount,
-      });
-    } catch (error) {
-      return handleToolError(error);
-    }
-  },
-});
+      };
+    }),
+  });
+}

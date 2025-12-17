@@ -22,7 +22,7 @@ import { IssueInfoTool } from "./issueInfo.ts";
 import { AddLabelsTool } from "./labels.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
-import { AddReviewCommentTool, ReviewTool, StartReviewTool, SubmitReviewTool } from "./review.ts";
+import { AddReviewCommentTool, StartReviewTool, SubmitReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
 import { addTools, isProgressCommentDisabled } from "./shared.ts";
@@ -87,12 +87,12 @@ export async function startMcpHttpServer(
     GetReviewCommentsTool(ctx),
     ListPullRequestReviewsTool(ctx),
     GetCheckSuiteLogsTool(ctx),
-    DebugShellCommandTool,
+    DebugShellCommandTool(ctx),
     AddLabelsTool(ctx),
     CreateBranchTool(ctx),
     CommitFilesTool(ctx),
     PushBranchTool(ctx),
-    ListFilesTool,
+    ListFilesTool(ctx),
   ];
 
   // only include ReportProgressTool if progress comment is not disabled

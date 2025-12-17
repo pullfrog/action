@@ -1,24 +1,23 @@
 import { type } from "arktype";
+import type { Context } from "../main.ts";
 import { $ } from "../utils/shell.ts";
-import { handleToolError, handleToolSuccess, tool, type ToolResult } from "./shared.ts";
+import { execute, tool } from "./shared.ts";
 
 export const DebugShellCommand = type({});
 
-export const DebugShellCommandTool = tool({
-  name: "debug_shell_command",
-  description:
-    "debug tool: runs 'git status' and returns the output. use this to test shell command execution in the MCP server.",
-  parameters: DebugShellCommand,
-  execute: async (): Promise<ToolResult> => {
-    try {
+export function DebugShellCommandTool(_ctx: Context) {
+  return tool({
+    name: "debug_shell_command",
+    description:
+      "debug tool: runs 'git status' and returns the output. use this to test shell command execution in the MCP server.",
+    parameters: DebugShellCommand,
+    execute: execute(_ctx, async () => {
       const result = $("git", ["status"]);
-      return handleToolSuccess({
+      return {
         success: true,
         command: "git status",
         output: result.trim(),
-      });
-    } catch (error) {
-      return handleToolError(error);
-    }
-  },
-});
+      };
+    }),
+  });
+}
