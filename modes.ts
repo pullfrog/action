@@ -95,30 +95,36 @@ ${
       prompt: `Follow these steps:
 1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and base branch, preparing the repo for review.
 
-2. **IMPORTANT**: After calling checkout_pr, the PR branch is checked out locally. View diff using: \`git diff origin/<base>..HEAD\` (replace <base> with 'base' from checkout_pr result, e.g., \`git diff origin/main..HEAD\`). Use two dots (..) not three dots (...) for reliable diffs. Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch. This works for both same-repo and fork PRs.
+2. **IMPORTANT**: After calling ${ghPullfrogMcpName}/checkout_pr, the PR branch is checked out locally. View diff using: \`git diff origin/<base>..HEAD\` (replace <base> with 'base' from checkout_pr result, e.g., \`git diff origin/main..HEAD\`). Use two dots (..) not three dots (...) for reliable diffs. Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch. This works for both same-repo and fork PRs.
 
-3. Read files from the checked-out PR branch to understand the implementation. Always use **relative paths** from repo root (e.g., \`src/index.ts\`), never absolute paths.
+3. Start review session using ${ghPullfrogMcpName}/start_review. This creates a scratchpad file at a temp path (e.g., \`/tmp/pullfrog-review-abc123.md\`) and returns a session ID. The scratchpad file header contains the session ID for reference. Use this file as free-form space to gather your thoughts before adding comments.
 
-4. Submit review using ${ghPullfrogMcpName}/submit_pull_request_review
+4. **ANALYZE** - Use the scratchpad to gather your thoughts:
+   - Summarize what changes this PR makes
+   - Evaluate the approach - is it sound? If not, **stop here** and leave feedback on the approach. Don't waste time on implementation details if the approach is wrong.
+   - If approach is sound, analyze implementation - consider potential issues per file
+   - Identify bugs, security issues, edge cases
+
+5. **SELF-CRITIQUE** - Before adding comments, review your scratchpad:
+   - Remove nitpicks unless explicitly requested. Think documentation, JSDoc/docstrings, useless comments (compliments)
+   - Your level of nitpickiness should be proportional to the current state of the codebase. Try to guess how much the user will care about a specific critique.
+
+6. Add inline review comments one0-by-one using ${ghPullfrogMcpName}/add_review_comment
+   - Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
+   - Use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
+   - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
+   - For issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y")
+
+7. Submit the review using ${ghPullfrogMcpName}/submit_review
+   - The "body" field is ONLY for: (1) a 1-3 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
 
 **GENERAL GUIDANCE**
 
 - Do not leave any comments that are not potentially actionable. Do not leave complimentary comments just to be nice.
-- *CRITICAL* — Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
-  - For line numbers, use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
-  - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
+- Do not nitpick unless instructed explicitly to do so by the user's additional instructions. This includes: requesting documentation/docstrings/JSDoc.
 - **CRITICAL: Prioritize per-line feedback over summary text.**
-  - ALL specific feedback MUST go in the 'comments' array with file paths and line numbers from the diff
-  - For issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y" or "similar issue in otherFile.ts:42")
-  - The "body" field is ONLY for: (1) a 1-2 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
-  - 95%+ of review content should be in per-line comments; the body should be just a couple sentences
-  - The review body will include quick action links for addressing feedback, so keep it concise
-- Do not nitpick unless instructed explicity to do so by the user's additional instructions. This includes: requesting documentation/docstrings/JSDoc. 
-- The review should be thoughtful. When evaluating complex changes, consider the following conceptual approach:
-  - 1) conceptualize the changes made. make sure you understand it.
-  - 2) evaluate conceptual approach. leave feedback as needed.
-  - 3) if the conceptual approach looks sound, evaluate the implementation. leave feedback as needed. consider everything, but especially edge cases, security, correctness, and performance. leave feedback as needed.
-  - 4) only leave nitpick/housekeeping comments if instructed explicity to do so by the user's additional instructions.
+  - All specific feedback MUST go in inline review comments with file paths and line numbers from the diff
+  - The vast majority of review content should be in inline review comments; the body should be brief and only summarize the urgency of the review and any cross-cutting concerns.
   `,
     },
     {

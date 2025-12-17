@@ -11,6 +11,7 @@ import type { AgentName, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
+import type { ReviewState } from "./mcp/review.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -242,6 +243,9 @@ export interface Context {
   // workflow run info
   runId: string;
   jobId: string | undefined;
+
+  // iterative review state (set by start_review, cleared by submit_review)
+  reviewState: ReviewState | undefined;
 }
 
 async function initializeContext(
@@ -259,6 +263,7 @@ async function initializeContext(
     | "prepResults"
     | "runId"
     | "jobId"
+    | "reviewState"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
