@@ -204,7 +204,10 @@ If you cannot complete a task due to missing information, ambiguity, or an unrec
 
 ************* USER PROMPT *************
 
-${payload.prompt}
+${payload.prompt
+  .split("\n")
+  .map((line) => `> ${line}`)
+  .join("\n")}
 
 ${
   encodedEvent

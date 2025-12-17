@@ -11,6 +11,8 @@ export interface WorkflowRunInfo {
   owner: string;
   repo: string;
   runId: string;
+  /** optional job URL - if provided, will be used instead of building from runId */
+  htmlUrl?: string;
 }
 
 export interface BuildPullfrogFooterParams {
@@ -40,9 +42,8 @@ export function buildPullfrogFooter(params: BuildPullfrogFooterParams): string {
   }
 
   if (params.workflowRun) {
-    parts.push(
-      `[View workflow run](https://github.com/${params.workflowRun.owner}/${params.workflowRun.repo}/actions/runs/${params.workflowRun.runId})`
-    );
+    const url = params.workflowRun.htmlUrl ?? `https://github.com/${params.workflowRun.owner}/${params.workflowRun.repo}/actions/runs/${params.workflowRun.runId}`;
+    parts.push(`[View workflow run](${url})`);
   }
 
   if (params.customParts) {
