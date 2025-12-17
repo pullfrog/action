@@ -55,6 +55,25 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   let mcpServerClose: (() => Promise<void>) | undefined;
   let payload: Payload | undefined;
 
+  log.info(
+    JSON.stringify(
+      {
+        log_level: process.env.LOG_LEVEL,
+        home: process.env.HOME,
+        xdg_config_home: process.env.XDG_CONFIG_HOME,
+        path: process.env.PATH,
+        node_env: process.env.NODE_ENV,
+        github_token: process.env.GITHUB_TOKEN,
+        github_event_name: process.env.GITHUB_EVENT_NAME,
+        github_ref: process.env.GITHUB_REF,
+        github_sha: process.env.GITHUB_SHA,
+        github_actor: process.env.GITHUB_ACTOR,
+      },
+      null,
+      2
+    )
+  );
+
   try {
     const timer = new Timer();
 
