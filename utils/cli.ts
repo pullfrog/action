@@ -9,7 +9,10 @@ import { table } from "table";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 const isDebugEnabled = () =>
-  process.env.LOG_LEVEL === "debug" || process.env.ACTIONS_STEP_DEBUG === "true";
+  process.env.LOG_LEVEL === "debug" ||
+  process.env.ACTIONS_STEP_DEBUG === "true" ||
+  process.env.RUNNER_DEBUG === "1" ||
+  core.isDebug();
 
 /**
  * Start a collapsed group (GitHub Actions) or regular group (local)

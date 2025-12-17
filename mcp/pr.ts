@@ -36,7 +36,7 @@ export function PullRequestTool(ctx: Context) {
     parameters: PullRequest,
     execute: execute(ctx, async ({ title, body, base }) => {
       const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
-      log.info(`Current branch: ${currentBranch}`);
+      log.debug(`Current branch: ${currentBranch}`);
 
       // validate PR title and body for secrets
       if (containsSecrets(title) || containsSecrets(body)) {

@@ -34,7 +34,7 @@ export function CreateBranchTool(ctx: Context) {
         );
       }
 
-      log.info(`Creating branch ${branchName} from ${resolvedBaseBranch}`);
+      log.debug(`Creating branch ${branchName} from ${resolvedBaseBranch}`);
 
       // fetch base branch to ensure we're up to date
       $("git", ["fetch", "origin", resolvedBaseBranch, "--depth=1"]);
@@ -49,7 +49,7 @@ export function CreateBranchTool(ctx: Context) {
       // push branch to remote (set upstream)
       $("git", ["push", "-u", "origin", branchName]);
 
-      log.info(`Successfully created and pushed branch ${branchName}`);
+      log.debug(`Successfully created and pushed branch ${branchName}`);
 
       return {
         success: true,
@@ -109,7 +109,7 @@ export function CommitFilesTool(ctx: Context) {
       }
 
       const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
-      log.info(`Committing files on branch ${currentBranch}`);
+      log.debug(`Committing files on branch ${currentBranch}`);
 
       // stage files if provided, otherwise stage all changes
       if (files.length > 0) {
@@ -122,7 +122,7 @@ export function CommitFilesTool(ctx: Context) {
       $("git", ["commit", "-m", message]);
 
       const commitSha = $("git", ["rev-parse", "HEAD"], { log: false });
-      log.info(`Successfully committed: ${commitSha.substring(0, 7)}`);
+      log.debug(`Successfully committed: ${commitSha.substring(0, 7)}`);
 
       return {
         success: true,
@@ -162,7 +162,7 @@ export function PushBranchTool(_ctx: Context) {
         ? ["push", "--force", "-u", remote, branch]
         : ["push", "-u", remote, branch];
 
-      log.info(`pushing branch ${branch} to ${remote}`);
+      log.debug(`pushing branch ${branch} to ${remote}`);
       if (force) {
         log.warning(`force pushing - this will overwrite remote history`);
       }

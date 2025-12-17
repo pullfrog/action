@@ -167,7 +167,7 @@ export const cursor = agent({
 
     try {
       const fullPrompt = addInstructions({ payload, prepResults, repo });
-      log.group("Full prompt", () => log.info(fullPrompt));
+      log.group("» Full prompt", () => log.info(fullPrompt));
 
       // configure sandbox mode if enabled
       // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings
@@ -212,6 +212,7 @@ export const cursor = agent({
 
           try {
             const event = JSON.parse(text) as CursorEvent;
+            log.debug(JSON.stringify(event, null, 2));
 
             // skip empty thinking deltas
             if (event.type === "thinking" && event.subtype === "delta" && !event.text) {
@@ -308,7 +309,7 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
   }
 
   writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: cursorMcpServers }, null, 2), "utf-8");
-  log.info(`MCP config written to ${mcpConfigPath}`);
+  log.info(`» MCP config written to ${mcpConfigPath}`);
 }
 
 /**
@@ -347,5 +348,5 @@ function configureCursorSandbox({ sandbox }: { sandbox: boolean }): void {
       };
 
   writeFileSync(cliConfigPath, JSON.stringify(config, null, 2), "utf-8");
-  log.info(`CLI config written to ${cliConfigPath} (sandbox: ${sandbox})`);
+  log.info(`» CLI config written to ${cliConfigPath} (sandbox: ${sandbox})`);
 }

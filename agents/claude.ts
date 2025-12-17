@@ -19,7 +19,7 @@ export const claude = agent({
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, prepResults, repo });
-    log.group("Full prompt", () => log.info(prompt));
+    log.group("» Full prompt", () => log.info(prompt));
 
     // configure sandbox mode if enabled
     const sandboxOptions: Options = payload.sandbox
@@ -63,6 +63,7 @@ export const claude = agent({
 
     // Stream the results
     for await (const message of queryInstance) {
+      log.debug(JSON.stringify(message, null, 2));
       const handler = messageHandlers[message.type];
       await handler(message as never);
     }

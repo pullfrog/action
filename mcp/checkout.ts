@@ -25,7 +25,7 @@ export type CheckoutPrResult = {
  * Assumes origin remote is already configured with authentication.
  */
 export async function checkoutPrBranch(ctx: Context, pull_number: number): Promise<void> {
-  log.info(`🔀 checking out PR #${pull_number}...`);
+  log.debug(`🔀 checking out PR #${pull_number}...`);
 
   // fetch PR metadata
   const pr = await ctx.octokit.rest.pulls.get({
@@ -48,10 +48,10 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
   const alreadyOnBranch = currentBranch === headBranch;
 
   if (alreadyOnBranch) {
-    log.info(`already on PR branch ${headBranch}, skipping checkout`);
+    log.debug(`already on PR branch ${headBranch}, skipping checkout`);
   } else {
     // fetch base branch so origin/<base> exists for diff operations
-    log.info(`📥 fetching base branch (${baseBranch})...`);
+    log.debug(`📥 fetching base branch (${baseBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", baseBranch]);
 
     // checkout base branch first to avoid "refusing to fetch into current branch" error
@@ -59,18 +59,18 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
     $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
     // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-    log.info(`🌿 fetching PR #${pull_number} (${headBranch})...`);
+    log.debug(`🌿 fetching PR #${pull_number} (${headBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", `pull/${pull_number}/head:${headBranch}`]);
 
     // checkout the branch
     $("git", ["checkout", headBranch]);
-    log.info(`✓ checked out PR #${pull_number}`);
+    log.debug(`✓ checked out PR #${pull_number}`);
   }
 
   // ensure base branch is fetched (needed for diff operations)
   // fetch if we skipped checkout (already on branch) - otherwise already fetched above
   if (alreadyOnBranch) {
-    log.info(`📥 fetching base branch (${baseBranch})...`);
+    log.debug(`📥 fetching base branch (${baseBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", baseBranch]);
   }
 
@@ -84,16 +84,16 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
     // add fork as a named remote (ignore error if already exists)
     try {
       $("git", ["remote", "add", remoteName, forkUrl]);
-      log.info(`📌 added remote '${remoteName}' for fork ${headRepo.full_name}`);
+      log.debug(`📌 added remote '${remoteName}' for fork ${headRepo.full_name}`);
     } catch {
       // remote already exists, update its URL
       $("git", ["remote", "set-url", remoteName, forkUrl]);
-      log.info(`📌 updated remote '${remoteName}' for fork ${headRepo.full_name}`);
+      log.debug(`📌 updated remote '${remoteName}' for fork ${headRepo.full_name}`);
     }
 
     // set branch push config so `git push` knows where to push
     $("git", ["config", `branch.${headBranch}.pushRemote`, remoteName]);
-    log.info(`📌 configured branch '${headBranch}' to push to '${remoteName}'`);
+    log.debug(`📌 configured branch '${headBranch}' to push to '${remoteName}'`);
 
     // warn if maintainer can't modify (push will likely fail)
     if (!pr.data.maintainer_can_modify) {

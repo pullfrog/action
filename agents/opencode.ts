@@ -30,7 +30,7 @@ export const opencode = agent({
     configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
 
     const prompt = addInstructions({ payload, prepResults, repo });
-    log.group("Full prompt", () => log.info(prompt));
+    log.group("» Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags
     const args = ["run", prompt, "--format", "json"];
@@ -105,9 +105,7 @@ export const opencode = agent({
             eventCount++;
 
             // debug log all events to diagnose ordering and missing MCP/bash tool calls
-            log.debug(
-              `» event: type=${event.type} data=${JSON.stringify(event).substring(0, 300)}`
-            );
+            log.debug(JSON.stringify(event, null, 2));
 
             const timeSinceLastActivity = Date.now() - lastActivityTime;
             if (timeSinceLastActivity > 10000) {
@@ -253,7 +251,7 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
     throw error;
   }
 
-  log.info(`OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
+  log.info(`» OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
   log.debug(`OpenCode config contents:\n${configJson}`);
 }
 
