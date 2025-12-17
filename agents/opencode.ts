@@ -237,7 +237,7 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
   }
 
   log.info(`OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
-  log.info(`OpenCode config contents:\n${configJson}`);
+  log.debug(`OpenCode config contents:\n${configJson}`);
 }
 
 ////////////////////////////////////////////
