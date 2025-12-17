@@ -75,6 +75,7 @@ export const opencode = agent({
     let eventCount = 0;
 
     let output = "";
+    let stdoutBuffer = ""; // buffer for incomplete lines across chunks
     const result = await spawn({
       cmd: cliPath,
       args,
@@ -83,13 +84,16 @@ export const opencode = agent({
       timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
-        const parsed = JSON.parse(chunk);
-        log.debug(JSON.stringify(parsed, null, 2));
         const text = chunk.toString();
         output += text;
 
-        // parse each line as JSON (opencode outputs one JSON object per line)
-        const lines = text.split("\n");
+        // buffer incomplete lines across chunks (NDJSON format)
+        stdoutBuffer += text;
+        const lines = stdoutBuffer.split("\n");
+
+        // keep the last element (may be incomplete) in the buffer
+        stdoutBuffer = lines.pop() || "";
+
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) {
@@ -99,6 +103,12 @@ export const opencode = agent({
           try {
             const event = JSON.parse(trimmed) as OpenCodeEvent;
             eventCount++;
+
+            // debug log all events to diagnose ordering and missing MCP/bash tool calls
+            log.debug(
+              `» event: type=${event.type} data=${JSON.stringify(event).substring(0, 300)}`
+            );
+
             const timeSinceLastActivity = Date.now() - lastActivityTime;
             if (timeSinceLastActivity > 10000) {
               const activeToolCalls = toolCallTimings.size;
@@ -121,7 +131,8 @@ export const opencode = agent({
               );
             }
           } catch {
-            // non-JSON lines are ignored
+            // non-JSON lines are ignored (might be debug output from opencode)
+            log.debug(`» non-JSON stdout line: ${trimmed.substring(0, 200)}`);
           }
         }
       },
@@ -472,6 +483,11 @@ const messageHandlers = {
     const parameters = event.part?.state?.input;
     const status = event.part?.state?.status;
     const output = event.part?.state?.output;
+
+    // debug log all tool_use events to diagnose missing bash/MCP tool calls
+    if (!toolName || !toolId) {
+      log.debug(`» tool_use event missing toolName or toolId: ${JSON.stringify(event)}`);
+    }
 
     if (toolName && toolId) {
       // track tool call in current step

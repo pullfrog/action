@@ -184,6 +184,7 @@ export const gemini = agent({
     }
 
     let finalOutput = "";
+    let stdoutBuffer = ""; // buffer for incomplete lines across chunks
     try {
       const result = await spawn({
         cmd: "node",
@@ -195,8 +196,13 @@ export const gemini = agent({
           const text = chunk.toString();
           finalOutput += text;
 
-          // parse each line as JSON (gemini cli outputs one JSON object per line)
-          const lines = text.split("\n");
+          // buffer incomplete lines across chunks (NDJSON format)
+          stdoutBuffer += text;
+          const lines = stdoutBuffer.split("\n");
+
+          // keep the last element (may be incomplete) in the buffer
+          stdoutBuffer = lines.pop() || "";
+
           for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
@@ -210,8 +216,8 @@ export const gemini = agent({
                 await handler(event as never);
               }
             } catch {
-              console.log("parse error", trimmed);
               // ignore parse errors - might be non-JSON output from gemini cli
+              log.debug(`[gemini] non-JSON stdout line: ${trimmed.substring(0, 200)}`);
             }
           }
         },
