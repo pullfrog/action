@@ -21,8 +21,8 @@ export function PullRequestInfoTool(ctx: Context) {
 
       const data = pr.data;
 
-      // detect fork PRs - head repo differs from base repo
-      const isFork = data.head.repo.full_name !== data.base.repo.full_name;
+      // detect fork PRs - head repo differs from base repo (head.repo can be null if fork was deleted)
+      const isFork = data.head.repo?.full_name !== data.base.repo.full_name;
 
       return {
         number: data.number,

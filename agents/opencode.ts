@@ -117,6 +117,19 @@ interface OpenCodeResultEvent {
   [key: string]: unknown;
 }
 
+interface OpenCodeErrorEvent {
+  type: "error";
+  timestamp?: string;
+  sessionID?: string;
+  error?: {
+    name?: string;
+    message?: string;
+    data?: unknown;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 type OpenCodeEvent =
   | OpenCodeInitEvent
   | OpenCodeMessageEvent
@@ -125,7 +138,8 @@ type OpenCodeEvent =
   | OpenCodeStepFinishEvent
   | OpenCodeToolUseEvent
   | OpenCodeToolResultEvent
-  | OpenCodeResultEvent;
+  | OpenCodeResultEvent
+  | OpenCodeErrorEvent;
 
 let finalOutput = "";
 let accumulatedTokens: { input: number; output: number } = { input: 0, output: 0 };
@@ -315,7 +329,9 @@ export const opencode = agent({
 
     const prompt = addInstructions({ payload, prepResults, repo });
     log.group("Full prompt", () => log.info(prompt));
-    const args = ["run", "--format", "json", prompt];
+
+    // message positional must come right after "run", before flags
+    const args = ["run", prompt, "--format", "json"];
 
     if (payload.sandbox) {
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
@@ -359,6 +375,7 @@ export const opencode = agent({
       timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
+        log.debug(`[opencode stdout] ${chunk}`);
         const text = chunk.toString();
         output += text;
 
@@ -401,6 +418,7 @@ export const opencode = agent({
                   "tool_use",
                   "tool_result",
                   "result",
+                  "error",
                 ].includes(event.type)
               ) {
                 log.debug(`📋 OpenCode event (unhandled): type=${event.type}`);
@@ -506,6 +524,7 @@ function configureOpenCodeMcpServers({
 /**
  * Configure OpenCode sandbox mode via opencode.json.
  * When sandbox is enabled, restricts tools to read-only operations.
+ * See https://opencode.ai/docs/permissions/ for config format.
  */
 function configureOpenCodeSandbox({ sandbox }: { sandbox: boolean }): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
@@ -525,18 +544,23 @@ function configureOpenCodeSandbox({ sandbox }: { sandbox: boolean }): void {
   }
 
   if (sandbox) {
-    // sandbox mode: disable write, bash, and webfetch tools
-    config.tools = {
-      write: false,
-      bash: false,
-      webfetch: false,
+    // sandbox mode: deny write, bash, and webfetch tools
+    config.permission = {
+      edit: "deny",
+      bash: "deny",
+      webfetch: "deny",
+      doom_loop: "allow",
+      external_directory: "allow",
     };
   } else {
-    // normal mode: enable all tools (or don't set tools config to use defaults)
-    config.tools = {
-      write: true,
-      bash: true,
-      webfetch: true,
+    // normal mode: allow all tools without prompts
+    // external_directory: "allow" is critical to avoid permission prompts for temp dirs
+    config.permission = {
+      edit: "allow",
+      bash: "allow",
+      webfetch: "allow",
+      doom_loop: "allow",
+      external_directory: "allow",
     };
   }
 

@@ -52,6 +52,14 @@ export function setupGitConfig(): void {
       cwd: repoDir,
       stdio: "pipe",
     });
+    // disable credential helper to prevent macOS keychain prompts when using x-access-token
+    // only needed locally - GitHub Actions doesn't have this issue
+    if (!process.env.GITHUB_ACTIONS) {
+      execSync('git config --local credential.helper ""', {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+    }
     log.debug("setupGitConfig: ✓ Git configuration set successfully (scoped to repo)");
   } catch (error) {
     // If git config fails, log warning but don't fail the action

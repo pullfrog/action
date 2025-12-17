@@ -424,23 +424,22 @@ function parsePayload(inputs: Inputs): Payload {
 }
 
 async function startMcpServer(ctx: Context): Promise<void> {
-  const runId = process.env.GITHUB_RUN_ID;
-  if (!runId) {
-    throw new Error("GITHUB_RUN_ID environment variable is required");
-  }
+  const runId = process.env.GITHUB_RUN_ID || "";
   ctx.runId = runId;
 
   // fetch the pre-created progress comment ID from the database
   // this must be set BEFORE starting the MCP server so comment.ts can read it
-  const workflowRunInfo = await fetchWorkflowRunInfo(ctx.runId);
-  if (workflowRunInfo.progressCommentId) {
-    process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
-    log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+  if (runId) {
+    const workflowRunInfo = await fetchWorkflowRunInfo(ctx.runId);
+    if (workflowRunInfo.progressCommentId) {
+      process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+      log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+    }
   }
 
   // fetch job ID by matching GITHUB_JOB name
   const jobName = process.env.GITHUB_JOB;
-  if (jobName) {
+  if (jobName && runId) {
     const jobs = await ctx.octokit.rest.actions.listJobsForWorkflowRun({
       owner: ctx.owner,
       repo: ctx.name,

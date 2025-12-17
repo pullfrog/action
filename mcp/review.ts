@@ -5,22 +5,12 @@ import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
 import type { Context } from "../main.ts";
 import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
+import { log } from "../utils/cli.ts";
 import { deleteProgressComment } from "./comment.ts";
 import { execute, tool } from "./shared.ts";
 
-// graphql mutation to create a pending review
-const ADD_PULL_REQUEST_REVIEW = `
-mutation AddPullRequestReview($pullRequestId: ID!) {
-  addPullRequestReview(input: { pullRequestId: $pullRequestId, event: PENDING }) {
-    pullRequestReview {
-      id
-      databaseId
-    }
-  }
-}
-`;
-
 // graphql mutation to add a comment thread to a pending review
+// note: REST API doesn't support adding comments to an existing pending review
 const ADD_PULL_REQUEST_REVIEW_THREAD = `
 mutation AddPullRequestReviewThread($pullRequestReviewId: ID!, $path: String!, $line: Int!, $body: String!, $side: DiffSide) {
   addPullRequestReviewThread(input: {
@@ -37,34 +27,6 @@ mutation AddPullRequestReviewThread($pullRequestReviewId: ID!, $path: String!, $
 }
 `;
 
-// graphql mutation to submit a pending review
-const SUBMIT_PULL_REQUEST_REVIEW = `
-mutation SubmitPullRequestReview($pullRequestReviewId: ID!, $body: String, $event: PullRequestReviewEvent!) {
-  submitPullRequestReview(input: {
-    pullRequestReviewId: $pullRequestReviewId,
-    body: $body,
-    event: $event
-  }) {
-    pullRequestReview {
-      id
-      databaseId
-      state
-      url
-    }
-  }
-}
-`;
-
-// graphql response types
-type AddPullRequestReviewResponse = {
-  addPullRequestReview: {
-    pullRequestReview: {
-      id: string;
-      databaseId: number;
-    };
-  };
-};
-
 type AddPullRequestReviewThreadResponse = {
   addPullRequestReviewThread: {
     thread: {
@@ -73,16 +35,26 @@ type AddPullRequestReviewThreadResponse = {
   };
 };
 
-type SubmitPullRequestReviewResponse = {
-  submitPullRequestReview: {
-    pullRequestReview: {
-      id: string;
-      databaseId: number;
-      state: string;
-      url: string;
-    };
-  };
-};
+// helper to find existing pending review for the authenticated user
+async function findPendingReview(
+  ctx: Context,
+  pull_number: number
+): Promise<{ id: number; node_id: string } | null> {
+  const reviews = await ctx.octokit.rest.pulls.listReviews({
+    owner: ctx.owner,
+    repo: ctx.name,
+    pull_number,
+    per_page: 100,
+  });
+
+  // find a PENDING review from our bot
+  // note: authenticated user is the GitHub App, reviews show as "pullfrog[bot]"
+  const pendingReview = reviews.data.find((r) => r.state === "PENDING");
+  if (pendingReview) {
+    return { id: pendingReview.id, node_id: pendingReview.node_id };
+  }
+  return null;
+}
 
 // start_review tool
 export const StartReview = type({
@@ -96,30 +68,56 @@ export function StartReviewTool(ctx: Context) {
       "Start a new review session for a pull request. Creates a scratchpad file for gathering thoughts and a pending review on GitHub. Must be called before add_review_comment.",
     parameters: StartReview,
     execute: execute(ctx, async ({ pull_number }) => {
-      // check if review already started
+      // check if review already started in this session
       if (ctx.toolState.review) {
         throw new Error(
           `Review session already in progress. Call submit_review first to finish it.`
         );
       }
 
-      // get the PR to get its node_id for GraphQL
+      // get the PR to get head commit SHA
       const pr = await ctx.octokit.rest.pulls.get({
         owner: ctx.owner,
         repo: ctx.name,
         pull_number,
       });
 
-      // create pending review via GraphQL
-      const response = await ctx.octokit.graphql<AddPullRequestReviewResponse>(
-        ADD_PULL_REQUEST_REVIEW,
-        {
-          pullRequestId: pr.data.node_id,
-        }
-      );
+      let reviewId: number;
+      let reviewNodeId: string;
 
-      const reviewId = response.addPullRequestReview.pullRequestReview.id;
-      const reviewDatabaseId = response.addPullRequestReview.pullRequestReview.databaseId;
+      // try to create a new pending review (omitting 'event' creates PENDING state)
+      log.debug(`creating pending review for PR #${pull_number}...`);
+      try {
+        const result = await ctx.octokit.rest.pulls.createReview({
+          owner: ctx.owner,
+          repo: ctx.name,
+          pull_number,
+          commit_id: pr.data.head.sha,
+          // no 'event' = PENDING review
+        });
+        reviewId = result.data.id;
+        reviewNodeId = result.data.node_id;
+        log.debug(`created new pending review: id=${reviewId}`);
+      } catch (error) {
+        // check for "already has pending review" error
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log.debug(`createReview failed: ${errorMessage}`);
+        if (errorMessage.includes("pending review")) {
+          // find the existing pending review
+          log.debug(`pending review already exists, fetching existing review...`);
+          const existing = await findPendingReview(ctx, pull_number);
+          if (!existing) {
+            throw new Error(
+              "GitHub says a pending review exists but we couldn't find it. Try again or check the PR reviews."
+            );
+          }
+          reviewId = existing.id;
+          reviewNodeId = existing.node_id;
+          log.debug(`reusing existing pending review: id=${reviewId}`);
+        } else {
+          throw error;
+        }
+      }
 
       // create scratchpad file
       const scratchpadId = randomBytes(4).toString("hex");
@@ -130,8 +128,8 @@ export function StartReviewTool(ctx: Context) {
       // set PR context and review state
       ctx.toolState.prNumber = pull_number;
       ctx.toolState.review = {
-        nodeId: reviewId,
-        id: reviewDatabaseId,
+        nodeId: reviewNodeId,
+        id: reviewId,
       };
 
       return {
@@ -168,7 +166,7 @@ export function AddReviewCommentTool(ctx: Context) {
         throw new Error("No review session started. Call start_review first.");
       }
 
-      // add comment thread via GraphQL
+      // add comment thread via GraphQL (REST doesn't support adding to existing pending review)
       await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
         ADD_PULL_REQUEST_REVIEW_THREAD,
         {
@@ -226,17 +224,15 @@ export function SubmitReviewTool(ctx: Context) {
 
       const bodyWithFooter = (body || "") + footer;
 
-      // submit the review via GraphQL
-      const response = await ctx.octokit.graphql<SubmitPullRequestReviewResponse>(
-        SUBMIT_PULL_REQUEST_REVIEW,
-        {
-          pullRequestReviewId: ctx.toolState.review.nodeId,
-          body: bodyWithFooter,
-          event: "COMMENT",
-        }
-      );
-
-      const result = response.submitPullRequestReview.pullRequestReview;
+      // submit the pending review via REST
+      const result = await ctx.octokit.rest.pulls.submitReview({
+        owner: ctx.owner,
+        repo: ctx.name,
+        pull_number: ctx.toolState.prNumber,
+        review_id: reviewId,
+        event: "COMMENT",
+        body: bodyWithFooter,
+      });
 
       // clear review state
       delete ctx.toolState.review;
@@ -246,9 +242,9 @@ export function SubmitReviewTool(ctx: Context) {
 
       return {
         success: true,
-        reviewId: result.databaseId,
-        html_url: result.url,
-        state: result.state,
+        reviewId: result.data.id,
+        html_url: result.data.html_url,
+        state: result.data.state,
       };
     }),
   });

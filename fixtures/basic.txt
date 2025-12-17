@@ -1,1 +1,1 @@
-Implement .omit() in a new PR
+review this https://github.com/pullfrog/colinhacks/pull/5
