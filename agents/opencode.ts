@@ -83,7 +83,8 @@ export const opencode = agent({
       timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
-        console.log(JSON.stringify(JSON.parse(chunk), null, 2));
+        const parsed = JSON.parse(chunk);
+        log.debug(JSON.stringify(parsed, null, 2));
         const text = chunk.toString();
         output += text;
 
@@ -125,7 +126,12 @@ export const opencode = agent({
         }
       },
       onStderr: (chunk) => {
-        console.log(JSON.stringify(JSON.parse(chunk), null, 2));
+        try {
+          const parsed = JSON.parse(chunk);
+          log.debug(JSON.stringify(parsed, null, 2));
+        } catch {
+          // if not JSON, fall through to regular error logging
+        }
         const trimmed = chunk.trim();
         if (trimmed) {
           log.warning(trimmed);

@@ -58,9 +58,13 @@ export interface ConfigureMcpServersParams {
  * @returns Whitelisted environment object safe for subprocess spawning
  */
 export function createAgentEnv(agentSpecificVars: Record<string, string>): Record<string, string> {
+  const home = agentSpecificVars.HOME || process.env.HOME;
   return {
     PATH: process.env.PATH,
-    HOME: process.env.HOME,
+    HOME: home,
+    // XDG_CONFIG_HOME must match HOME to ensure CLI tools find config files in the right place.
+    // GitHub Actions sets XDG_CONFIG_HOME to /home/runner/.config which would override $HOME/.config lookup.
+    XDG_CONFIG_HOME: home ? join(home, ".config") : undefined,
     LOG_LEVEL: process.env.LOG_LEVEL,
     NODE_ENV: process.env.NODE_ENV,
     GITHUB_TOKEN: getGitHubInstallationToken(),
@@ -465,6 +469,8 @@ export async function installFromCurl({
       // Run the install script with HOME set to temp directory
       // ensuring a fresh install for each run
       HOME: tempDir,
+      // XDG_CONFIG_HOME must match HOME so CLI tools find config in the right place
+      XDG_CONFIG_HOME: join(tempDir, ".config"),
       SHELL: process.env.SHELL,
       USER: process.env.USER,
     },
