@@ -95,8 +95,53 @@ export async function setupGit(ctx: Context): Promise<void> {
     log.debug("no existing authentication headers to remove");
   }
 
-  // authenticate origin - needed for all fetch operations including PR fetches
+  // non-PR events: set up origin with token, stay on default branch
+  if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
+    const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+    $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
+    log.info("✓ Updated origin URL with authentication token");
+    return;
+  }
+
+  // PR event: checkout PR branch (same approach as checkout_pr MCP tool)
+  const prNumber = ctx.payload.event.issue_number;
+  const pr = await ctx.octokit.rest.pulls.get({
+    owner: ctx.owner,
+    repo: ctx.name,
+    pull_number: prNumber,
+  });
+
+  const headRepo = pr.data.head.repo;
+  if (!headRepo) {
+    throw new Error(`PR #${prNumber} source repository was deleted`);
+  }
+
+  const branch = pr.data.head.ref;
+  const baseBranch = pr.data.base.ref;
+  const isFork = headRepo.full_name !== pr.data.base.repo.full_name;
+
+  log.info(`🌿 Checking out PR #${prNumber} (${branch})...`);
+
+  // ensure origin is configured with auth token
   const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
   $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
-  log.info("✓ updated origin URL with authentication token");
+
+  // fetch base branch so origin/<base> exists for diff operations
+  $("git", ["fetch", "--no-tags", "origin", baseBranch], { cwd: repoDir });
+
+  // checkout base branch first to avoid "refusing to fetch into current branch" error
+  // if we're already on the PR branch (e.g., from actions/checkout)
+  // -B creates or resets the branch to match origin/baseBranch
+  $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`], { cwd: repoDir });
+
+  // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
+  // this is the same approach used by checkout_pr MCP tool
+  $("git", ["fetch", "--no-tags", "origin", `pull/${prNumber}/head:${branch}`], { cwd: repoDir });
+  $("git", ["checkout", branch], { cwd: repoDir });
+
+  log.info(`✓ Checked out PR #${prNumber}`);
+
+  if (isFork) {
+    log.info(`🍴 Fork PR detected (${headRepo.full_name})`);
+  }
 }

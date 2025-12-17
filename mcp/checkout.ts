@@ -49,6 +49,11 @@ export function CheckoutPrTool(ctx: Context) {
       log.info(`📥 fetching base branch (${baseBranch})...`);
       $("git", ["fetch", "--no-tags", "origin", baseBranch]);
 
+      // checkout base branch first to avoid "refusing to fetch into current branch" error
+      // if we're already on the PR branch
+      // -B creates or resets the branch to match origin/baseBranch
+      $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
+
       // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
       log.info(`🌿 fetching PR #${pull_number} (${headBranch})...`);
       $("git", ["fetch", "--no-tags", "origin", `pull/${pull_number}/head:${headBranch}`]);
