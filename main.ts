@@ -55,25 +55,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   let mcpServerClose: (() => Promise<void>) | undefined;
   let payload: Payload | undefined;
 
-  log.info(
-    JSON.stringify(
-      {
-        log_level: process.env.LOG_LEVEL,
-        home: process.env.HOME,
-        xdg_config_home: process.env.XDG_CONFIG_HOME,
-        path: process.env.PATH,
-        node_env: process.env.NODE_ENV,
-        github_token: process.env.GITHUB_TOKEN,
-        github_event_name: process.env.GITHUB_EVENT_NAME,
-        github_ref: process.env.GITHUB_REF,
-        github_sha: process.env.GITHUB_SHA,
-        github_actor: process.env.GITHUB_ACTOR,
-      },
-      null,
-      2
-    )
-  );
-
   try {
     const timer = new Timer();
 
@@ -377,7 +358,7 @@ function resolveAgent({
     const isExplicitOverride = agentOverride !== undefined || payload.agent !== null;
 
     if (isExplicitOverride) {
-      log.info(`Selected configured agent: ${agentName}`);
+      log.info(`» selected configured agent: ${agentName}`);
       return { agentName, agent };
     }
 
@@ -396,14 +377,14 @@ function resolveAgent({
       );
       // fall through to auto-selection for repo defaults
     } else {
-      log.info(`Selected configured agent: ${agentName}`);
+      log.info(`» selected configured agent: ${agentName}`);
       return { agentName, agent };
     }
   }
 
   const availableAgents = getAvailableAgents(inputs);
   const availableAgentNames = availableAgents.map((agent) => agent.name).join(", ");
-  log.debug(`Available agents: ${availableAgentNames || "none"}`);
+  log.debug(`» available agents: ${availableAgentNames || "none"}`);
 
   if (availableAgents.length === 0) {
     // this will be caught and reported later in validateApiKey
@@ -412,14 +393,14 @@ function resolveAgent({
 
   const agentName = availableAgents[0].name;
   const agent = availableAgents[0];
-  log.info(`No agent configured, defaulting to first available agent: ${agentName}`);
+  log.info(`» no agent configured, defaulting to first available agent: ${agentName}`);
   return { agentName, agent };
 }
 
 async function setupTempDirectory(ctx: Context): Promise<void> {
   ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
-  log.info(`📂 PULLFROG_TEMP_DIR has been created at ${ctx.sharedTempDir}`);
+  log.debug(`» created temp dir at ${ctx.sharedTempDir}`);
 }
 
 function parsePayload(inputs: Inputs): Payload {
@@ -452,7 +433,7 @@ async function startMcpServer(ctx: Context): Promise<void> {
     const workflowRunInfo = await fetchWorkflowRunInfo(ctx.runId);
     if (workflowRunInfo.progressCommentId) {
       process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
-      log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+      log.info(`» using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
     }
   }
 
@@ -467,19 +448,19 @@ async function startMcpServer(ctx: Context): Promise<void> {
     const matchingJob = jobs.data.jobs.find((job) => job.name === jobName);
     if (matchingJob) {
       ctx.jobId = String(matchingJob.id);
-      log.info(`📋 Found job ID: ${ctx.jobId}`);
+      log.info(`» found job ID: ${ctx.jobId}`);
     }
   }
 
   const { url, close } = await startMcpHttpServer(ctx);
   ctx.mcpServerUrl = url;
   ctx.mcpServerClose = close;
-  log.info(`🚀 MCP server started at ${url}`);
+  log.info(`» MCP server started at ${url}`);
 }
 
 function setupMcpServers(ctx: Context): void {
   ctx.mcpServers = createMcpConfigs(ctx.mcpServerUrl);
-  log.debug(`📋 MCP Config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
+  log.debug(`» MCP config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
 }
 
 async function installAgentCli(ctx: Context): Promise<void> {
@@ -524,7 +505,7 @@ async function validateApiKey(ctx: Context): Promise<void> {
 }
 
 async function runAgent(ctx: Context): Promise<AgentResult> {
-  log.info(`Running ${ctx.agentName}...`);
+  log.info(`» running ${ctx.agentName}...`);
   // strip context from event
   const { context: _context, ...eventWithoutContext } = ctx.payload.event;
   // format: prompt + two newlines + TOON encoded event

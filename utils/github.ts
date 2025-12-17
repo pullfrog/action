@@ -48,14 +48,14 @@ function isGitHubActionsEnvironment(): boolean {
 }
 
 async function acquireTokenViaOIDC(): Promise<string> {
-  log.info("Generating OIDC token...");
+  log.debug("» generating OIDC token...");
 
   const oidcToken = await core.getIDToken("pullfrog-api");
-  log.info("OIDC token generated successfully");
+  log.debug("» OIDC token generated successfully");
 
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
-  log.info("Exchanging OIDC token for installation token...");
+  log.debug("» exchanging OIDC token for installation token...");
 
   // Add timeout to prevent long waits (5 seconds)
   const timeoutMs = 5000;
@@ -79,7 +79,7 @@ async function acquireTokenViaOIDC(): Promise<string> {
     }
 
     const tokenData = (await tokenResponse.json()) as InstallationToken;
-    log.info(`Installation token obtained for ${tokenData.repository || "all repositories"}`);
+    log.debug(`» installation token obtained for ${tokenData.repository || "all repositories"}`);
 
     return tokenData.token;
   } catch (error) {
@@ -283,7 +283,7 @@ export async function revokeGitHubInstallationToken(): Promise<void> {
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });
-    log.info("Installation token revoked");
+    log.debug("» installation token revoked");
   } catch (error) {
     log.warning(
       `Failed to revoke installation token: ${error instanceof Error ? error.message : String(error)}`

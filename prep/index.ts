@@ -13,30 +13,30 @@ const prepSteps: PrepDefinition[] = [installNodeDependencies, installPythonDepen
  * failures are logged as warnings but don't stop the run.
  */
 export async function runPrepPhase(): Promise<PrepResult[]> {
-  log.info("🔧 starting prep phase...");
+  log.debug("» starting prep phase...");
   const startTime = Date.now();
   const results: PrepResult[] = [];
 
   for (const step of prepSteps) {
     const shouldRun = await step.shouldRun();
     if (!shouldRun) {
-      log.info(`⏭️  skipping ${step.name} (not applicable)`);
+      log.debug(`» skipping ${step.name} (not applicable)`);
       continue;
     }
 
-    log.info(`▶️  running ${step.name}...`);
+    log.debug(`» running ${step.name}...`);
     const result = await step.run();
     results.push(result);
 
     if (result.dependenciesInstalled) {
-      log.info(`✅ ${step.name}: dependencies installed`);
+      log.debug(`» ${step.name}: dependencies installed`);
     } else if (result.issues.length > 0) {
       log.warning(`⚠️  ${step.name}: ${result.issues[0]}`);
     }
   }
 
   const totalDurationMs = Date.now() - startTime;
-  log.info(`🔧 prep phase completed (${totalDurationMs}ms)`);
+  log.debug(`» prep phase completed (${totalDurationMs}ms)`);
 
   return results;
 }

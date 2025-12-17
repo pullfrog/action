@@ -48,7 +48,7 @@ export function buildPullfrogFooter(params: BuildPullfrogFooterParams): string {
   if (params.workflowRun) {
     const baseUrl = `https://github.com/${params.workflowRun.owner}/${params.workflowRun.repo}/actions/runs/${params.workflowRun.runId}`;
     const url = params.workflowRun.jobId ? `${baseUrl}/job/${params.workflowRun.jobId}` : baseUrl;
-    parts.push(`[View workflow run](${url})`);
+    parts.push(`[workflow run](${url})`);
   }
 
   const allParts = [

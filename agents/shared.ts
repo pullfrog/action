@@ -147,7 +147,7 @@ export async function installFromNpmTarball({
   let resolvedVersion = version;
   if (version.startsWith("^") || version.startsWith("~") || version === "latest") {
     const npmRegistry = process.env.NPM_REGISTRY || "https://registry.npmjs.org";
-    log.info(`Resolving version for ${version}...`);
+    log.debug(`» resolving version for ${version}...`);
     try {
       const registryResponse = await fetch(`${npmRegistry}/${packageName}`);
       if (!registryResponse.ok) {
@@ -155,7 +155,7 @@ export async function installFromNpmTarball({
       }
       const registryData = (await registryResponse.json()) as NpmRegistryData;
       resolvedVersion = registryData["dist-tags"].latest;
-      log.info(`Resolved to version ${resolvedVersion}`);
+      log.debug(`» resolved to version ${resolvedVersion}`);
     } catch (error) {
       log.warning(
         `Failed to resolve version from registry: ${error instanceof Error ? error.message : String(error)}`
@@ -164,7 +164,7 @@ export async function installFromNpmTarball({
     }
   }
 
-  log.info(`📦 Installing ${packageName}@${resolvedVersion}...`);
+  log.debug(`» installing ${packageName}@${resolvedVersion}...`);
 
   const tempDir = process.env.PULLFROG_TEMP_DIR!;
   const tarballPath = join(tempDir, "package.tgz");
@@ -181,7 +181,7 @@ export async function installFromNpmTarball({
     tarballUrl = `${npmRegistry}/${packageName}/-/${packageName}-${resolvedVersion}.tgz`;
   }
 
-  log.info(`Downloading from ${tarballUrl}...`);
+  log.debug(`» downloading from ${tarballUrl}...`);
   const response = await fetch(tarballUrl);
   if (!response.ok) {
     throw new Error(`Failed to download tarball: ${response.status} ${response.statusText}`);
@@ -191,10 +191,10 @@ export async function installFromNpmTarball({
   if (!response.body) throw new Error("Response body is null");
   const fileStream = createWriteStream(tarballPath);
   await pipeline(response.body, fileStream);
-  log.info(`Downloaded tarball to ${tarballPath}`);
+  log.debug(`» downloaded tarball to ${tarballPath}`);
 
   // Extract tarball
-  log.info(`Extracting tarball...`);
+  log.debug(`» extracting tarball...`);
   const extractResult = spawnSync("tar", ["-xzf", tarballPath, "-C", tempDir], {
     stdio: "pipe",
     encoding: "utf-8",
@@ -215,7 +215,7 @@ export async function installFromNpmTarball({
 
   // Install dependencies if requested
   if (installDependencies) {
-    log.info(`Installing dependencies for ${packageName}...`);
+    log.debug(`» installing dependencies for ${packageName}...`);
     const installResult = spawnSync("npm", ["install", "--production"], {
       cwd: extractedDir,
       stdio: "pipe",
@@ -226,13 +226,13 @@ export async function installFromNpmTarball({
         `Failed to install dependencies: ${installResult.stderr || installResult.stdout || "Unknown error"}`
       );
     }
-    log.info(`✓ Dependencies installed`);
+    log.debug(`» dependencies installed`);
   }
 
   // Make the file executable
   chmodSync(cliPath, 0o755);
 
-  log.info(`✓ ${packageName} installed at ${cliPath}`);
+  log.debug(`» ${packageName} installed at ${cliPath}`);
 
   return cliPath;
 }

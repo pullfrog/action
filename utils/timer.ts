@@ -14,7 +14,7 @@ export class Timer {
       ? now - this.lastCheckpointTimestamp
       : now - this.initialTimestamp;
 
-    log.info(`${name}: ${duration}ms`);
+    log.debug(`» ${name}: ${duration}ms`);
     this.lastCheckpointTimestamp = now;
   }
 }

@@ -18,20 +18,20 @@ export function setupTestRepo(options: SetupOptions): void {
 
   if (existsSync(tempDir)) {
     if (forceClean) {
-      log.info("🗑️  Removing existing .temp directory...");
+      log.info("» removing existing .temp directory...");
       rmSync(tempDir, { recursive: true, force: true });
 
-      log.info("📦 Cloning pullfrog/scratch into .temp...");
+      log.info("» cloning pullfrog/scratch into .temp...");
       $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
     } else {
-      log.info("📦 Resetting existing .temp repository...");
+      log.info("» resetting existing .temp repository...");
       execSync("git reset --hard HEAD && git clean -fd", {
         cwd: tempDir,
         stdio: "inherit",
       });
     }
   } else {
-    log.info("📦 Cloning pullfrog/scratch into .temp...");
+    log.info("» cloning pullfrog/scratch into .temp...");
     $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
   }
 }
@@ -42,7 +42,7 @@ export function setupTestRepo(options: SetupOptions): void {
  */
 export function setupGitConfig(): void {
   const repoDir = process.cwd();
-  log.info("🔧 Setting up git configuration...");
+  log.info("» setting up git configuration...");
   try {
     // Use --local to scope config to this repo only, preventing leakage to user's global config
     execSync('git config --local user.email "team@pullfrog.com"', {
@@ -61,7 +61,7 @@ export function setupGitConfig(): void {
         stdio: "pipe",
       });
     }
-    log.debug("setupGitConfig: ✓ Git configuration set successfully (scoped to repo)");
+    log.debug("» git configuration set successfully (scoped to repo)");
   } catch (error) {
     // If git config fails, log warning but don't fail the action
     // This can happen if we're not in a git repo or git isn't available
@@ -83,7 +83,7 @@ export function setupGitConfig(): void {
 export async function setupGit(ctx: Context): Promise<void> {
   const repoDir = process.cwd();
 
-  log.info("🔧 setting up git authentication...");
+  log.info("» setting up git authentication...");
 
   // remove existing git auth headers that actions/checkout might have set
   try {
@@ -91,16 +91,16 @@ export async function setupGit(ctx: Context): Promise<void> {
       cwd: repoDir,
       stdio: "pipe",
     });
-    log.info("✓ removed existing authentication headers");
+    log.info("» removed existing authentication headers");
   } catch {
-    log.debug("no existing authentication headers to remove");
+    log.debug("» no existing authentication headers to remove");
   }
 
   // non-PR events: set up origin with token, stay on default branch
   if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
     const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
     $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
-    log.info("✓ Updated origin URL with authentication token");
+    log.info("» updated origin URL with authentication token");
     return;
   }
 
