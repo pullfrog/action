@@ -167,7 +167,7 @@ export const cursor = agent({
 
     try {
       const fullPrompt = addInstructions({ payload, prepResults, repo });
-      log.group("Full prompt", (log) => log.info(fullPrompt));
+      log.group("Full prompt", () => log.info(fullPrompt));
 
       // configure sandbox mode if enabled
       // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings

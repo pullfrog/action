@@ -314,7 +314,7 @@ export const opencode = agent({
     configureOpenCodeSandbox({ sandbox: payload.sandbox ?? false });
 
     const prompt = addInstructions({ payload, prepResults, repo });
-    log.group("Full prompt", (log) => log.info(prompt));
+    log.group("Full prompt", () => log.info(prompt));
     const args = ["run", "--format", "json", prompt];
 
     if (payload.sandbox) {

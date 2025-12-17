@@ -33,6 +33,15 @@ function endGroup(): void {
 }
 
 /**
+ * Run a callback within a collapsed group
+ */
+function group(name: string, fn: () => void): void {
+  startGroup(name);
+  fn();
+  endGroup();
+}
+
+/**
  * Print a formatted box with text (for console output)
  */
 function boxString(
@@ -319,11 +328,7 @@ export const log = {
   /**
    * Run a callback within a collapsed group
    */
-  group: (name: string, fn: (log: typeof log) => void): void => {
-    startGroup(name);
-    fn(log);
-    endGroup();
-  },
+  group,
 
   /**
    * Log tool call information to console with formatted output

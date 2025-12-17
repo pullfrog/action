@@ -3,7 +3,6 @@ import { agentsManifest } from "../external.ts";
 import type { Context } from "../main.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
-import { parseRepoContext } from "../utils/github.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
@@ -15,16 +14,15 @@ export const PullRequest = type({
 });
 
 function buildPrBodyWithFooter(ctx: Context, body: string): string {
-  const repoContext = parseRepoContext();
-  const runId = process.env.GITHUB_RUN_ID;
-
   const agentName = ctx.payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
 
   const footer = buildPullfrogFooter({
     triggeredBy: true,
     agent: agentInfo ? { displayName: agentInfo.displayName, url: agentInfo.url } : undefined,
-    workflowRun: runId ? { owner: repoContext.owner, repo: repoContext.name, runId } : undefined,
+    workflowRun: ctx.runId
+      ? { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId }
+      : undefined,
   });
 
   const bodyWithoutFooter = stripExistingFooter(body);
