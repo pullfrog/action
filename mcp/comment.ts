@@ -15,12 +15,28 @@ import { execute, tool } from "./shared.ts";
  */
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
 
-function buildCommentFooter(payload: Payload): string {
+async function buildCommentFooter(payload: Payload, octokit?: Octokit): Promise<string> {
   const repoContext = parseRepoContext();
   const runId = process.env.GITHUB_RUN_ID;
 
   const agentName = payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
+
+  let workflowRunHtmlUrl: string | undefined;
+  if (runId && octokit) {
+    try {
+      // fetch jobs to get the job URL for deep linking
+      const { data: jobs } = await octokit.rest.actions.listJobsForWorkflowRun({
+        owner: repoContext.owner,
+        repo: repoContext.name,
+        run_id: parseInt(runId, 10),
+      });
+      // use the first job's URL if available
+      workflowRunHtmlUrl = jobs.jobs[0]?.html_url ?? undefined;
+    } catch {
+      // fall back to building URL from runId if jobs can't be fetched
+    }
+  }
 
   return buildPullfrogFooter({
     triggeredBy: true,
@@ -28,13 +44,20 @@ function buildCommentFooter(payload: Payload): string {
       displayName: agentInfo?.displayName || "Unknown agent",
       url: agentInfo?.url || "https://pullfrog.com",
     },
-    workflowRun: runId ? { owner: repoContext.owner, repo: repoContext.name, runId } : undefined,
+    workflowRun: runId
+      ? {
+          owner: repoContext.owner,
+          repo: repoContext.name,
+          runId,
+          ...(workflowRunHtmlUrl ? { htmlUrl: workflowRunHtmlUrl } : {}),
+        }
+      : undefined,
   });
 }
 
-function addFooter(body: string, payload: Payload): string {
+async function addFooter(body: string, payload: Payload, octokit?: Octokit): Promise<string> {
   const bodyWithoutFooter = stripExistingFooter(body);
-  const footer = buildCommentFooter(payload);
+  const footer = await buildCommentFooter(payload, octokit);
   return `${bodyWithoutFooter}${footer}`;
 }
 
@@ -50,7 +73,7 @@ export function CreateCommentTool(ctx: Context) {
       "Create a comment on a GitHub issue. NOTE: Do NOT use this for progress updates or status summaries - use report_progress instead, which updates the existing progress comment.",
     parameters: Comment,
     execute: execute(ctx, async ({ issueNumber, body }) => {
-      const bodyWithFooter = addFooter(body, ctx.payload);
+      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.issues.createComment({
         owner: ctx.owner,
@@ -80,7 +103,7 @@ export function EditCommentTool(ctx: Context) {
     description: "Edit a GitHub issue comment by its ID",
     parameters: EditComment,
     execute: execute(ctx, async ({ commentId, body }) => {
-      const bodyWithFooter = addFooter(body, ctx.payload);
+      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.issues.updateComment({
         owner: ctx.owner,
@@ -158,7 +181,7 @@ export async function reportProgress(
     }
   | undefined
 > {
-  const bodyWithFooter = addFooter(body, ctx.payload);
+  const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
   const existingCommentId = getProgressCommentId();
 
   // if we already have a progress comment, update it
@@ -337,7 +360,7 @@ export async function ensureProgressCommentUpdated(payload?: Payload): Promise<v
 The workflow encountered an error before any progress could be reported. Please check the ${workflowRunLink} for details.`;
 
   // add footer if we have payload, otherwise use plain message
-  const body = payload ? addFooter(errorMessage, payload) : errorMessage;
+  const body = payload ? await addFooter(errorMessage, payload, octokit) : errorMessage;
 
   await octokit.rest.issues.updateComment({
     owner: repoContext.owner,
@@ -362,7 +385,7 @@ export function ReplyToReviewCommentTool(ctx: Context) {
       "Reply to a PR review comment thread. Call this for EACH comment you address. Keep replies extremely brief (1 sentence max).",
     parameters: ReplyToReviewComment,
     execute: execute(ctx, async ({ pull_number, comment_id, body }) => {
-      const bodyWithFooter = addFooter(body, ctx.payload);
+      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.pulls.createReplyForReviewComment({
         owner: ctx.owner,

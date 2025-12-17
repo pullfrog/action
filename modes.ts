@@ -67,6 +67,7 @@ export function getModes({
 1. Get PR info with ${ghPullfrogMcpName}/get_pull_request (this automatically fetches and checks out the PR branch)
 
 2. Review the feedback provided. Understand each review comment and what changes are being requested.
+   - **EVENT DATA may contain review comment details**: If available, \`approved_comments\` are comments to address, \`unapproved_comments\` are for context only. The \`triggerer\` field indicates who initiated this action - prioritize their replies when deciding how to implement fixes.
 
 3. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists.
 

@@ -87,11 +87,13 @@ export async function setupGit(ctx: Context): Promise<SetupGitResult> {
     log.debug("No existing authentication headers to remove");
   }
 
-  // non-PR events: set up origin with token, stay on default branch
+  // set up origin with token (needed for fetch operations)
+  const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+  $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
+  log.info("✓ Updated origin URL with authentication token");
+
+  // non-PR events: stay on default branch
   if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
-    const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
-    $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
-    log.info("✓ Updated origin URL with authentication token");
     return { pushRemote: "origin" };
   }
 
