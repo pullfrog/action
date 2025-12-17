@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import { $ } from "../utils/shell.ts";
-import { handleToolError, handleToolSuccess, tool, type ToolResult } from "./shared.ts";
+import { handleToolError, handleToolSuccess, type ToolResult, tool } from "./shared.ts";
 
 export const ListFiles = type({
   path: type.string
@@ -12,32 +12,49 @@ export const ListFiles = type({
 export const ListFilesTool = tool({
   name: "list_files",
   description:
-    "List files in the repository using git ls-files. Useful for discovering the file structure and locating files.",
+    "List files in the repository, including both git-tracked and untracked files. Useful for discovering the file structure and locating files, including newly created files that haven't been committed yet.",
   parameters: ListFiles,
   execute: async ({ path }: { path?: string }): Promise<ToolResult> => {
     try {
-      // Use git ls-files to list tracked files
-      // This respects .gitignore and gives a clean list of source files
       const pathStr = path ?? ".";
-      const output = $("git", pathStr === "." ? ["ls-files"] : ["ls-files", pathStr], {
-        log: false,
-      });
-      const files = output.split("\n").filter((f) => f.trim() !== "");
 
-      if (files.length === 0) {
-        // Fallback for non-git environments or untracked files
-        const findOutput = $(
-          "find",
-          [pathStr, "-maxdepth", "3", "-not", "-path", "*/.*", "-type", "f"],
-          { log: false }
-        );
-        return handleToolSuccess({
-          files: findOutput.split("\n").filter((f) => f.trim() !== ""),
-          method: "find",
+      // Get git-tracked files
+      let gitFiles: string[] = [];
+      try {
+        const gitOutput = $("git", pathStr === "." ? ["ls-files"] : ["ls-files", pathStr], {
+          log: false,
         });
+        gitFiles = gitOutput.split("\n").filter((f) => f.trim() !== "");
+      } catch {
+        // git might fail, that's ok - we'll use find instead
       }
 
-      return handleToolSuccess({ files, method: "git" });
+      // Always also check filesystem for untracked files
+      // This is important because newly created files won't be in git yet
+      let filesystemFiles: string[] = [];
+      try {
+        const findOutput = $(
+          "find",
+          [pathStr, "-not", "-path", "*/.*", "-type", "f"],
+          { log: false }
+        );
+        filesystemFiles = findOutput
+          .split("\n")
+          .filter((f) => f.trim() !== "")
+          .map((f) => f.trim());
+      } catch {
+        // find might fail, that's ok - we'll just use git files
+      }
+
+      // Combine both lists, removing duplicates
+      const allFiles = [...new Set([...gitFiles, ...filesystemFiles])].sort();
+
+      return handleToolSuccess({
+        files: allFiles,
+        method: "combined",
+        trackedCount: gitFiles.length,
+        untrackedCount: filesystemFiles.length - gitFiles.length,
+      });
     } catch (error) {
       return handleToolError(error);
     }

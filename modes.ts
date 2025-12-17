@@ -29,7 +29,7 @@ export function getModes({
       prompt: `Follow these steps:
 1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, ${depsContext} run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
 
-2. Create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly - always use ${ghPullfrogMcpName} MCP tools for git operations.
+2. If this is a PR event, the PR branch is already checked out - skip branch creation. Otherwise, create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly (including \`git branch\`, \`git status\`, \`git log\`) - always use ${ghPullfrogMcpName} MCP tools for git operations.
 
 3. Understand the requirements and any existing plan
 
