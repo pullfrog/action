@@ -13,6 +13,9 @@ export function GetIssueCommentsTool(ctx: Context) {
       "Get all comments for a GitHub issue. Returns all comments including the issue body and all subsequent discussion comments.",
     parameters: GetIssueComments,
     execute: execute(ctx, async ({ issue_number }) => {
+      // set issue context
+      ctx.toolState.issueNumber = issue_number;
+
       const comments = await ctx.octokit.paginate(ctx.octokit.rest.issues.listComments, {
         owner: ctx.owner,
         repo: ctx.name,

@@ -88,6 +88,9 @@ export function CheckoutPrTool(ctx: Context) {
         $("git", ["config", `branch.${headBranch}.pushRemote`, "origin"]);
       }
 
+      // set PR context
+      ctx.toolState.prNumber = pull_number;
+
       return {
         success: true,
         number: pr.data.number,
@@ -102,4 +105,3 @@ export function CheckoutPrTool(ctx: Context) {
     }),
   });
 }
-

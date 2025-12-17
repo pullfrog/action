@@ -13,6 +13,9 @@ export function GetIssueEventsTool(ctx: Context) {
       "Get timeline events for a GitHub issue that aren't reflected in the current state. Returns cross-references to other issues/PRs and commit references. Note: current labels, assignees, state, and milestone are already available via get_issue.",
     parameters: GetIssueEvents,
     execute: execute(ctx, async ({ issue_number }) => {
+      // set issue context
+      ctx.toolState.issueNumber = issue_number;
+
       const events = await ctx.octokit.paginate(ctx.octokit.rest.issues.listEventsForTimeline, {
         owner: ctx.owner,
         repo: ctx.name,

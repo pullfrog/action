@@ -11,7 +11,6 @@ import type { AgentName, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
-import type { ReviewState } from "./mcp/review.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
@@ -64,6 +63,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     const partialCtx = await initializeContext(inputs, payload);
     const ctx = partialCtx as Context;
+    ctx.toolState = {};
     timer.checkpoint("initializeContext");
 
     await setupGit(ctx);
@@ -244,8 +244,17 @@ export interface Context {
   runId: string;
   jobId: string | undefined;
 
-  // iterative review state (set by start_review, cleared by submit_review)
-  reviewState: ReviewState | undefined;
+  // tool state - mutable scratchpad for tools
+  toolState: ToolState;
+}
+
+export interface ToolState {
+  prNumber?: number;
+  issueNumber?: number;
+  review?: {
+    id: number; // REST API database ID (for fix URLs)
+    nodeId: string; // GraphQL node ID (for mutations)
+  };
 }
 
 async function initializeContext(
@@ -263,7 +272,7 @@ async function initializeContext(
     | "prepResults"
     | "runId"
     | "jobId"
-    | "reviewState"
+    | "toolState"
   >
 > {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);

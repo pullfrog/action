@@ -20,6 +20,9 @@ export function IssueInfoTool(ctx: Context) {
 
       const data = issue.data;
 
+      // set issue context
+      ctx.toolState.issueNumber = issue_number;
+
       const hints: string[] = [];
       if (data.comments > 0) {
         hints.push("use get_issue_comments to retrieve all comments for this issue");

@@ -84,15 +84,6 @@ type SubmitPullRequestReviewResponse = {
   };
 };
 
-// review state stored in ctx
-export interface ReviewState {
-  reviewId: string; // graphql node ID
-  reviewDatabaseId: number; // rest API ID
-  pullNumber: number;
-  scratchpadPath: string;
-  commentCount: number;
-}
-
 // start_review tool
 export const StartReview = type({
   pull_number: type.number.describe("The pull request number to review"),
@@ -106,9 +97,9 @@ export function StartReviewTool(ctx: Context) {
     parameters: StartReview,
     execute: execute(ctx, async ({ pull_number }) => {
       // check if review already started
-      if (ctx.reviewState) {
+      if (ctx.toolState.review) {
         throw new Error(
-          `Review session already started for PR #${ctx.reviewState.pullNumber}. Call submit_review first to finish it.`
+          `Review session already in progress. Call submit_review first to finish it.`
         );
       }
 
@@ -136,13 +127,11 @@ export function StartReviewTool(ctx: Context) {
       const scratchpadContent = `# Review ${scratchpadId}\n\n`;
       writeFileSync(scratchpadPath, scratchpadContent);
 
-      // store review state in ctx
-      ctx.reviewState = {
-        reviewId,
-        reviewDatabaseId,
-        pullNumber: pull_number,
-        scratchpadPath,
-        commentCount: 0,
+      // set PR context and review state
+      ctx.toolState.prNumber = pull_number;
+      ctx.toolState.review = {
+        nodeId: reviewId,
+        id: reviewDatabaseId,
       };
 
       return {
@@ -175,7 +164,7 @@ export function AddReviewCommentTool(ctx: Context) {
     parameters: AddReviewComment,
     execute: execute(ctx, async ({ path, line, body, side }) => {
       // check if review started
-      if (!ctx.reviewState) {
+      if (!ctx.toolState.review) {
         throw new Error("No review session started. Call start_review first.");
       }
 
@@ -183,7 +172,7 @@ export function AddReviewCommentTool(ctx: Context) {
       await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
         ADD_PULL_REQUEST_REVIEW_THREAD,
         {
-          pullRequestReviewId: ctx.reviewState.reviewId,
+          pullRequestReviewId: ctx.toolState.review.nodeId,
           path,
           line,
           body,
@@ -191,11 +180,8 @@ export function AddReviewCommentTool(ctx: Context) {
         }
       );
 
-      ctx.reviewState.commentCount++;
-
       return {
         success: true,
-        commentCount: ctx.reviewState.commentCount,
         message: `Comment added to ${path}:${line}`,
       };
     }),
@@ -219,17 +205,19 @@ export function SubmitReviewTool(ctx: Context) {
     parameters: SubmitReview,
     execute: execute(ctx, async ({ body }) => {
       // check if review started
-      if (!ctx.reviewState) {
+      if (!ctx.toolState.review) {
         throw new Error("No review session started. Call start_review first.");
       }
+      if (ctx.toolState.prNumber === undefined) {
+        throw new Error("No PR context. Call checkout_pr or start_review first.");
+      }
 
-      const pullNumber = ctx.reviewState.pullNumber;
-      const reviewDatabaseId = ctx.reviewState.reviewDatabaseId;
+      const reviewId = ctx.toolState.review.id;
 
       // build quick links footer
       const apiUrl = process.env.API_URL || "https://pullfrog.com";
-      const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pullNumber}?action=fix&review_id=${reviewDatabaseId}`;
-      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pullNumber}?action=fix-approved&review_id=${reviewDatabaseId}`;
+      const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix&review_id=${reviewId}`;
+      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix-approved&review_id=${reviewId}`;
 
       const footer = buildPullfrogFooter({
         workflowRun: { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId },
@@ -242,17 +230,16 @@ export function SubmitReviewTool(ctx: Context) {
       const response = await ctx.octokit.graphql<SubmitPullRequestReviewResponse>(
         SUBMIT_PULL_REQUEST_REVIEW,
         {
-          pullRequestReviewId: ctx.reviewState.reviewId,
+          pullRequestReviewId: ctx.toolState.review.nodeId,
           body: bodyWithFooter,
           event: "COMMENT",
         }
       );
 
       const result = response.submitPullRequestReview.pullRequestReview;
-      const commentCount = ctx.reviewState.commentCount;
 
       // clear review state
-      ctx.reviewState = undefined;
+      delete ctx.toolState.review;
 
       // delete progress comment
       await deleteProgressComment(ctx);
@@ -262,7 +249,6 @@ export function SubmitReviewTool(ctx: Context) {
         reviewId: result.databaseId,
         html_url: result.url,
         state: result.state,
-        commentCount,
       };
     }),
   });
@@ -316,6 +302,9 @@ export function ReviewTool(ctx: Context) {
       "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts.",
     parameters: Review,
     execute: execute(ctx, async ({ pull_number, body, commit_id, comments = [] }) => {
+      // set PR context
+      ctx.toolState.prNumber = pull_number;
+
       // get the PR to determine the head commit if commit_id not provided
       const pr = await ctx.octokit.rest.pulls.get({
         owner: ctx.owner,
