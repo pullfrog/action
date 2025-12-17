@@ -111,7 +111,7 @@ export async function setupGit(ctx: Context): Promise<SetupGitResult> {
   // checkout PR branch using plain git (no gh cli needed)
   const branch = pr.data.head.ref;
   log.info(`🌿 Checking out PR #${prNumber} (${branch})...`);
-  $("git", ["fetch", "origin", `pull/${prNumber}/head:${branch}`], { cwd: repoDir });
+  $("git", ["fetch", "--no-tags", "origin", `pull/${prNumber}/head:${branch}`], { cwd: repoDir });
   $("git", ["checkout", branch], { cwd: repoDir });
   log.info(`✓ Successfully checked out PR #${prNumber}`);
 
