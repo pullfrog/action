@@ -1,1 +1,1 @@
-echo the value of the MY_SECRET env var
+run pnpm --version and print the output

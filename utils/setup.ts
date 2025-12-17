@@ -18,13 +18,22 @@ export interface SetupOptions {
 export function setupTestRepo(options: SetupOptions): void {
   const { tempDir, forceClean = false } = options;
 
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!repo) {
+    throw new Error(
+      "GITHUB_REPOSITORY environment variable must be specified (e.g. pullfrog/scratch)"
+    );
+  }
+
+  const cloneUrl = `git@github.com:${repo}.git`;
+
   if (existsSync(tempDir)) {
     if (forceClean) {
       log.info("» removing existing .temp directory...");
       rmSync(tempDir, { recursive: true, force: true });
 
-      log.info("» cloning pullfrog/scratch into .temp...");
-      $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
+      log.info(`» cloning ${repo} into .temp...`);
+      $("git", ["clone", cloneUrl, tempDir]);
     } else {
       log.info("» resetting existing .temp repository...");
       execSync("git reset --hard HEAD && git clean -fd", {
@@ -33,8 +42,8 @@ export function setupTestRepo(options: SetupOptions): void {
       });
     }
   } else {
-    log.info("» cloning pullfrog/scratch into .temp...");
-    $("git", ["clone", "git@github.com:pullfrog/scratch.git", tempDir]);
+    log.info(`» cloning ${repo} into .temp...`);
+    $("git", ["clone", cloneUrl, tempDir]);
   }
 }
 
