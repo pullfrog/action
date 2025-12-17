@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
@@ -10,6 +10,241 @@ import {
   installFromNpmTarball,
   setupProcessAgentEnv,
 } from "./shared.ts";
+
+export const opencode = agent({
+  name: "opencode",
+  install: async () => {
+    return await installFromNpmTarball({
+      packageName: "opencode-ai",
+      version: "latest",
+      executablePath: "bin/opencode",
+      installDependencies: true,
+    });
+  },
+  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, prepResults, repo }) => {
+    // 1. configure home/config directory
+    const tempHome = process.env.PULLFROG_TEMP_DIR!;
+    const configDir = join(tempHome, ".config", "opencode");
+    mkdirSync(configDir, { recursive: true });
+
+    configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
+
+    const prompt = addInstructions({ payload, prepResults, repo });
+    log.group("Full prompt", () => log.info(prompt));
+
+    // message positional must come right after "run", before flags
+    const args = ["run", prompt, "--format", "json"];
+
+    if (payload.sandbox) {
+      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    }
+
+    // 6. set up environment
+    setupProcessAgentEnv({ HOME: tempHome });
+
+    // build env vars: start with process.env (includes all API_KEY vars loaded by config())
+    // exclude GITHUB_TOKEN - OpenCode should use MCP server for GitHub operations, not direct token
+    // then override with apiKeys and HOME
+    const env: Record<string, string> = {
+      ...(Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([key, value]) => value !== undefined && key !== "GITHUB_TOKEN"
+        )
+      ) as Record<string, string>),
+      HOME: tempHome,
+    };
+
+    // add/override API keys from apiKeys object (uppercase keys)
+    for (const [key, value] of Object.entries(apiKeys || {})) {
+      env[key.toUpperCase()] = value;
+    }
+
+    // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
+    const repoDir = process.cwd();
+
+    log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
+    log.info(`📁 Working directory: ${repoDir}`);
+    log.info(`🏠 HOME env var: ${env.HOME}`);
+    log.info(`📋 Config directory: ${join(env.HOME!, ".config", "opencode")}`);
+
+    // log key env vars (not values for security)
+    const envKeys = Object.keys(env).filter(
+      (k) => !k.includes("KEY") && !k.includes("TOKEN") && !k.includes("SECRET")
+    );
+    log.info(`🔑 Environment keys (non-sensitive): ${envKeys.join(", ")}`);
+    const startTime = Date.now();
+    let lastActivityTime = startTime;
+    let eventCount = 0;
+
+    let output = "";
+    const result = await spawn({
+      cmd: cliPath,
+      args,
+      cwd: repoDir,
+      env,
+      timeout: 600000, // 10 minutes timeout to prevent infinite hangs
+      stdio: ["ignore", "pipe", "pipe"],
+      onStdout: async (chunk) => {
+        console.log(JSON.stringify(JSON.parse(chunk), null, 2));
+        const text = chunk.toString();
+        output += text;
+
+        // parse each line as JSON (opencode outputs one JSON object per line)
+        const lines = text.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            continue;
+          }
+
+          try {
+            const event = JSON.parse(trimmed) as OpenCodeEvent;
+            eventCount++;
+            const timeSinceLastActivity = Date.now() - lastActivityTime;
+            if (timeSinceLastActivity > 10000) {
+              const activeToolCalls = toolCallTimings.size;
+              const toolCallInfo =
+                activeToolCalls > 0
+                  ? ` (waiting for ${activeToolCalls} tool call${activeToolCalls > 1 ? "s" : ""})`
+                  : " (OpenCode may be processing internally - LLM calls, planning, etc.)";
+              log.warning(
+                `⚠️  No activity for ${(timeSinceLastActivity / 1000).toFixed(1)}s${toolCallInfo} (${eventCount} events processed so far)`
+              );
+            }
+            lastActivityTime = Date.now();
+            const handler = messageHandlers[event.type as keyof typeof messageHandlers];
+            if (handler) {
+              await handler(event as never);
+            } else {
+              // log unhandled event types for visibility
+              log.info(
+                `📋 OpenCode event (unhandled): type=${event.type}, data=${JSON.stringify(event).substring(0, 500)}`
+              );
+            }
+          } catch {
+            // non-JSON lines are ignored
+          }
+        }
+      },
+      onStderr: (chunk) => {
+        console.log(JSON.stringify(JSON.parse(chunk), null, 2));
+        const trimmed = chunk.trim();
+        if (trimmed) {
+          log.warning(trimmed);
+        }
+      },
+    });
+
+    const duration = Date.now() - startTime;
+    log.info(`✅ OpenCode CLI completed in ${duration}ms with exit code ${result.exitCode}`);
+
+    // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
+    if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {
+      const totalTokens = accumulatedTokens.input + accumulatedTokens.output;
+      await log.summaryTable([
+        [
+          { data: "Input Tokens", header: true },
+          { data: "Output Tokens", header: true },
+          { data: "Total Tokens", header: true },
+        ],
+        [String(accumulatedTokens.input), String(accumulatedTokens.output), String(totalTokens)],
+      ]);
+    }
+
+    // 9. return result
+    if (result.exitCode !== 0) {
+      const errorMessage =
+        result.stderr || result.stdout || "Unknown error - no output from OpenCode CLI";
+      log.error(`OpenCode CLI exited with code ${result.exitCode}: ${errorMessage}`);
+      log.debug(`OpenCode stdout: ${result.stdout?.substring(0, 500)}`);
+      log.debug(`OpenCode stderr: ${result.stderr?.substring(0, 500)}`);
+      return {
+        success: false,
+        output: finalOutput || output,
+        error: errorMessage,
+      };
+    }
+
+    return {
+      success: true,
+      output: finalOutput || output,
+    };
+  },
+});
+
+interface ConfigureOpenCodeParams {
+  mcpServers: ConfigureMcpServersParams["mcpServers"];
+  sandbox: boolean;
+}
+
+/**
+ * Configure OpenCode via opencode.json config file.
+ * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
+ */
+function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): void {
+  const tempHome = process.env.PULLFROG_TEMP_DIR!;
+  const configDir = join(tempHome, ".config", "opencode");
+  mkdirSync(configDir, { recursive: true });
+  const configPath = join(configDir, "opencode.json");
+
+  // build MCP servers config
+  const opencodeMcpServers: Record<string, { type: "remote"; url: string }> = {};
+  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+    if (serverConfig.type !== "http") {
+      log.error(
+        `unsupported MCP server type for OpenCode: ${(serverConfig as never as { type: string }).type || "unknown"}`
+      );
+      throw new Error(
+        `Unsupported MCP server type for OpenCode: ${(serverConfig as never as { type: string }).type || "unknown"}`
+      );
+    }
+
+    opencodeMcpServers[serverName] = {
+      type: "remote",
+      url: serverConfig.url,
+    };
+  }
+
+  // build permissions config
+  const permission = sandbox
+    ? {
+        edit: "deny",
+        bash: "deny",
+        webfetch: "deny",
+        doom_loop: "allow",
+        external_directory: "allow",
+      }
+    : {
+        edit: "allow",
+        bash: "allow",
+        webfetch: "allow",
+        doom_loop: "allow",
+        external_directory: "allow",
+      };
+
+  // build complete config in one object
+  const config = {
+    mcp: opencodeMcpServers,
+    permission,
+  };
+
+  const configJson = JSON.stringify(config, null, 2);
+  try {
+    writeFileSync(configPath, configJson, "utf-8");
+  } catch (error) {
+    log.error(
+      `failed to write OpenCode config to ${configPath}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
+  }
+
+  log.info(`OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
+  log.info(`OpenCode config contents:\n${configJson}`);
+}
+
+////////////////////////////////////////////
+////////////   EVENT HANDLERS   ////////////
+////////////////////////////////////////////
 
 // opencode cli event types inferred from json output format
 interface OpenCodeInitEvent {
@@ -314,263 +549,3 @@ const messageHandlers = {
     }
   },
 };
-
-export const opencode = agent({
-  name: "opencode",
-  install: async () => {
-    return await installFromNpmTarball({
-      packageName: "opencode-ai",
-      version: "latest",
-      executablePath: "bin/opencode",
-      installDependencies: true,
-    });
-  },
-  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, prepResults, repo }) => {
-    // 1. configure home/config directory
-    const tempHome = process.env.PULLFROG_TEMP_DIR!;
-    const configDir = join(tempHome, ".config", "opencode");
-    mkdirSync(configDir, { recursive: true });
-
-    configureOpenCodeMcpServers({ mcpServers });
-    configureOpenCodeSandbox({ sandbox: payload.sandbox ?? false });
-
-    const prompt = addInstructions({ payload, prepResults, repo });
-    log.group("Full prompt", () => log.info(prompt));
-
-    // message positional must come right after "run", before flags
-    const args = ["run", prompt, "--format", "json"];
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
-
-    // 6. set up environment
-    setupProcessAgentEnv({ HOME: tempHome });
-
-    // build env vars: start with process.env (includes all API_KEY vars loaded by config())
-    // exclude GITHUB_TOKEN - OpenCode should use MCP server for GitHub operations, not direct token
-    // then override with apiKeys and HOME
-    const env: Record<string, string> = {
-      ...(Object.fromEntries(
-        Object.entries(process.env).filter(
-          ([key, value]) => value !== undefined && key !== "GITHUB_TOKEN"
-        )
-      ) as Record<string, string>),
-      HOME: tempHome,
-    };
-
-    // add/override API keys from apiKeys object (uppercase keys)
-    for (const [key, value] of Object.entries(apiKeys || {})) {
-      env[key.toUpperCase()] = value;
-    }
-
-    // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
-    const repoDir = process.cwd();
-
-    log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
-    log.info(`📁 Working directory: ${repoDir}`);
-    log.info(`🏠 HOME env var: ${env.HOME}`);
-    log.info(`📋 Config directory: ${join(env.HOME!, ".config", "opencode")}`);
-
-    // log key env vars (not values for security)
-    const envKeys = Object.keys(env).filter(
-      (k) => !k.includes("KEY") && !k.includes("TOKEN") && !k.includes("SECRET")
-    );
-    log.info(`🔑 Environment keys (non-sensitive): ${envKeys.join(", ")}`);
-    const startTime = Date.now();
-    let lastActivityTime = startTime;
-    let eventCount = 0;
-
-    let output = "";
-    const result = await spawn({
-      cmd: cliPath,
-      args,
-      cwd: repoDir,
-      env,
-      timeout: 600000, // 10 minutes timeout to prevent infinite hangs
-      stdio: ["ignore", "pipe", "pipe"],
-      onStdout: async (chunk) => {
-        log.debug(JSON.stringify(JSON.parse(chunk), null, 2));
-        const text = chunk.toString();
-        output += text;
-
-        // parse each line as JSON (opencode outputs one JSON object per line)
-        const lines = text.split("\n");
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) {
-            continue;
-          }
-
-          try {
-            const event = JSON.parse(trimmed) as OpenCodeEvent;
-            eventCount++;
-            const timeSinceLastActivity = Date.now() - lastActivityTime;
-            if (timeSinceLastActivity > 10000) {
-              const activeToolCalls = toolCallTimings.size;
-              const toolCallInfo =
-                activeToolCalls > 0
-                  ? ` (waiting for ${activeToolCalls} tool call${activeToolCalls > 1 ? "s" : ""})`
-                  : " (OpenCode may be processing internally - LLM calls, planning, etc.)";
-              log.warning(
-                `⚠️  No activity for ${(timeSinceLastActivity / 1000).toFixed(1)}s${toolCallInfo} (${eventCount} events processed so far)`
-              );
-            }
-            lastActivityTime = Date.now();
-            const handler = messageHandlers[event.type as keyof typeof messageHandlers];
-            if (handler) {
-              await handler(event as never);
-            } else {
-              // log unhandled event types for visibility
-              log.info(
-                `📋 OpenCode event (unhandled): type=${event.type}, data=${JSON.stringify(event).substring(0, 500)}`
-              );
-            }
-          } catch {
-            // non-JSON lines are ignored
-          }
-        }
-      },
-      onStderr: (chunk) => {
-        log.debug(JSON.stringify(JSON.parse(chunk), null, 2));
-        const trimmed = chunk.trim();
-        if (trimmed) {
-          log.warning(trimmed);
-        }
-      },
-    });
-
-    const duration = Date.now() - startTime;
-    log.info(`✅ OpenCode CLI completed in ${duration}ms with exit code ${result.exitCode}`);
-
-    // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
-    if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {
-      const totalTokens = accumulatedTokens.input + accumulatedTokens.output;
-      await log.summaryTable([
-        [
-          { data: "Input Tokens", header: true },
-          { data: "Output Tokens", header: true },
-          { data: "Total Tokens", header: true },
-        ],
-        [String(accumulatedTokens.input), String(accumulatedTokens.output), String(totalTokens)],
-      ]);
-    }
-
-    // 9. return result
-    if (result.exitCode !== 0) {
-      const errorMessage =
-        result.stderr || result.stdout || "Unknown error - no output from OpenCode CLI";
-      log.error(`OpenCode CLI exited with code ${result.exitCode}: ${errorMessage}`);
-      log.debug(`OpenCode stdout: ${result.stdout?.substring(0, 500)}`);
-      log.debug(`OpenCode stderr: ${result.stderr?.substring(0, 500)}`);
-      return {
-        success: false,
-        output: finalOutput || output,
-        error: errorMessage,
-      };
-    }
-
-    return {
-      success: true,
-      output: finalOutput || output,
-    };
-  },
-});
-
-/**
- * Configure MCP servers for OpenCode using opencode.json config file.
- * OpenCode uses opencode.json with mcp section supporting remote servers with type: "remote" and url.
- */
-function configureOpenCodeMcpServers({
-  mcpServers,
-}: {
-  mcpServers: ConfigureMcpServersParams["mcpServers"];
-}): void {
-  const tempHome = process.env.PULLFROG_TEMP_DIR!;
-  const configDir = join(tempHome, ".config", "opencode");
-  mkdirSync(configDir, { recursive: true });
-  const configPath = join(configDir, "opencode.json");
-
-  // convert to opencode's expected format
-  const opencodeMcpServers: Record<string, { type: "remote"; url: string; enabled?: boolean }> = {};
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    if (serverConfig.type !== "http") {
-      throw new Error(
-        `Unsupported MCP server type for OpenCode: ${(serverConfig as any).type || "unknown"}`
-      );
-    }
-
-    opencodeMcpServers[serverName] = {
-      type: "remote",
-      url: serverConfig.url,
-      enabled: true,
-    };
-  }
-
-  // read existing config if it exists, or create new one
-  let config: Record<string, unknown> = {};
-  try {
-    if (existsSync(configPath)) {
-      const existingConfig = readFileSync(configPath, "utf-8");
-      config = JSON.parse(existingConfig);
-    }
-  } catch {
-    // config doesn't exist yet or is invalid, start fresh
-  }
-
-  config.mcp = opencodeMcpServers;
-
-  const configJson = JSON.stringify(config, null, 2);
-  writeFileSync(configPath, configJson, "utf-8");
-  log.info(`MCP config written to ${configPath}`);
-  log.info(`MCP config contents:\n${configJson}`);
-}
-
-/**
- * Configure OpenCode sandbox mode via opencode.json.
- * When sandbox is enabled, restricts tools to read-only operations.
- * See https://opencode.ai/docs/permissions/ for config format.
- */
-function configureOpenCodeSandbox({ sandbox }: { sandbox: boolean }): void {
-  const tempHome = process.env.PULLFROG_TEMP_DIR!;
-  const configDir = join(tempHome, ".config", "opencode");
-  mkdirSync(configDir, { recursive: true });
-  const configPath = join(configDir, "opencode.json");
-
-  // read existing config if it exists, or create new one
-  let config: Record<string, unknown> = {};
-  try {
-    if (existsSync(configPath)) {
-      const existingConfig = readFileSync(configPath, "utf-8");
-      config = JSON.parse(existingConfig);
-    }
-  } catch {
-    // config doesn't exist yet or is invalid, start fresh
-  }
-
-  if (sandbox) {
-    // sandbox mode: deny write, bash, and webfetch tools
-    config.permission = {
-      edit: "deny",
-      bash: "deny",
-      webfetch: "deny",
-      doom_loop: "allow",
-      external_directory: "allow",
-    };
-  } else {
-    // normal mode: allow all tools without prompts
-    // external_directory: "allow" is critical to avoid permission prompts for temp dirs
-    config.permission = {
-      edit: "allow",
-      bash: "allow",
-      webfetch: "allow",
-      doom_loop: "allow",
-      external_directory: "allow",
-    };
-  }
-
-  // preserve MCP config if it was already set by configureOpenCodeMcpServers
-  // (this function is called after configureOpenCodeMcpServers, so MCP config should already exist)
-  writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
-  log.info(`OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
-}
