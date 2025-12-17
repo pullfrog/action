@@ -1,1 +1,1 @@
-review this https://github.com/pullfrog/colinhacks/pull/5
+inspect your MCP servers, log them all, and call a tool as a test

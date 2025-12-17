@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
@@ -42,9 +42,17 @@ export const opencode = agent({
     // 6. set up environment
     setupProcessAgentEnv({ HOME: tempHome });
 
+    // DEBUG: log original process.env values before building env
+    log.startGroup("🔍 DEBUG: Environment analysis");
+    log.info(`Original process.env.HOME: ${process.env.HOME}`);
+    log.info(`Original process.env.XDG_CONFIG_HOME: ${process.env.XDG_CONFIG_HOME || "(not set)"}`);
+    log.info(`Target tempHome: ${tempHome}`);
+
     // build env vars: start with process.env (includes all API_KEY vars loaded by config())
     // exclude GITHUB_TOKEN - OpenCode should use MCP server for GitHub operations, not direct token
-    // then override with apiKeys and HOME
+    // then override with apiKeys, HOME, and XDG_CONFIG_HOME
+    // XDG_CONFIG_HOME must be set because GitHub Actions sets it to a different path,
+    // and OpenCode follows XDG spec (checks XDG_CONFIG_HOME before falling back to $HOME/.config)
     const env: Record<string, string> = {
       ...(Object.fromEntries(
         Object.entries(process.env).filter(
@@ -52,6 +60,7 @@ export const opencode = agent({
         )
       ) as Record<string, string>),
       HOME: tempHome,
+      XDG_CONFIG_HOME: join(tempHome, ".config"),
     };
 
     // add/override API keys from apiKeys object (uppercase keys)
@@ -59,19 +68,52 @@ export const opencode = agent({
       env[key.toUpperCase()] = value;
     }
 
+    // DEBUG: verify env overrides worked
+    log.info(`Final env.HOME: ${env.HOME}`);
+    log.info(`Final env.XDG_CONFIG_HOME: ${env.XDG_CONFIG_HOME}`);
+
+    // DEBUG: verify config file exists and log its contents
+    const configPath = join(env.HOME!, ".config", "opencode", "opencode.json");
+    const configExists = existsSync(configPath);
+    log.info(`Config path: ${configPath}`);
+    log.info(`Config file exists: ${configExists}`);
+    if (configExists) {
+      const configContents = readFileSync(configPath, "utf-8");
+      log.info(`Config file contents:\n${configContents}`);
+    }
+
+    // DEBUG: check for alternative config locations OpenCode might use
+    const altConfigPaths = [
+      join(env.HOME!, ".opencode", "config.json"),
+      join(env.HOME!, ".opencode.json"),
+      join(process.cwd(), ".opencode.json"),
+      join(process.cwd(), ".opencode", "config.json"),
+    ];
+    for (const altPath of altConfigPaths) {
+      if (existsSync(altPath)) {
+        log.info(`⚠️  Alternative config found at: ${altPath}`);
+      }
+    }
+
+    // DEBUG: test MCP server connectivity
+    const mcpUrl = "http://127.0.0.1:3764/mcp";
+    try {
+      const response = await fetch(mcpUrl, { method: "GET" });
+      log.info(`MCP server reachable: ${response.ok} (status: ${response.status})`);
+    } catch (error) {
+      log.warning(
+        `MCP server NOT reachable: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    log.endGroup();
+
     // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
     const repoDir = process.cwd();
 
     log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
     log.info(`📁 Working directory: ${repoDir}`);
-    log.info(`🏠 HOME env var: ${env.HOME}`);
-    log.info(`📋 Config directory: ${join(env.HOME!, ".config", "opencode")}`);
 
-    // log key env vars (not values for security)
-    const envKeys = Object.keys(env).filter(
-      (k) => !k.includes("KEY") && !k.includes("TOKEN") && !k.includes("SECRET")
-    );
-    log.info(`🔑 Environment keys (non-sensitive): ${envKeys.join(", ")}`);
     const startTime = Date.now();
     let lastActivityTime = startTime;
     let eventCount = 0;
