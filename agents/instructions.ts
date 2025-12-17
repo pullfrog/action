@@ -85,6 +85,7 @@ function buildRuntimeContext({ repo, prepResults }: BuildRuntimeContextParams): 
 
   // working directory
   lines.push(`working_directory: ${process.cwd()}`);
+  lines.push(`log_level: ${process.env.LOG_LEVEL}`);
 
   // git status (try to get it, but don't fail if git isn't available)
   try {

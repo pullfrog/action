@@ -73,6 +73,7 @@ export const opencode = agent({
     const startTime = Date.now();
     let lastActivityTime = startTime;
     let eventCount = 0;
+    let stdoutBuffer = "";
 
     let output = "";
     const result = await spawn({
@@ -83,13 +84,15 @@ export const opencode = agent({
       timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
-        const parsed = JSON.parse(chunk);
-        log.debug(JSON.stringify(parsed, null, 2));
         const text = chunk.toString();
         output += text;
+        stdoutBuffer += text;
 
-        // parse each line as JSON (opencode outputs one JSON object per line)
-        const lines = text.split("\n");
+        // parse each complete line as JSON (opencode outputs one JSON object per line)
+        const lines = stdoutBuffer.split("\n");
+        // keep the last (potentially incomplete) line in the buffer
+        stdoutBuffer = lines.pop() || "";
+
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) {
@@ -98,6 +101,7 @@ export const opencode = agent({
 
           try {
             const event = JSON.parse(trimmed) as OpenCodeEvent;
+            log.debug(JSON.stringify(event, null, 2));
             eventCount++;
             const timeSinceLastActivity = Date.now() - lastActivityTime;
             if (timeSinceLastActivity > 10000) {
