@@ -45,22 +45,36 @@ export function CheckoutPrTool(ctx: Context) {
       const baseBranch = pr.data.base.ref;
       const headBranch = pr.data.head.ref;
 
-      // fetch base branch so origin/<base> exists for diff operations
-      log.info(`📥 fetching base branch (${baseBranch})...`);
-      $("git", ["fetch", "--no-tags", "origin", baseBranch]);
+      // check if we're already on the correct branch
+      const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false }).trim();
+      const alreadyOnBranch = currentBranch === headBranch;
 
-      // checkout base branch first to avoid "refusing to fetch into current branch" error
-      // if we're already on the PR branch
-      // -B creates or resets the branch to match origin/baseBranch
-      $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
+      if (alreadyOnBranch) {
+        log.info(`already on PR branch ${headBranch}, skipping checkout`);
+      } else {
+        // fetch base branch so origin/<base> exists for diff operations
+        log.info(`📥 fetching base branch (${baseBranch})...`);
+        $("git", ["fetch", "--no-tags", "origin", baseBranch]);
 
-      // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-      log.info(`🌿 fetching PR #${pull_number} (${headBranch})...`);
-      $("git", ["fetch", "--no-tags", "origin", `pull/${pull_number}/head:${headBranch}`]);
+        // checkout base branch first to avoid "refusing to fetch into current branch" error
+        // -B creates or resets the branch to match origin/baseBranch
+        $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
-      // checkout the branch
-      $("git", ["checkout", headBranch]);
-      log.info(`✓ checked out PR #${pull_number}`);
+        // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
+        log.info(`🌿 fetching PR #${pull_number} (${headBranch})...`);
+        $("git", ["fetch", "--no-tags", "origin", `pull/${pull_number}/head:${headBranch}`]);
+
+        // checkout the branch
+        $("git", ["checkout", headBranch]);
+        log.info(`✓ checked out PR #${pull_number}`);
+      }
+
+      // ensure base branch is fetched (needed for diff operations)
+      // fetch if we skipped checkout (already on branch) - otherwise already fetched above
+      if (alreadyOnBranch) {
+        log.info(`📥 fetching base branch (${baseBranch})...`);
+        $("git", ["fetch", "--no-tags", "origin", baseBranch]);
+      }
 
       // configure push remote for this branch
       if (isFork) {
