@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
@@ -62,19 +63,74 @@ function formatPrepResults(results: PrepResult[]): string {
     return "";
   }
 
-  return `************* ENVIRONMENT SETUP *************
+  return lines.join("\n");
+}
 
-${lines.join("\n")}
+interface RepoInfo {
+  owner: string;
+  name: string;
+  defaultBranch: string;
+}
 
-`;
+interface BuildRuntimeContextParams {
+  repo: RepoInfo;
+  prepResults: PrepResult[];
+}
+
+/**
+ * Build runtime context string with git status, repo data, and GitHub Actions variables
+ */
+function buildRuntimeContext({ repo, prepResults }: BuildRuntimeContextParams): string {
+  const lines: string[] = [];
+
+  // working directory
+  lines.push(`working_directory: ${process.cwd()}`);
+
+  // git status (try to get it, but don't fail if git isn't available)
+  try {
+    const gitStatus = execSync("git status --short", { encoding: "utf-8", stdio: "pipe" }).trim();
+    lines.push(`git_status: ${gitStatus || "(clean)"}`);
+  } catch {
+    // git not available or not in a repo
+  }
+
+  // repo data
+  lines.push(`repo: ${repo.owner}/${repo.name}`);
+  lines.push(`default_branch: ${repo.defaultBranch}`);
+
+  // GitHub Actions variables (when running in CI)
+  const ghVars: Record<string, string | undefined> = {
+    github_event_name: process.env.GITHUB_EVENT_NAME,
+    github_ref: process.env.GITHUB_REF,
+    github_sha: process.env.GITHUB_SHA?.slice(0, 7),
+    github_actor: process.env.GITHUB_ACTOR,
+    github_run_id: process.env.GITHUB_RUN_ID,
+    github_workflow: process.env.GITHUB_WORKFLOW,
+  };
+  for (const [key, value] of Object.entries(ghVars)) {
+    if (value) {
+      lines.push(`${key}: ${value}`);
+    }
+  }
+
+  // environment setup (dependency installation results)
+  const envSetup = formatPrepResults(prepResults);
+  if (envSetup) {
+    lines.push("");
+    lines.push("environment_setup:");
+    lines.push(envSetup);
+  }
+
+  return lines.join("\n");
 }
 
 interface AddInstructionsParams {
   payload: Payload;
   prepResults: PrepResult[];
+  repo: RepoInfo;
 }
 
-export const addInstructions = ({ payload, prepResults }: AddInstructionsParams) => {
+export const addInstructions = ({ payload, prepResults, repo }: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -86,7 +142,7 @@ export const addInstructions = ({ payload, prepResults }: AddInstructionsParams)
     encodedEvent = toonEncode(payload.event);
   }
 
-  const envSetup = formatPrepResults(prepResults);
+  const runtimeContext = buildRuntimeContext({ repo, prepResults });
   const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
 
   return `
@@ -163,14 +219,21 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 **Git operations**: All git operations must use ${ghPullfrogMcpName} MCP tools to ensure proper authentication and commit attribution. Do NOT use git commands directly (e.g., \`git commit\`, \`git push\`, \`git checkout\`, \`git branch\`) - these will use incorrect credentials and attribute commits to the wrong author.
 
 **Available git MCP tools**:
+- \`${ghPullfrogMcpName}/checkout_pr\` - Checkout an existing PR branch locally (handles fork PRs automatically)
 - \`${ghPullfrogMcpName}/create_branch\` - Create a new branch from a base branch
 - \`${ghPullfrogMcpName}/commit_files\` - Stage and commit files with proper authentication
-- \`${ghPullfrogMcpName}/push_branch\` - Push a branch to the remote repository
+- \`${ghPullfrogMcpName}/push_branch\` - Push a branch to the remote (automatically uses correct remote for fork PRs)
 - \`${ghPullfrogMcpName}/create_pull_request\` - Create a PR from the current branch
 
-**Workflow for making code changes**:
-1. Use file operations to create/modify files
-2. Use \`${ghPullfrogMcpName}/create_branch\` to create a new branch
+**Workflow for working on an existing PR**:
+1. Use \`${ghPullfrogMcpName}/checkout_pr\` to checkout the PR branch
+2. Make your changes using file operations
+3. Use \`${ghPullfrogMcpName}/commit_files\` to commit your changes
+4. Use \`${ghPullfrogMcpName}/push_branch\` to push (automatically pushes to fork for fork PRs)
+
+**Workflow for creating new changes**:
+1. Use \`${ghPullfrogMcpName}/create_branch\` to create a new branch
+2. Make your changes using file operations
 3. Use \`${ghPullfrogMcpName}/commit_files\` to commit your changes
 4. Use \`${ghPullfrogMcpName}/push_branch\` to push the branch
 5. Use \`${ghPullfrogMcpName}/create_pull_request\` to create a PR
@@ -221,7 +284,5 @@ ${encodedEvent}`
 
 ************* RUNTIME CONTEXT *************
 
-working_directory: ${process.cwd()}
-
-${envSetup}`;
+${runtimeContext}`;
 };

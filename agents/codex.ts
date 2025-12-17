@@ -20,7 +20,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, prepResults }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, prepResults, repo }) => {
     // create config directory for codex before setting HOME
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "codex");
@@ -61,7 +61,7 @@ export const codex = agent({
     );
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions({ payload, prepResults }));
+      const streamedTurn = await thread.runStreamed(addInstructions({ payload, prepResults, repo }));
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {

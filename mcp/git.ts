@@ -141,35 +141,39 @@ export const PushBranch = type({
   force: type.boolean.describe("Force push (use with caution)").default(false),
 });
 
-export function PushBranchTool(ctx: Context) {
-  const remote = ctx.pushRemote;
-
+export function PushBranchTool(_ctx: Context) {
   return tool({
     name: "push_branch",
     description:
-      "Push the current branch (or specified branch) to the remote repository. Never force push unless explicitly requested.",
+      "Push the current branch (or specified branch) to the remote repository. Git automatically determines the correct remote based on branch config (set by checkout_pr for fork PRs). Never force push unless explicitly requested.",
     parameters: PushBranch,
-    execute: execute(ctx, async ({ branchName, force }) => {
+    execute: execute(_ctx, async ({ branchName, force }) => {
       const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
-      // skip -u flag when pushing to URL (can't set upstream without a remote name)
-      const isUrl = remote.startsWith("https://");
-      const args = force
-        ? ["push", "--force", ...(isUrl ? [] : ["-u"]), remote, branch]
-        : ["push", ...(isUrl ? [] : ["-u"]), remote, branch];
+      // check if branch has a configured pushRemote
+      let remote = "origin";
+      try {
+        remote = $("git", ["config", `branch.${branch}.pushRemote`], { log: false }).trim();
+      } catch {
+        // no configured pushRemote, default to origin
+      }
 
-      log.info(`Pushing branch ${branch} to ${isUrl ? "(fork URL)" : remote}`);
+      const args = force
+        ? ["push", "--force", "-u", remote, branch]
+        : ["push", "-u", remote, branch];
+
+      log.info(`pushing branch ${branch} to ${remote}`);
       if (force) {
-        log.warning(`Force pushing - this will overwrite remote history`);
+        log.warning(`force pushing - this will overwrite remote history`);
       }
       $("git", args);
 
       return {
         success: true,
         branch,
-        remote: isUrl ? "(fork URL)" : remote,
+        remote,
         force,
-        message: `Successfully pushed branch ${branch}`,
+        message: `successfully pushed branch ${branch}`,
       };
     }),
   });

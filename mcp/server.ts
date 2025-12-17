@@ -5,6 +5,7 @@ import { FastMCP, type Tool } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
 import type { Context } from "../main.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
+import { CheckoutPrTool } from "./checkout.ts";
 import {
   CreateCommentTool,
   EditCommentTool,
@@ -78,6 +79,7 @@ export async function startMcpHttpServer(
     PullRequestTool(ctx),
     ReviewTool(ctx),
     PullRequestInfoTool(ctx),
+    CheckoutPrTool(ctx),
     GetReviewCommentsTool(ctx),
     ListPullRequestReviewsTool(ctx),
     GetCheckSuiteLogsTool(ctx),

@@ -22,6 +22,15 @@ export interface AgentResult {
 }
 
 /**
+ * Repo info for agent context
+ */
+export interface RepoInfo {
+  owner: string;
+  name: string;
+  defaultBranch: string;
+}
+
+/**
  * Configuration for agent creation
  */
 export interface AgentConfig {
@@ -31,6 +40,7 @@ export interface AgentConfig {
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
   prepResults: PrepResult[];
+  repo: RepoInfo;
 }
 
 /**

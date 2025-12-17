@@ -10,7 +10,7 @@ export function PullRequestInfoTool(ctx: Context) {
   return tool({
     name: "get_pull_request",
     description:
-      "Retrieve PR information (metadata only). PR branch is already checked out during setup.",
+      "Retrieve PR metadata (number, title, state, base/head branches, fork status). To checkout a PR branch locally, use checkout_pr instead.",
     parameters: PullRequestInfo,
     execute: execute(ctx, async ({ pull_number }) => {
       const pr = await ctx.octokit.rest.pulls.get({
