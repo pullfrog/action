@@ -4,8 +4,8 @@ import { createServer } from "node:net";
 import { FastMCP, type Tool } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
 import type { Context } from "../main.ts";
-import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import { CheckoutPrTool } from "./checkout.ts";
+import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
   CreateCommentTool,
   EditCommentTool,
@@ -21,12 +21,7 @@ import { IssueInfoTool } from "./issueInfo.ts";
 import { AddLabelsTool } from "./labels.ts";
 import { PullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
-import {
-  AddReviewCommentTool,
-  ReviewTool,
-  StartReviewTool,
-  SubmitReviewTool,
-} from "./review.ts";
+import { AddReviewCommentTool, ReviewTool, StartReviewTool, SubmitReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
 import { addTools, isProgressCommentDisabled } from "./shared.ts";
@@ -82,7 +77,7 @@ export async function startMcpHttpServer(
     GetIssueCommentsTool(ctx),
     GetIssueEventsTool(ctx),
     PullRequestTool(ctx),
-    ReviewTool(ctx),
+    // ReviewTool(ctx),
     StartReviewTool(ctx),
     AddReviewCommentTool(ctx),
     SubmitReviewTool(ctx),

@@ -41,14 +41,14 @@ export function buildPullfrogFooter(params: BuildPullfrogFooterParams): string {
     parts.push(`Using [${params.agent.displayName}](${params.agent.url})`);
   }
 
+  if (params.customParts) {
+    parts.push(...params.customParts);
+  }
+
   if (params.workflowRun) {
     const baseUrl = `https://github.com/${params.workflowRun.owner}/${params.workflowRun.repo}/actions/runs/${params.workflowRun.runId}`;
     const url = params.workflowRun.jobId ? `${baseUrl}/job/${params.workflowRun.jobId}` : baseUrl;
     parts.push(`[View workflow run](${url})`);
-  }
-
-  if (params.customParts) {
-    parts.push(...params.customParts);
   }
 
   const allParts = [

@@ -109,7 +109,7 @@ ${
    - Remove nitpicks unless explicitly requested. Think documentation, JSDoc/docstrings, useless comments (compliments)
    - Your level of nitpickiness should be proportional to the current state of the codebase. Try to guess how much the user will care about a specific critique.
 
-6. Add inline review comments one0-by-one using ${ghPullfrogMcpName}/add_review_comment
+6. Add inline review comments one-by-one using ${ghPullfrogMcpName}/add_review_comment
    - Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
    - Use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
    - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
