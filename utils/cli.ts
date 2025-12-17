@@ -317,6 +317,15 @@ export const log = {
   endGroup,
 
   /**
+   * Run a callback within a collapsed group
+   */
+  group: (name: string, fn: (log: typeof log) => void): void => {
+    startGroup(name);
+    fn(log);
+    endGroup();
+  },
+
+  /**
    * Log tool call information to console with formatted output
    */
   toolCall: ({ toolName, input }: { toolName: string; input: unknown }): void => {
