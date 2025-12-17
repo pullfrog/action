@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { Octokit } from "@octokit/rest";
-import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
@@ -506,11 +505,7 @@ async function validateApiKey(ctx: Context): Promise<void> {
 
 async function runAgent(ctx: Context): Promise<AgentResult> {
   log.info(`» running ${ctx.agentName}...`);
-  // strip context from event
-  const { context: _context, ...eventWithoutContext } = ctx.payload.event;
-  // format: prompt + two newlines + TOON encoded event
-  const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
-  log.box(promptContent, { title: "Prompt" });
+  log.box(ctx.payload.prompt.trim(), { title: "Prompt" });
 
   return ctx.agent.run({
     payload: ctx.payload,
