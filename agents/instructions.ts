@@ -218,6 +218,8 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 **GitHub CLI**: Prefer using MCP tools from ${ghPullfrogMcpName} for GitHub operations. The \`gh\` CLI is available as a fallback if needed, but MCP tools handle authentication and provide better integration.
 
 **Git operations**: All git operations must use ${ghPullfrogMcpName} MCP tools to ensure proper authentication and commit attribution. Do NOT use git commands directly (e.g., \`git commit\`, \`git push\`, \`git checkout\`, \`git branch\`) - these will use incorrect credentials and attribute commits to the wrong author.
+
+**File discovery**: Use \`${ghPullfrogMcpName}/list_files\` to discover files in the repository. This tool finds both git-tracked and untracked files, including newly created files that haven't been committed yet. Prefer this over native agent tools like \`glob\` or \`grep\` for file discovery, as it provides consistent results and handles untracked files correctly.
 ` +
     // **Available git MCP tools**:
     // - \`${ghPullfrogMcpName}/checkout_pr\` - Checkout an existing PR branch locally (handles fork PRs automatically)
