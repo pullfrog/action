@@ -11,14 +11,6 @@ import {
   setupProcessAgentEnv,
 } from "./shared.ts";
 
-// import { createOpencode } from "@opencode-ai/sdk"
-
-// const { client } = await createOpencode({
-//   config: {
-//     ''
-//   }
-// })
-
 // opencode cli event types inferred from json output format
 interface OpenCodeInitEvent {
   type: "init";
@@ -87,16 +79,33 @@ interface OpenCodeStepFinishEvent {
 
 interface OpenCodeToolUseEvent {
   type: "tool_use";
-  timestamp?: string;
-  tool_name?: string;
-  tool_id?: string;
-  parameters?: unknown;
+  timestamp?: number;
+  sessionID?: string;
+  part?: {
+    id?: string;
+    callID?: string;
+    tool?: string;
+    state?: {
+      status?: string;
+      input?: unknown;
+      output?: string;
+    };
+  };
   [key: string]: unknown;
 }
 
 interface OpenCodeToolResultEvent {
   type: "tool_result";
-  timestamp?: string;
+  timestamp?: number;
+  sessionID?: string;
+  part?: {
+    callID?: string;
+    state?: {
+      status?: string;
+      output?: string;
+    };
+  };
+  // fallback fields for older format
   tool_id?: string;
   status?: "success" | "error";
   output?: string;
@@ -155,6 +164,7 @@ const messageHandlers = {
     log.info(
       `🔵 OpenCode init: session_id=${event.session_id || "unknown"}, model=${event.model || "unknown"}`
     );
+    log.info(`🔵 OpenCode init event (full): ${JSON.stringify(event)}`);
     finalOutput = "";
     accumulatedTokens = { input: 0, output: 0 };
     tokensLogged = false;
@@ -186,9 +196,6 @@ const messageHandlers = {
     // log from text events only to avoid duplicates
     if (event.part?.text?.trim()) {
       const message = event.part.text.trim();
-      log.info(
-        `📝 OpenCode text output: ${message.substring(0, 200)}${message.length > 200 ? "..." : ""}`
-      );
       log.box(message, { title: "OpenCode" });
       finalOutput = message;
     }
@@ -221,45 +228,46 @@ const messageHandlers = {
     }
   },
   tool_use: (event: OpenCodeToolUseEvent) => {
-    if (event.tool_name && event.tool_id) {
-      toolCallTimings.set(event.tool_id, Date.now());
-      const paramsStr = event.parameters
-        ? JSON.stringify(event.parameters).substring(0, 500)
-        : "{}";
-      const stepContext = currentStepId
-        ? ` (step=${currentStepType || "unknown"}, stepId=${currentStepId.substring(0, 20)}...)`
-        : "";
-      log.info(`🔧 OpenCode tool_use: ${event.tool_name}${stepContext}, id=${event.tool_id}`);
-      log.info(`   Parameters: ${paramsStr}${paramsStr.length >= 500 ? "..." : ""}`);
+    const toolName = event.part?.tool;
+    const toolId = event.part?.callID;
+    const parameters = event.part?.state?.input;
+    const status = event.part?.state?.status;
+    const output = event.part?.state?.output;
 
+    if (toolName && toolId) {
       // track tool call in current step
       if (stepHistory.length > 0) {
-        stepHistory[stepHistory.length - 1].toolCalls.push(event.tool_name);
+        stepHistory[stepHistory.length - 1].toolCalls.push(toolName);
       }
 
       log.toolCall({
-        toolName: event.tool_name,
-        input: event.parameters || {},
+        toolName,
+        input: parameters || {},
       });
+
+      // if tool already completed (status in same event), log output
+      if (status === "completed" && output) {
+        log.debug(`  output: ${output}`);
+      }
     }
   },
   tool_result: (event: OpenCodeToolResultEvent) => {
-    if (event.tool_id) {
-      const toolStartTime = toolCallTimings.get(event.tool_id);
+    // handle both new part structure and legacy flat structure
+    const toolId = event.part?.callID || event.tool_id;
+    const status = event.part?.state?.status || event.status || "unknown";
+    const output = event.part?.state?.output || event.output;
+
+    if (toolId) {
+      const toolStartTime = toolCallTimings.get(toolId);
       if (toolStartTime) {
         const toolDuration = Date.now() - toolStartTime;
-        toolCallTimings.delete(event.tool_id);
-        const status = event.status || "unknown";
+        toolCallTimings.delete(toolId);
         const stepContext = currentStepId ? ` (step=${currentStepType || "unknown"})` : "";
-        const outputPreview =
-          typeof event.output === "string"
-            ? event.output.substring(0, 500)
-            : JSON.stringify(event.output).substring(0, 500);
         log.info(
-          `🔧 OpenCode tool_result${stepContext}: id=${event.tool_id}, status=${status}, duration=${toolDuration}ms`
+          `🔧 OpenCode tool_result${stepContext}: id=${toolId}, status=${status}, duration=${toolDuration}ms`
         );
-        if (outputPreview && outputPreview !== "{}" && outputPreview !== "null") {
-          log.info(`   Output: ${outputPreview}${outputPreview.length >= 500 ? "..." : ""}`);
+        if (output) {
+          log.debug(`  output: ${typeof output === "string" ? output : JSON.stringify(output)}`);
         }
         if (toolDuration > 5000) {
           log.warning(
@@ -268,9 +276,8 @@ const messageHandlers = {
         }
       }
     }
-    if (event.status === "error") {
-      const errorMsg =
-        typeof event.output === "string" ? event.output : JSON.stringify(event.output);
+    if (status === "error") {
+      const errorMsg = typeof output === "string" ? output : JSON.stringify(output);
       log.warning(`❌ Tool call failed: ${errorMsg}`);
     }
   },
@@ -362,6 +369,14 @@ export const opencode = agent({
 
     log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
     log.info(`📁 Working directory: ${repoDir}`);
+    log.info(`🏠 HOME env var: ${env.HOME}`);
+    log.info(`📋 Config directory: ${join(env.HOME!, ".config", "opencode")}`);
+
+    // log key env vars (not values for security)
+    const envKeys = Object.keys(env).filter(
+      (k) => !k.includes("KEY") && !k.includes("TOKEN") && !k.includes("SECRET")
+    );
+    log.info(`🔑 Environment keys (non-sensitive): ${envKeys.join(", ")}`);
     const startTime = Date.now();
     let lastActivityTime = startTime;
     let eventCount = 0;
@@ -375,7 +390,7 @@ export const opencode = agent({
       timeout: 600000, // 10 minutes timeout to prevent infinite hangs
       stdio: ["ignore", "pipe", "pipe"],
       onStdout: async (chunk) => {
-        log.debug(`[opencode stdout] ${chunk}`);
+        log.debug(JSON.stringify(JSON.parse(chunk), null, 2));
         const text = chunk.toString();
         output += text;
 
@@ -406,23 +421,10 @@ export const opencode = agent({
             if (handler) {
               await handler(event as never);
             } else {
-              // log unhandled event types for visibility (but don't spam)
-              if (
-                event.type &&
-                ![
-                  "init",
-                  "message",
-                  "text",
-                  "step_start",
-                  "step_finish",
-                  "tool_use",
-                  "tool_result",
-                  "result",
-                  "error",
-                ].includes(event.type)
-              ) {
-                log.debug(`📋 OpenCode event (unhandled): type=${event.type}`);
-              }
+              // log unhandled event types for visibility
+              log.info(
+                `📋 OpenCode event (unhandled): type=${event.type}, data=${JSON.stringify(event).substring(0, 500)}`
+              );
             }
           } catch {
             // non-JSON lines are ignored
@@ -430,6 +432,7 @@ export const opencode = agent({
         }
       },
       onStderr: (chunk) => {
+        log.debug(JSON.stringify(JSON.parse(chunk), null, 2));
         const trimmed = chunk.trim();
         if (trimmed) {
           log.warning(trimmed);
@@ -517,8 +520,10 @@ function configureOpenCodeMcpServers({
 
   config.mcp = opencodeMcpServers;
 
-  writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+  const configJson = JSON.stringify(config, null, 2);
+  writeFileSync(configPath, configJson, "utf-8");
   log.info(`MCP config written to ${configPath}`);
+  log.info(`MCP config contents:\n${configJson}`);
 }
 
 /**
