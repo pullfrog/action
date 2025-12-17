@@ -1,12 +1,28 @@
-# Ensure lockfile is up to date if package.json changed
+# Check if lockfile needs updating
 if git diff --cached --name-only | grep -q "^package.json$"; then
     echo "🔒 Updating lockfile..."
     pnpm lock
+    git add pnpm-lock.yaml
+fi
 
-    # Build the action before committing
+# Check if entry needs rebuilding
+# Rebuild if: entry.ts/esbuild.config.js/.ts files are staged, OR if entry is out of date
+NEEDS_REBUILD=false
+
+# Check staged files
+if git diff --cached --name-only | grep -qE "^(entry\.ts|esbuild\.config\.js|.*\.ts)$"; then
+    NEEDS_REBUILD=true
+fi
+
+# Check if entry is out of date compared to entry.ts
+if [ -f entry.ts ] && [ -f entry ]; then
+    if [ entry.ts -nt entry ] || [ esbuild.config.js -nt entry ]; then
+        NEEDS_REBUILD=true
+    fi
+fi
+
+if [ "$NEEDS_REBUILD" = true ]; then
     echo "🔨 Building action..."
     pnpm build
-
-    # Add the built files and lockfile to the commit
-    git add entry pnpm-lock.yaml
+    git add entry
 fi
