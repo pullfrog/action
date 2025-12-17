@@ -1,18 +1,18 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const PullRequestInfo = type({
   pull_number: type.number.describe("The pull request number to fetch"),
 });
 
-export function PullRequestInfoTool(ctx: Context) {
+export function PullRequestInfoTool(ctx: ToolContext) {
   return tool({
     name: "get_pull_request",
     description:
       "Retrieve PR metadata (number, title, state, base/head branches, fork status). To checkout a PR branch locally, use checkout_pr instead.",
     parameters: PullRequestInfo,
-    execute: execute(ctx, async ({ pull_number }) => {
+    execute: execute(async ({ pull_number }) => {
       const pr = await ctx.octokit.rest.pulls.get({
         owner: ctx.owner,
         repo: ctx.name,

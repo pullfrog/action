@@ -1,7 +1,7 @@
 import { relative, resolve } from "node:path";
 import { type } from "arktype";
+import type { ToolContext } from "../main.ts";
 import { $ } from "../utils/shell.ts";
-import type { Context } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const ListFiles = type({
@@ -10,13 +10,13 @@ export const ListFiles = type({
     .default("."),
 });
 
-export function ListFilesTool(_ctx: Context) {
+export function ListFilesTool(_ctx: ToolContext) {
   return tool({
     name: "list_files",
     description:
       "List files in the repository, including both git-tracked and untracked files. Useful for discovering the file structure and locating files, including newly created files that haven't been committed yet.",
     parameters: ListFiles,
-    execute: execute(_ctx, async ({ path }: { path?: string }) => {
+    execute: execute(async ({ path }: { path?: string }) => {
       const pathStr = path ?? ".";
       const cwd = process.cwd();
 

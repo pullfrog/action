@@ -1,5 +1,6 @@
+import type { Octokit } from "@octokit/rest";
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { log } from "../utils/cli.ts";
 import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
@@ -20,23 +21,39 @@ export type CheckoutPrResult = {
   headRepo: string;
 };
 
+interface CheckoutPrBranchParams {
+  octokit: Octokit;
+  owner: string;
+  name: string;
+  token: string;
+  pullNumber: number;
+}
+
+interface CheckoutPrBranchResult {
+  prNumber: number;
+}
+
 /**
  * Shared helper to checkout a PR branch and configure fork remotes.
  * Assumes origin remote is already configured with authentication.
+ * Returns the PR number for caller to set on toolState.
  */
-export async function checkoutPrBranch(ctx: Context, pull_number: number): Promise<void> {
-  log.debug(`🔀 checking out PR #${pull_number}...`);
+export async function checkoutPrBranch(
+  params: CheckoutPrBranchParams
+): Promise<CheckoutPrBranchResult> {
+  const { octokit, owner, name, token, pullNumber } = params;
+  log.info(`🔀 checking out PR #${pullNumber}...`);
 
   // fetch PR metadata
-  const pr = await ctx.octokit.rest.pulls.get({
-    owner: ctx.owner,
-    repo: ctx.name,
-    pull_number,
+  const pr = await octokit.rest.pulls.get({
+    owner,
+    repo: name,
+    pull_number: pullNumber,
   });
 
   const headRepo = pr.data.head.repo;
   if (!headRepo) {
-    throw new Error(`PR #${pull_number} source repository was deleted`);
+    throw new Error(`PR #${pullNumber} source repository was deleted`);
   }
 
   const isFork = headRepo.full_name !== pr.data.base.repo.full_name;
@@ -59,12 +76,12 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
     $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
     // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-    log.debug(`🌿 fetching PR #${pull_number} (${headBranch})...`);
-    $("git", ["fetch", "--no-tags", "origin", `pull/${pull_number}/head:${headBranch}`]);
+    log.debug(`🌿 fetching PR #${pullNumber} (${headBranch})...`);
+    $("git", ["fetch", "--no-tags", "origin", `pull/${pullNumber}/head:${headBranch}`]);
 
     // checkout the branch
     $("git", ["checkout", headBranch]);
-    log.debug(`✓ checked out PR #${pull_number}`);
+    log.debug(`✓ checked out PR #${pullNumber}`);
   }
 
   // ensure base branch is fetched (needed for diff operations)
@@ -78,8 +95,8 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
   // NOTE: This always runs regardless of alreadyOnBranch, because setupGit doesn't configure
   // fork remotes. This ensures fork PRs can push even when checkout_pr is called after setupGit.
   if (isFork) {
-    const remoteName = `pr-${pull_number}`;
-    const forkUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${headRepo.full_name}.git`;
+    const remoteName = `pr-${pullNumber}`;
+    const forkUrl = `https://x-access-token:${token}@github.com/${headRepo.full_name}.git`;
 
     // add fork as a named remote (ignore error if already exists)
     try {
@@ -107,18 +124,26 @@ export async function checkoutPrBranch(ctx: Context, pull_number: number): Promi
     $("git", ["config", `branch.${headBranch}.pushRemote`, "origin"]);
   }
 
-  // set PR context
-  ctx.toolState.prNumber = pull_number;
+  return { prNumber: pullNumber };
 }
 
-export function CheckoutPrTool(ctx: Context) {
+export function CheckoutPrTool(ctx: ToolContext) {
   return tool({
     name: "checkout_pr",
     description:
       "Checkout a pull request branch locally. This fetches the PR branch and sets up push configuration for fork PRs. Use this when you need to work on an existing PR.",
     parameters: CheckoutPr,
-    execute: execute(ctx, async ({ pull_number }) => {
-      await checkoutPrBranch(ctx, pull_number);
+    execute: execute(async ({ pull_number }) => {
+      const result = await checkoutPrBranch({
+        octokit: ctx.octokit,
+        owner: ctx.owner,
+        name: ctx.name,
+        token: ctx.githubInstallationToken,
+        pullNumber: pull_number,
+      });
+
+      // set prNumber on toolState
+      ctx.toolState.prNumber = result.prNumber;
 
       // fetch PR metadata to return result
       const pr = await ctx.octokit.rest.pulls.get({

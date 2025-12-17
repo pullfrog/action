@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const SelectMode = type({
@@ -8,13 +8,13 @@ export const SelectMode = type({
   ),
 });
 
-export function SelectModeTool(ctx: Context) {
+export function SelectModeTool(ctx: ToolContext) {
   return tool({
     name: "select_mode",
     description:
       "Select a mode and get its detailed prompt instructions. Call this first to determine which mode to use based on the request.",
     parameters: SelectMode,
-    execute: execute(ctx, async ({ modeName }) => {
+    execute: execute(async ({ modeName }) => {
       const selectedMode = ctx.modes.find((m) => m.name.toLowerCase() === modeName.toLowerCase());
 
       if (!selectedMode) {

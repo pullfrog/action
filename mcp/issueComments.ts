@@ -1,18 +1,18 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const GetIssueComments = type({
   issue_number: type.number.describe("The issue number to get comments for"),
 });
 
-export function GetIssueCommentsTool(ctx: Context) {
+export function GetIssueCommentsTool(ctx: ToolContext) {
   return tool({
     name: "get_issue_comments",
     description:
       "Get all comments for a GitHub issue. Returns all comments including the issue body and all subsequent discussion comments.",
     parameters: GetIssueComments,
-    execute: execute(ctx, async ({ issue_number }) => {
+    execute: execute(async ({ issue_number }) => {
       // set issue context
       ctx.toolState.issueNumber = issue_number;
 

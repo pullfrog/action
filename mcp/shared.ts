@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { FastMCP, Tool } from "fastmcp";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
@@ -40,7 +40,7 @@ export const handleToolError = (error: unknown): ToolResult => {
  * Helper to wrap a tool execute function with error handling.
  * Captures ctx in closure so tools don't need to handle try/catch.
  */
-export const execute = <T>(ctx: Context, fn: (params: T) => Promise<Record<string, any>>) => {
+export const execute = <T>(fn: (params: T) => Promise<Record<string, any>>) => {
   return async (params: T): Promise<ToolResult> => {
     try {
       const result = await fn(params);
@@ -50,10 +50,6 @@ export const execute = <T>(ctx: Context, fn: (params: T) => Promise<Record<strin
     }
   };
 };
-
-export function isProgressCommentDisabled(ctx: Context): boolean {
-  return ctx.payload.disableProgressComment === true;
-}
 
 /**
  * Sanitize JSON schema to remove problematic fields that Gemini CLI/API can't handle
@@ -176,10 +172,10 @@ function sanitizeTool<T extends Tool<any, any>>(tool: T): T {
   } as T;
 }
 
-export const addTools = (ctx: Context, server: FastMCP, tools: Tool<any, any>[]) => {
+export const addTools = (ctx: ToolContext, server: FastMCP, tools: Tool<any, any>[]) => {
   // sanitize schemas for gemini agent and opencode (when using Google API)
   // both have issues with draft-2020-12 schemas and any_of enum constructs
-  const shouldSanitize = ctx.agentName === "gemini" || ctx.agentName === "opencode";
+  const shouldSanitize = ctx.agent.name === "gemini" || ctx.agent.name === "opencode";
 
   for (const tool of tools) {
     const processedTool = shouldSanitize ? sanitizeTool(tool) : tool;

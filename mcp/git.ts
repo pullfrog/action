@@ -1,11 +1,11 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
 
-export function CreateBranchTool(ctx: Context) {
+export function CreateBranchTool(ctx: ToolContext) {
   const defaultBranch = ctx.repo.default_branch || "main";
 
   const CreateBranch = type({
@@ -22,7 +22,7 @@ export function CreateBranchTool(ctx: Context) {
     description:
       "Create a new git branch from the specified base branch. The branch will be created locally and pushed to the remote repository.",
     parameters: CreateBranch,
-    execute: execute(ctx, async ({ branchName, baseBranch }) => {
+    execute: execute(async ({ branchName, baseBranch }) => {
       // baseBranch should always be defined due to default, but TypeScript needs help
       const resolvedBaseBranch = baseBranch || ctx.repo.default_branch || "main";
 
@@ -70,13 +70,13 @@ export const CommitFiles = type({
     ),
 });
 
-export function CommitFilesTool(ctx: Context) {
+export function CommitFilesTool(_ctx: ToolContext) {
   return tool({
     name: "commit_files",
     description:
       "Stage and commit files with a commit message. If files array is empty, commits all staged changes. The commit will be attributed to the correct bot account.",
     parameters: CommitFiles,
-    execute: execute(ctx, async ({ message, files }) => {
+    execute: execute(async ({ message, files }) => {
       // validate commit message for secrets
       if (containsSecrets(message)) {
         throw new Error(
@@ -141,13 +141,13 @@ export const PushBranch = type({
   force: type.boolean.describe("Force push (use with caution)").default(false),
 });
 
-export function PushBranchTool(_ctx: Context) {
+export function PushBranchTool(_ctx: ToolContext) {
   return tool({
     name: "push_branch",
     description:
       "Push the current branch (or specified branch) to the remote repository. Git automatically determines the correct remote based on branch config (set by checkout_pr for fork PRs). Never force push unless explicitly requested.",
     parameters: PushBranch,
-    execute: execute(_ctx, async ({ branchName, force }) => {
+    execute: execute(async ({ branchName, force }) => {
       const branch = branchName || $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
 
       // check if branch has a configured pushRemote

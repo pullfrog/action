@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 // graphql query to fetch all review threads with comments and replies
@@ -86,13 +86,13 @@ export const GetReviewComments = type({
   review_id: type.number.describe("The review ID to get comments for"),
 });
 
-export function GetReviewCommentsTool(ctx: Context) {
+export function GetReviewCommentsTool(ctx: ToolContext) {
   return tool({
     name: "get_review_comments",
     description:
       "Get all review comments and their replies for a specific pull request review. Returns line-by-line comments that were left on specific code locations, including any threaded replies.",
     parameters: GetReviewComments,
-    execute: execute(ctx, async ({ pull_number, review_id }) => {
+    execute: execute(async ({ pull_number, review_id }) => {
       // fetch all review threads using graphql
       const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
         owner: ctx.owner,
@@ -189,13 +189,13 @@ export const ListPullRequestReviews = type({
   pull_number: type.number.describe("The pull request number to list reviews for"),
 });
 
-export function ListPullRequestReviewsTool(ctx: Context) {
+export function ListPullRequestReviewsTool(ctx: ToolContext) {
   return tool({
     name: "list_pull_request_reviews",
     description:
       "List all reviews for a pull request. Returns all reviews including approvals, request changes, and comments.",
     parameters: ListPullRequestReviews,
-    execute: execute(ctx, async ({ pull_number }) => {
+    execute: execute(async ({ pull_number }) => {
       const reviews = await ctx.octokit.paginate(ctx.octokit.rest.pulls.listReviews, {
         owner: ctx.owner,
         repo: ctx.name,

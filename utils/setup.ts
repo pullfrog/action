@@ -1,6 +1,8 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import type { Context } from "../main.ts";
+import type { Octokit } from "@octokit/rest";
+import type { Payload } from "../external.ts";
+import type { ToolState } from "../main.ts";
 import { checkoutPrBranch } from "../mcp/checkout.ts";
 import { log } from "./cli.ts";
 import { $ } from "./shell.ts";
@@ -71,6 +73,15 @@ export function setupGitConfig(): void {
   }
 }
 
+interface SetupGitAuthParams {
+  token: string;
+  owner: string;
+  name: string;
+  payload: Payload;
+  octokit: Octokit;
+  toolState: ToolState;
+}
+
 /**
  * Setup git authentication for the repository.
  * For PR events, uses the shared checkoutPrBranch helper (also used by checkout_pr MCP tool).
@@ -80,7 +91,7 @@ export function setupGitConfig(): void {
  * - checkoutPrBranch sets per-branch pushRemote config for fork PRs
  * - diff operations use: git diff origin/<base>..HEAD
  */
-export async function setupGit(ctx: Context): Promise<void> {
+export async function setupGitAuth(params: SetupGitAuthParams): Promise<void> {
   const repoDir = process.cwd();
 
   log.info("» setting up git authentication...");
@@ -97,20 +108,29 @@ export async function setupGit(ctx: Context): Promise<void> {
   }
 
   // non-PR events: set up origin with token, stay on default branch
-  if (ctx.payload.event.is_pr !== true || !ctx.payload.event.issue_number) {
-    const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+  if (params.payload.event.is_pr !== true || !params.payload.event.issue_number) {
+    const originUrl = `https://x-access-token:${params.token}@github.com/${params.owner}/${params.name}.git`;
     $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
     log.info("» updated origin URL with authentication token");
     return;
   }
 
   // PR event: checkout PR branch using shared helper
-  const prNumber = ctx.payload.event.issue_number;
+  const prNumber = params.payload.event.issue_number;
 
   // ensure origin is configured with auth token before checkout
-  const originUrl = `https://x-access-token:${ctx.githubInstallationToken}@github.com/${ctx.owner}/${ctx.name}.git`;
+  const originUrl = `https://x-access-token:${params.token}@github.com/${params.owner}/${params.name}.git`;
   $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
 
   // use shared checkout helper (handles fork remotes, push config, etc.)
-  await checkoutPrBranch(ctx, prNumber);
+  const prContext = await checkoutPrBranch({
+    octokit: params.octokit,
+    owner: params.owner,
+    name: params.name,
+    token: params.token,
+    pullNumber: prNumber,
+  });
+
+  // set prNumber on toolState (the only mutation)
+  params.toolState.prNumber = prContext.prNumber;
 }

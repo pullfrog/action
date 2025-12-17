@@ -1,18 +1,18 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const GetCheckSuiteLogs = type({
   check_suite_id: type.number.describe("the id from check_suite.id"),
 });
 
-export function GetCheckSuiteLogsTool(ctx: Context) {
+export function GetCheckSuiteLogsTool(ctx: ToolContext) {
   return tool({
     name: "get_check_suite_logs",
     description:
       "get workflow run logs for a failed check suite. pass check_suite.id from the webhook payload.",
     parameters: GetCheckSuiteLogs,
-    execute: execute(ctx, async ({ check_suite_id }) => {
+    execute: execute(async ({ check_suite_id }) => {
       // get workflow runs for this specific check suite
       const workflowRuns = await ctx.octokit.paginate(
         ctx.octokit.rest.actions.listWorkflowRunsForRepo,

@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import { agentsManifest } from "../external.ts";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
@@ -13,7 +13,7 @@ export const PullRequest = type({
   base: type.string.describe("the base branch to merge into (e.g., 'main')"),
 });
 
-function buildPrBodyWithFooter(ctx: Context, body: string): string {
+function buildPrBodyWithFooter(ctx: ToolContext, body: string): string {
   const agentName = ctx.payload.agent;
   const agentInfo = agentName ? agentsManifest[agentName] : null;
 
@@ -29,12 +29,12 @@ function buildPrBodyWithFooter(ctx: Context, body: string): string {
   return `${bodyWithoutFooter}${footer}`;
 }
 
-export function PullRequestTool(ctx: Context) {
+export function PullRequestTool(ctx: ToolContext) {
   return tool({
     name: "create_pull_request",
     description: "Create a pull request from the current branch",
     parameters: PullRequest,
-    execute: execute(ctx, async ({ title, body, base }) => {
+    execute: execute(async ({ title, body, base }) => {
       const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false });
       log.debug(`Current branch: ${currentBranch}`);
 

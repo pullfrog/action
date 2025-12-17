@@ -1,17 +1,17 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const IssueInfo = type({
   issue_number: type.number.describe("The issue number to fetch"),
 });
 
-export function IssueInfoTool(ctx: Context) {
+export function IssueInfoTool(ctx: ToolContext) {
   return tool({
     name: "get_issue",
     description: "Retrieve GitHub issue information by issue number",
     parameters: IssueInfo,
-    execute: execute(ctx, async ({ issue_number }) => {
+    execute: execute(async ({ issue_number }) => {
       const issue = await ctx.octokit.rest.issues.get({
         owner: ctx.owner,
         repo: ctx.name,

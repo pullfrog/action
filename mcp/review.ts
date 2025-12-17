@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { deleteProgressComment } from "./comment.ts";
@@ -37,7 +37,7 @@ type AddPullRequestReviewThreadResponse = {
 
 // helper to find existing pending review for the authenticated user
 async function findPendingReview(
-  ctx: Context,
+  ctx: ToolContext,
   pull_number: number
 ): Promise<{ id: number; node_id: string } | null> {
   const reviews = await ctx.octokit.rest.pulls.listReviews({
@@ -61,13 +61,13 @@ export const StartReview = type({
   pull_number: type.number.describe("The pull request number to review"),
 });
 
-export function StartReviewTool(ctx: Context) {
+export function StartReviewTool(ctx: ToolContext) {
   return tool({
     name: "start_review",
     description:
       "Start a new review session for a pull request. Creates a scratchpad file for gathering thoughts and a pending review on GitHub. Must be called before add_review_comment.",
     parameters: StartReview,
-    execute: execute(ctx, async ({ pull_number }) => {
+    execute: execute(async ({ pull_number }) => {
       // check if review already started in this session
       if (ctx.toolState.review) {
         throw new Error(
@@ -154,13 +154,13 @@ export const AddReviewComment = type({
     .optional(),
 });
 
-export function AddReviewCommentTool(ctx: Context) {
+export function AddReviewCommentTool(ctx: ToolContext) {
   return tool({
     name: "add_review_comment",
     description:
       "Add a comment to the current review session. Must call start_review first. Comments are stored in draft state until submit_review is called.",
     parameters: AddReviewComment,
-    execute: execute(ctx, async ({ path, line, body, side }) => {
+    execute: execute(async ({ path, line, body, side }) => {
       // check if review started
       if (!ctx.toolState.review) {
         throw new Error("No review session started. Call start_review first.");
@@ -195,13 +195,13 @@ export const SubmitReview = type({
     .optional(),
 });
 
-export function SubmitReviewTool(ctx: Context) {
+export function SubmitReviewTool(ctx: ToolContext) {
   return tool({
     name: "submit_review",
     description:
       "Submit the current review session. All comments added via add_review_comment will be published. Must call start_review first.",
     parameters: SubmitReview,
-    execute: execute(ctx, async ({ body }) => {
+    execute: execute(async ({ body }) => {
       // check if review started
       if (!ctx.toolState.review) {
         throw new Error("No review session started. Call start_review first.");
@@ -288,7 +288,7 @@ export const Review = type({
     .optional(),
 });
 
-export function ReviewTool(ctx: Context) {
+export function ReviewTool(ctx: ToolContext) {
   return tool({
     name: "submit_pull_request_review",
     description:
@@ -297,7 +297,7 @@ export function ReviewTool(ctx: Context) {
       "IMPORTANT: 95%+ of feedback should be in 'comments' array with file paths and line numbers. " +
       "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts.",
     parameters: Review,
-    execute: execute(ctx, async ({ pull_number, body, commit_id, comments = [] }) => {
+    execute: execute(async ({ pull_number, body, commit_id, comments = [] }) => {
       // set PR context
       ctx.toolState.prNumber = pull_number;
 

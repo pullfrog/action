@@ -2,7 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { fetchWorkflowRunInfo } from "../utils/api.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { getGitHubInstallationToken, parseRepoContext } from "../utils/github.ts";
@@ -66,13 +66,13 @@ export const Comment = type({
   body: type.string.describe("the comment body content"),
 });
 
-export function CreateCommentTool(ctx: Context) {
+export function CreateCommentTool(ctx: ToolContext) {
   return tool({
     name: "create_issue_comment",
     description:
       "Create a comment on a GitHub issue. NOTE: Do NOT use this for progress updates or status summaries - use report_progress instead, which updates the existing progress comment.",
     parameters: Comment,
-    execute: execute(ctx, async ({ issueNumber, body }) => {
+    execute: execute(async ({ issueNumber, body }) => {
       const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.issues.createComment({
@@ -97,12 +97,12 @@ export const EditComment = type({
   body: type.string.describe("the new comment body content"),
 });
 
-export function EditCommentTool(ctx: Context) {
+export function EditCommentTool(ctx: ToolContext) {
   return tool({
     name: "edit_issue_comment",
     description: "Edit a GitHub issue comment by its ID",
     parameters: EditComment,
-    execute: execute(ctx, async ({ commentId, body }) => {
+    execute: execute(async ({ commentId, body }) => {
       const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.issues.updateComment({
@@ -170,7 +170,7 @@ export const ReportProgress = type({
  * Returns result data if successful, undefined if comment cannot be created.
  */
 export async function reportProgress(
-  ctx: Context,
+  ctx: ToolContext,
   { body }: { body: string }
 ): Promise<
   | {
@@ -231,13 +231,13 @@ export async function reportProgress(
   };
 }
 
-export function ReportProgressTool(ctx: Context) {
+export function ReportProgressTool(ctx: ToolContext) {
   return tool({
     name: "report_progress",
     description:
       "Share progress on the associated GitHub issue/PR. Call this to post updates as you work. The first call creates a comment, subsequent calls update it. Use this throughout your work to keep stakeholders informed.",
     parameters: ReportProgress,
-    execute: execute(ctx, async ({ body }) => {
+    execute: execute(async ({ body }) => {
       const result = await reportProgress(ctx, { body });
 
       if (!result) {
@@ -269,7 +269,7 @@ export function wasProgressCommentUpdated(): boolean {
  * Delete the progress comment if it exists.
  * Used after submitting a PR review since the review body contains all necessary info.
  */
-export async function deleteProgressComment(ctx: Context): Promise<boolean> {
+export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> {
   const existingCommentId = getProgressCommentId();
   if (!existingCommentId) {
     return false;
@@ -380,13 +380,13 @@ export const ReplyToReviewComment = type({
   ),
 });
 
-export function ReplyToReviewCommentTool(ctx: Context) {
+export function ReplyToReviewCommentTool(ctx: ToolContext) {
   return tool({
     name: "reply_to_review_comment",
     description:
       "Reply to a PR review comment thread. Call this for EACH comment you address. Keep replies extremely brief (1 sentence max).",
     parameters: ReplyToReviewComment,
-    execute: execute(ctx, async ({ pull_number, comment_id, body }) => {
+    execute: execute(async ({ pull_number, comment_id, body }) => {
       const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
 
       const result = await ctx.octokit.rest.pulls.createReplyForReviewComment({

@@ -1,18 +1,18 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const GetIssueEvents = type({
   issue_number: type.number.describe("The issue number to get events for"),
 });
 
-export function GetIssueEventsTool(ctx: Context) {
+export function GetIssueEventsTool(ctx: ToolContext) {
   return tool({
     name: "get_issue_events",
     description:
       "Get timeline events for a GitHub issue that aren't reflected in the current state. Returns cross-references to other issues/PRs and commit references. Note: current labels, assignees, state, and milestone are already available via get_issue.",
     parameters: GetIssueEvents,
-    execute: execute(ctx, async ({ issue_number }) => {
+    execute: execute(async ({ issue_number }) => {
       // set issue context
       ctx.toolState.issueNumber = issue_number;
 

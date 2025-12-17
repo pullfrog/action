@@ -506,7 +506,7 @@ export const agent = <const input extends AgentInput>(input: input): defineAgent
 
 export interface AgentInput {
   name: AgentName;
-  install: () => Promise<string>;
+  install: (token?: string) => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
 }
 

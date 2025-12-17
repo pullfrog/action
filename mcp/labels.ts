@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { execute, tool } from "./shared.ts";
 
 export const AddLabelsParams = type({
@@ -7,13 +7,13 @@ export const AddLabelsParams = type({
   labels: type.string.array().atLeastLength(1).describe("array of label names to add"),
 });
 
-export function AddLabelsTool(ctx: Context) {
+export function AddLabelsTool(ctx: ToolContext) {
   return tool({
     name: "add_labels",
     description:
       "Add labels to a GitHub issue or pull request. Only use labels that already exist in the repository.",
     parameters: AddLabelsParams,
-    execute: execute(ctx, async ({ issue_number, labels }) => {
+    execute: execute(async ({ issue_number, labels }) => {
       const result = await ctx.octokit.rest.issues.addLabels({
         owner: ctx.owner,
         repo: ctx.name,

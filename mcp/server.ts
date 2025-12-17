@@ -1,9 +1,9 @@
 import "./arkConfig.ts";
-// this must be imported first
 import { createServer } from "node:net";
+// this must be imported first
 import { FastMCP, type Tool } from "fastmcp";
 import { ghPullfrogMcpName } from "../external.ts";
-import type { Context } from "../main.ts";
+import type { ToolContext } from "../main.ts";
 import { CheckoutPrTool } from "./checkout.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
@@ -25,7 +25,7 @@ import { PullRequestInfoTool } from "./prInfo.ts";
 import { AddReviewCommentTool, StartReviewTool, SubmitReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
-import { addTools, isProgressCommentDisabled } from "./shared.ts";
+import { addTools } from "./shared.ts";
 
 /**
  * Find an available port starting from the given port
@@ -60,7 +60,7 @@ async function findAvailablePort(startPort: number): Promise<number> {
  * Start the MCP HTTP server and return the URL and close function
  */
 export async function startMcpHttpServer(
-  ctx: Context
+  ctx: ToolContext
 ): Promise<{ url: string; close: () => Promise<void> }> {
   const server = new FastMCP({
     name: ghPullfrogMcpName,
@@ -95,8 +95,7 @@ export async function startMcpHttpServer(
     ListFilesTool(ctx),
   ];
 
-  // only include ReportProgressTool if progress comment is not disabled
-  if (!isProgressCommentDisabled(ctx)) {
+  if (!ctx.payload.disableProgressComment) {
     tools.push(ReportProgressTool(ctx));
   }
 

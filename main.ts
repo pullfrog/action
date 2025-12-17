@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
 import { Octokit } from "@octokit/rest";
+import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
-import { agents } from "./agents/index.ts";
+import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
 import type { AgentName, Payload } from "./external.ts";
 import { agentsManifest } from "./external.ts";
@@ -22,7 +23,7 @@ import {
   revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
-import { setupGit, setupGitConfig } from "./utils/setup.ts";
+import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
 // runtime validation using agents (needed for ArkType)
@@ -50,6 +51,20 @@ export interface MainResult {
   error?: string | undefined;
 }
 
+// intermediate result types for deterministic context building
+interface GitHubSetup {
+  token: string;
+  owner: string;
+  name: string;
+  octokit: Octokit;
+  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
+  repoSettings: RepoSettings;
+}
+
+type ApiKeySetup =
+  | { success: true; apiKey: string; apiKeys: Record<string, string> }
+  | { success: false; error: string };
+
 export async function main(inputs: Inputs): Promise<MainResult> {
   let mcpServerClose: (() => Promise<void>) | undefined;
   let payload: Payload | undefined;
@@ -57,39 +72,126 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   try {
     const timer = new Timer();
 
-    // parse payload early to extract agent
+    // phase 1: parse and validate inputs
     payload = parsePayload(inputs);
+    Inputs.assert(inputs);
+    setupGitConfig();
 
-    const partialCtx = await initializeContext(inputs, payload);
-    const ctx = partialCtx as Context;
-    ctx.toolState = {};
-    timer.checkpoint("initializeContext");
+    // phase 2: fast setup (github + temp dir)
+    const [githubSetup, sharedTempDir] = await Promise.all([
+      initializeGitHub(),
+      createTempDirectory(),
+    ]);
+    timer.checkpoint("githubSetup");
 
-    await setupGit(ctx);
-    timer.checkpoint("setupGit");
+    // phase 3: resolve agent (needs repo settings)
+    const agent = resolveAgent({
+      inputs,
+      payload,
+      repoSettings: githubSetup.repoSettings,
+    });
+    const resolvedPayload = { ...payload, agent: agent.name };
 
-    await setupTempDirectory(ctx);
-    timer.checkpoint("setupTempDirectory");
+    // phase 4: validate API key (sync, needs agent) - fail fast before long-running operations
+    const apiKeySetup = validateApiKey({
+      agent,
+      inputs,
+      owner: githubSetup.owner,
+      name: githubSetup.name,
+    });
+    if (!apiKeySetup.success) {
+      await reportErrorToComment({ error: apiKeySetup.error });
+      return { success: false, error: apiKeySetup.error };
+    }
 
-    // TODO: david fix this garbage
-    // run agent CLI installation and prep phase in parallel
-    const [, prepResults] = await Promise.all([installAgentCli(ctx), runPrepPhase()]);
-    ctx.prepResults = prepResults;
+    // phase 5: parallel long-running operations (prep + agent install + git auth)
+    const toolState: ToolState = {};
+    const [prepResults, cliPath] = await Promise.all([
+      runPrepPhase(),
+      installAgentCli({ agent, token: githubSetup.token }),
+      setupGitAuth({
+        token: githubSetup.token,
+        owner: githubSetup.owner,
+        name: githubSetup.name,
+        payload: resolvedPayload,
+        octokit: githubSetup.octokit,
+        toolState,
+      }),
+    ]);
+    timer.checkpoint("prep+agentSetup+gitAuth");
 
-    // recompute modes now that we know if dependencies were preinstalled
+    // phase 6: compute modes (needs prep results)
     const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
-    ctx.modes = [
+    const computedModes: Mode[] = [
       ...getModes({
-        disableProgressComment: ctx.payload.disableProgressComment,
+        disableProgressComment: resolvedPayload.disableProgressComment,
         dependenciesPreinstalled,
       }),
-      ...(ctx.payload.modes || []),
+      ...(resolvedPayload.modes || []),
     ];
-    timer.checkpoint("installAgentCli+prepPhase");
 
-    await startMcpServer(ctx);
-    mcpServerClose = ctx.mcpServerClose;
-    timer.checkpoint("startMcpServer");
+    // phase 7: compute runId/jobId for MCP tools
+    const runId = process.env.GITHUB_RUN_ID || "";
+    if (runId) {
+      const workflowRunInfo = await fetchWorkflowRunInfo(runId);
+      if (workflowRunInfo.progressCommentId) {
+        process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+        log.info(`📝 Using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
+      }
+    }
+
+    let jobId: string | undefined;
+    const jobName = process.env.GITHUB_JOB;
+    if (jobName && runId) {
+      const jobs = await githubSetup.octokit.rest.actions.listJobsForWorkflowRun({
+        owner: githubSetup.owner,
+        repo: githubSetup.name,
+        run_id: parseInt(runId, 10),
+      });
+      const matchingJob = jobs.data.jobs.find((job) => job.name === jobName);
+      if (matchingJob) {
+        jobId = String(matchingJob.id);
+        log.info(`📋 Found job ID: ${jobId}`);
+      }
+    }
+
+    // phase 8: build tool context and start MCP server
+    const toolContext: ToolContext = {
+      owner: githubSetup.owner,
+      name: githubSetup.name,
+      githubInstallationToken: githubSetup.token,
+      octokit: githubSetup.octokit,
+      payload: resolvedPayload,
+      repo: githubSetup.repo,
+      repoSettings: githubSetup.repoSettings,
+      modes: computedModes,
+      prepResults,
+      toolState,
+      agent,
+      sharedTempDir,
+      runId,
+      jobId,
+    };
+
+    const { url: mcpServerUrl, close: mcpServerCloseFunc } = await startMcpHttpServer(toolContext);
+    mcpServerClose = mcpServerCloseFunc;
+    log.info(`🚀 MCP server started at ${mcpServerUrl}`);
+
+    const mcpServers = createMcpConfigs(mcpServerUrl);
+    log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
+    timer.checkpoint("mcpServer");
+
+    // BUILD FINAL IMMUTABLE CONTEXT
+    const ctx: AgentContext = {
+      ...toolContext,
+      inputs,
+      mcpServerUrl,
+      mcpServerClose: mcpServerCloseFunc,
+      mcpServers,
+      cliPath,
+      apiKey: apiKeySetup.apiKey,
+      apiKeys: apiKeySetup.apiKeys,
+    };
 
     // check for empty comment_ids in fix_review trigger - report and exit early
     if (
@@ -102,10 +204,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       });
       return { success: true };
     }
-
-    setupMcpServers(ctx);
-
-    await validateApiKey(ctx);
 
     const result = await runAgent(ctx);
     const mainResult = await handleAgentResult(result);
@@ -142,15 +240,22 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 /**
  * Get agents that have matching API keys in the inputs
  */
-function getAvailableAgents(inputs: Inputs): (typeof agents)[AgentName][] {
-  return Object.values(agents).filter((agent) => {
-    // for OpenCode, check if any API_KEY variable exists in inputs
-    if (agent.name === "opencode") {
-      return Object.keys(inputs).some((key) => key.includes("api_key"));
-    }
-    // for other agents, check apiKeyNames
-    return agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
-  });
+/**
+ * Check if an agent has API keys available (inputs or process.env for opencode)
+ */
+function agentHasApiKeys(agent: Agent, inputs: Inputs): boolean {
+  if (agent.name === "opencode") {
+    // check inputs first, then process.env
+    const hasInputKey = Object.keys(inputs).some((key) => key.includes("api_key"));
+    if (hasInputKey) return true;
+    return Object.keys(process.env).some((key) => key.includes("API_KEY") && process.env[key]);
+  }
+  const inputsRecord = inputs as Record<string, string | undefined>;
+  return agent.apiKeyNames.some((inputKey) => inputsRecord[inputKey]);
+}
+
+function getAvailableAgents(inputs: Inputs): Agent[] {
+  return Object.values(agents).filter((agent) => agentHasApiKeys(agent, inputs));
 }
 
 /**
@@ -165,28 +270,29 @@ function getAllPossibleKeyNames(): string[] {
 }
 
 /**
- * Throw an error for missing API key with helpful message linking to repo settings
+ * Build a helpful error message for missing API key with links to repo settings
  */
-async function throwMissingApiKeyError(ctx: Context): Promise<never> {
+function buildMissingApiKeyError(params: { agent: Agent; owner: string; name: string }): string {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
-  const settingsUrl = `${apiUrl}/console/${ctx.owner}/${ctx.name}`;
+  const settingsUrl = `${apiUrl}/console/${params.owner}/${params.name}`;
 
-  const githubRepoUrl = `https://github.com/${ctx.owner}/${ctx.name}`;
+  const githubRepoUrl = `https://github.com/${params.owner}/${params.name}`;
   const githubSecretsUrl = `${githubRepoUrl}/settings/secrets/actions`;
 
   // for OpenCode, use a generic message since it accepts any API key
-  const isOpenCode = ctx.agent?.name === "opencode";
+  const isOpenCode = params.agent.name === "opencode";
   let secretNameList: string;
   if (isOpenCode) {
     secretNameList =
       "any API key (e.g., `OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)";
   } else {
-    const inputKeys = ctx.agent?.apiKeyNames || getAllPossibleKeyNames();
+    const inputKeys =
+      params.agent.apiKeyNames.length > 0 ? params.agent.apiKeyNames : getAllPossibleKeyNames();
     const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
     secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
   }
 
-  const message = `Pullfrog is configured to use ${ctx.agent.displayName}, but the associated API key was not provided.
+  return `Pullfrog is configured to use ${params.agent.displayName}, but the associated API key was not provided.
 
 To fix this, add the required secret to your GitHub repository:
 
@@ -197,54 +303,34 @@ To fix this, add the required secret to your GitHub repository:
 5. Click "Add secret"
 
 Alternatively, configure Pullfrog to use a different agent at ${settingsUrl}`;
-
-  // report to comment if MCP context is available (server has started)
-  await reportErrorToComment({ error: message });
-  throw new Error(message);
 }
 
-export interface Context {
-  // flattened from RepoContext
+// tool context - subset of Context needed by MCP tools
+export interface ToolContext {
   owner: string;
   name: string;
-
-  // core fields
-  inputs: Inputs;
-  payload: Payload;
-  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
-  agentName: AgentName;
-  agent: (typeof agents)[AgentName];
   githubInstallationToken: string;
   octokit: Octokit;
-
-  // repo settings from Pullfrog API
+  payload: Payload;
+  repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
   repoSettings: RepoSettings;
-
-  // modes for MCP tools
   modes: Mode[];
-
-  // setup fields
-  sharedTempDir: string;
-
-  // mcp fields
-  mcpServerUrl: string;
-  mcpServerClose: () => Promise<void>;
-  mcpServers: ReturnType<typeof createMcpConfigs>;
-
-  // agent fields
-  cliPath: string;
-  apiKey: string;
-  apiKeys: Record<string, string>;
-
-  // prep phase results
   prepResults: PrepResult[];
-
-  // workflow run info
+  toolState: ToolState;
+  agent: Agent;
+  sharedTempDir: string;
   runId: string;
   jobId: string | undefined;
+}
 
-  // tool state - mutable scratchpad for tools
-  toolState: ToolState;
+export interface AgentContext extends Readonly<ToolContext> {
+  readonly inputs: Inputs;
+  readonly mcpServerUrl: string;
+  readonly mcpServerClose: () => Promise<void>;
+  readonly mcpServers: ReturnType<typeof createMcpConfigs>;
+  readonly cliPath: string;
+  readonly apiKey: string;
+  readonly apiKeys: Record<string, string>;
 }
 
 export interface ToolState {
@@ -256,80 +342,30 @@ export interface ToolState {
   };
 }
 
-async function initializeContext(
-  inputs: Inputs,
-  payload: Payload
-): Promise<
-  Omit<
-    Context,
-    | "mcpServerUrl"
-    | "mcpServerClose"
-    | "mcpServers"
-    | "cliPath"
-    | "apiKey"
-    | "apiKeys"
-    | "prepResults"
-    | "runId"
-    | "jobId"
-    | "toolState"
-  >
-> {
+/**
+ * Initialize GitHub connection: token, octokit, repo data, settings
+ */
+async function initializeGitHub(): Promise<GitHubSetup> {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
-  Inputs.assert(inputs);
-  setupGitConfig();
 
-  const githubInstallationToken = await setupGitHubInstallationToken();
+  const token = await setupGitHubInstallationToken();
   const { owner, name } = parseRepoContext();
 
-  // create octokit instance
-  const octokit = new Octokit({
-    auth: githubInstallationToken,
-  });
+  const octokit = new Octokit({ auth: token });
 
-  // fetch repo data
-  const response = await octokit.repos.get({
-    owner,
-    repo: name,
-  });
-  const repo = response.data;
-
-  // fetch repo settings
-  const repoSettings = await fetchRepoSettings({
-    token: githubInstallationToken,
-    repoContext: { owner, name },
-  });
-
-  // resolve agent and update payload with resolved agent name
-  const { agentName, agent } = resolveAgent({
-    inputs,
-    payload,
-    repoSettings,
-  });
-  const resolvedPayload = { ...payload, agent: agentName };
-
-  // compute modes from defaults + payload overrides
-  // note: dependenciesPreinstalled is undefined here since prepPhase runs after this
-  const computedModes = [
-    ...getModes({
-      disableProgressComment: resolvedPayload.disableProgressComment,
-      dependenciesPreinstalled: undefined,
-    }),
-    ...(resolvedPayload.modes || []),
-  ];
+  // fetch repo data and settings in parallel
+  const [repoResponse, repoSettings] = await Promise.all([
+    octokit.repos.get({ owner, repo: name }),
+    fetchRepoSettings({ token, repoContext: { owner, name } }),
+  ]);
 
   return {
+    token,
     owner,
     name,
-    inputs,
-    githubInstallationToken,
     octokit,
-    repo,
-    agentName,
-    agent,
-    payload: resolvedPayload,
+    repo: repoResponse.data,
     repoSettings,
-    modes: computedModes,
-    sharedTempDir: "",
   };
 }
 
@@ -341,65 +377,54 @@ function resolveAgent({
   inputs: Inputs;
   payload: Payload;
   repoSettings: RepoSettings;
-}): { agentName: AgentName; agent: (typeof agents)[AgentName] } {
+}): Agent {
   const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
   const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
   if (configuredAgentName) {
-    const agentName = configuredAgentName;
-    const agent = agents[agentName];
+    const agent = agents[configuredAgentName];
     if (!agent) {
-      throw new Error(`invalid agent name: ${agentName}`);
+      throw new Error(`invalid agent name: ${configuredAgentName}`);
     }
 
     // if explicitly configured (via override or payload), respect it even without matching keys
     // this allows users to force an agent selection (will fail later with clear error if no keys)
     const isExplicitOverride = agentOverride !== undefined || payload.agent !== null;
-
     if (isExplicitOverride) {
-      log.info(`» selected configured agent: ${agentName}`);
-      return { agentName, agent };
+      log.info(`Selected configured agent: ${agent.name}`);
+      return agent;
     }
 
     // for repo-level defaults, check if agent has matching keys before selecting
-    const hasMatchingKey =
-      agent.name === "opencode"
-        ? Object.keys(inputs).some((key) => key.includes("api_key"))
-        : agent.apiKeyNames.some((inputKey) => inputs[inputKey]);
-    if (!hasMatchingKey) {
-      log.warning(
-        `Repo default agent ${agentName} has no matching API keys. Available agents: ${
-          getAvailableAgents(inputs)
-            .map((a) => a.name)
-            .join(", ") || "none"
-        }`
-      );
-      // fall through to auto-selection for repo defaults
-    } else {
-      log.info(`» selected configured agent: ${agentName}`);
-      return { agentName, agent };
+    if (agentHasApiKeys(agent, inputs)) {
+      log.info(`Selected configured agent: ${agent.name}`);
+      return agent;
     }
+
+    // fall through to auto-selection
+    const availableAgents = getAvailableAgents(inputs);
+    log.warning(
+      `Repo default agent ${agent.name} has no matching API keys. Available: ${
+        availableAgents.map((a) => a.name).join(", ") || "none"
+      }`
+    );
   }
 
   const availableAgents = getAvailableAgents(inputs);
-  const availableAgentNames = availableAgents.map((agent) => agent.name).join(", ");
-  log.debug(`» available agents: ${availableAgentNames || "none"}`);
-
   if (availableAgents.length === 0) {
-    // this will be caught and reported later in validateApiKey
     throw new Error("no agents available - missing API keys");
   }
 
-  const agentName = availableAgents[0].name;
   const agent = availableAgents[0];
-  log.info(`» no agent configured, defaulting to first available agent: ${agentName}`);
-  return { agentName, agent };
+  log.info(`No agent configured, defaulting to first available agent: ${agent.name}`);
+  return agent;
 }
 
-async function setupTempDirectory(ctx: Context): Promise<void> {
-  ctx.sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
-  process.env.PULLFROG_TEMP_DIR = ctx.sharedTempDir;
-  log.debug(`» created temp dir at ${ctx.sharedTempDir}`);
+async function createTempDirectory(): Promise<string> {
+  const sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
+  process.env.PULLFROG_TEMP_DIR = sharedTempDir;
+  log.info(`📂 PULLFROG_TEMP_DIR has been created at ${sharedTempDir}`);
+  return sharedTempDir;
 }
 
 function parsePayload(inputs: Inputs): Payload {
@@ -422,90 +447,70 @@ function parsePayload(inputs: Inputs): Payload {
   }
 }
 
-async function startMcpServer(ctx: Context): Promise<void> {
-  const runId = process.env.GITHUB_RUN_ID || "";
-  ctx.runId = runId;
-
-  // fetch the pre-created progress comment ID from the database
-  // this must be set BEFORE starting the MCP server so comment.ts can read it
-  if (runId) {
-    const workflowRunInfo = await fetchWorkflowRunInfo(ctx.runId);
-    if (workflowRunInfo.progressCommentId) {
-      process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
-      log.info(`» using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
-    }
-  }
-
-  // fetch job ID by matching GITHUB_JOB name
-  const jobName = process.env.GITHUB_JOB;
-  if (jobName && runId) {
-    const jobs = await ctx.octokit.rest.actions.listJobsForWorkflowRun({
-      owner: ctx.owner,
-      repo: ctx.name,
-      run_id: parseInt(ctx.runId, 10),
-    });
-    const matchingJob = jobs.data.jobs.find((job) => job.name === jobName);
-    if (matchingJob) {
-      ctx.jobId = String(matchingJob.id);
-      log.info(`» found job ID: ${ctx.jobId}`);
-    }
-  }
-
-  const { url, close } = await startMcpHttpServer(ctx);
-  ctx.mcpServerUrl = url;
-  ctx.mcpServerClose = close;
-  log.info(`» MCP server started at ${url}`);
-}
-
-function setupMcpServers(ctx: Context): void {
-  ctx.mcpServers = createMcpConfigs(ctx.mcpServerUrl);
-  log.debug(`» MCP config: ${JSON.stringify(ctx.mcpServers, null, 2)}`);
-}
-
-async function installAgentCli(ctx: Context): Promise<void> {
+async function installAgentCli(params: { agent: Agent; token: string }): Promise<string> {
   // gemini is the only agent that needs githubInstallationToken for install
-  if (ctx.agentName === "gemini") {
-    ctx.cliPath = await ctx.agent.install(ctx.githubInstallationToken);
-  } else {
-    ctx.cliPath = await ctx.agent.install();
+  if (params.agent.name === "gemini") {
+    return params.agent.install(params.token);
   }
+  return params.agent.install();
 }
 
-async function validateApiKey(ctx: Context): Promise<void> {
-  // collect all matching API keys for this agent
+function collectApiKeys(agent: Agent, inputs: Inputs): Record<string, string> {
   const apiKeys: Record<string, string> = {};
-  for (const inputKey of ctx.agent.apiKeyNames) {
-    const value = ctx.inputs[inputKey];
+  const inputsRecord = inputs as Record<string, string | undefined>;
+
+  for (const inputKey of agent.apiKeyNames) {
+    const value = inputsRecord[inputKey];
     if (value) {
       apiKeys[inputKey] = value;
     }
   }
 
-  // for OpenCode: if no keys found in inputs, check process.env for any API_KEY variables
-  if (ctx.agentName === "opencode" && Object.keys(apiKeys).length === 0) {
+  // for OpenCode: also check process.env for any API_KEY variables
+  if (agent.name === "opencode" && Object.keys(apiKeys).length === 0) {
     for (const [key, value] of Object.entries(process.env)) {
       if (value && typeof value === "string" && key.includes("API_KEY")) {
-        // convert env var name back to input key format (lowercase with underscores)
-        const inputKey = key.toLowerCase();
-        apiKeys[inputKey] = value;
+        apiKeys[key.toLowerCase()] = value;
       }
     }
   }
 
-  if (Object.keys(apiKeys).length === 0) {
-    await throwMissingApiKeyError(ctx);
-    // unreachable - throwMissingApiKeyError always throws
-    return;
-  }
-
-  // keep apiKey for backward compat (first available key)
-  ctx.apiKey = Object.values(apiKeys)[0];
-  ctx.apiKeys = apiKeys;
+  return apiKeys;
 }
 
-async function runAgent(ctx: Context): Promise<AgentResult> {
-  log.info(`» running ${ctx.agentName}...`);
-  log.box(ctx.payload.prompt.trim(), { title: "Prompt" });
+function validateApiKey(params: {
+  agent: Agent;
+  inputs: Inputs;
+  owner: string;
+  name: string;
+}): ApiKeySetup {
+  const apiKeys = collectApiKeys(params.agent, params.inputs);
+
+  if (Object.keys(apiKeys).length === 0) {
+    return {
+      success: false,
+      error: buildMissingApiKeyError({
+        agent: params.agent,
+        owner: params.owner,
+        name: params.name,
+      }),
+    };
+  }
+
+  return {
+    success: true,
+    apiKey: Object.values(apiKeys)[0],
+    apiKeys,
+  };
+}
+
+async function runAgent(ctx: AgentContext): Promise<AgentResult> {
+  log.info(`Running ${ctx.agent.name}...`);
+  // strip context from event
+  const { context: _context, ...eventWithoutContext } = ctx.payload.event;
+  // format: prompt + two newlines + TOON encoded event
+  const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
+  log.box(promptContent, { title: "Prompt" });
 
   return ctx.agent.run({
     payload: ctx.payload,
