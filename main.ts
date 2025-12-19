@@ -195,9 +195,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       Array.isArray(ctx.payload.event.comment_ids) &&
       ctx.payload.event.comment_ids.length === 0
     ) {
-      await reportProgress(ctx, {
-        body: `👍 **No approved comments found**\n\nTo use "Fix 👍s", add a 👍 reaction to one or more inline review comments you want fixed.`,
-      });
+      const noThumbsMessage = `👍 **No approved comments found**\n\nTo use "Fix 👍s", add a 👍 reaction to one or more inline review comments you want fixed.`;
+      log.error(noThumbsMessage);
+      await reportProgress(ctx, { body: noThumbsMessage });
       return { success: true };
     }
 
