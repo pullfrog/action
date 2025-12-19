@@ -13,6 +13,10 @@ import {
   ReportProgressTool,
 } from "./comment.ts";
 import { DebugShellCommandTool } from "./debug.ts";
+import {
+  AwaitDependencyInstallationTool,
+  StartDependencyInstallationTool,
+} from "./dependencies.ts";
 import { ListFilesTool } from "./files.ts";
 import { CommitFilesTool, CreateBranchTool, PushBranchTool } from "./git.ts";
 import { IssueTool } from "./issue.ts";
@@ -70,6 +74,8 @@ export async function startMcpHttpServer(
   // create all tools as factories, passing ctx
   const tools: Tool<any, any>[] = [
     SelectModeTool(ctx),
+    StartDependencyInstallationTool(ctx),
+    AwaitDependencyInstallationTool(ctx),
     CreateCommentTool(ctx),
     EditCommentTool(ctx),
     ReplyToReviewCommentTool(ctx),

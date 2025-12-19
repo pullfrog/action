@@ -21,7 +21,7 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, prepResults, repo }) => {
+  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, repo }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
@@ -29,7 +29,7 @@ export const opencode = agent({
 
     configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
 
-    const prompt = addInstructions({ payload, prepResults, repo });
+    const prompt = addInstructions({ payload, repo });
     log.group("» Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags

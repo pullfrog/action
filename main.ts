@@ -14,7 +14,7 @@ import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
-import { type PrepResult, runPrepPhase } from "./prep/index.ts";
+import type { PrepResult } from "./prep/index.ts";
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
@@ -104,10 +104,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       return { success: false, error: apiKeySetup.error };
     }
 
-    // phase 5: parallel long-running operations (prep + agent install + git auth)
+    // phase 5: parallel long-running operations (agent install + git auth)
     const toolState: ToolState = {};
-    const [prepResults, cliPath] = await Promise.all([
-      runPrepPhase(),
+    const [cliPath] = await Promise.all([
       installAgentCli({ agent, token: githubSetup.token }),
       setupGitAuth({
         token: githubSetup.token,
@@ -118,14 +117,12 @@ export async function main(inputs: Inputs): Promise<MainResult> {
         toolState,
       }),
     ]);
-    timer.checkpoint("prep+agentSetup+gitAuth");
+    timer.checkpoint("agentSetup+gitAuth");
 
-    // phase 6: compute modes (needs prep results)
-    const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
+    // phase 6: compute modes
     const computedModes: Mode[] = [
       ...getModes({
         disableProgressComment: resolvedPayload.disableProgressComment,
-        dependenciesPreinstalled,
       }),
       ...(resolvedPayload.modes || []),
     ];
@@ -165,7 +162,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       repo: githubSetup.repo,
       repoSettings: githubSetup.repoSettings,
       modes: computedModes,
-      prepResults,
       toolState,
       agent,
       sharedTempDir,
@@ -315,7 +311,6 @@ export interface ToolContext {
   repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
   repoSettings: RepoSettings;
   modes: Mode[];
-  prepResults: PrepResult[];
   toolState: ToolState;
   agent: Agent;
   sharedTempDir: string;
@@ -333,6 +328,12 @@ export interface AgentContext extends Readonly<ToolContext> {
   readonly apiKeys: Record<string, string>;
 }
 
+export interface DependencyInstallationState {
+  status: "not_started" | "in_progress" | "completed" | "failed";
+  promise: Promise<PrepResult[]> | undefined;
+  results: PrepResult[] | undefined;
+}
+
 export interface ToolState {
   prNumber?: number;
   issueNumber?: number;
@@ -340,6 +341,7 @@ export interface ToolState {
     id: number; // REST API database ID (for fix URLs)
     nodeId: string; // GraphQL node ID (for mutations)
   };
+  dependencyInstallation?: DependencyInstallationState;
 }
 
 /**
@@ -518,7 +520,6 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
     apiKey: ctx.apiKey,
     apiKeys: ctx.apiKeys,
     cliPath: ctx.cliPath,
-    prepResults: ctx.prepResults,
     repo: {
       owner: ctx.owner,
       name: ctx.name,

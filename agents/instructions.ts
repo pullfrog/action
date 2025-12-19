@@ -3,68 +3,6 @@ import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
-import type { PrepResult } from "../prep/index.ts";
-
-/**
- * Format prep results into a human-readable string for the agent prompt
- */
-function formatPrepResults(results: PrepResult[]): string {
-  if (results.length === 0) {
-    return "";
-  }
-
-  const lines: string[] = [];
-
-  for (const result of results) {
-    if (result.language === "unknown") {
-      continue;
-    }
-
-    const langDisplay = result.language === "node" ? "Node.js" : "Python";
-
-    if (result.language === "node") {
-      if (result.dependenciesInstalled) {
-        lines.push(
-          `✅ ${langDisplay} dependencies installed successfully via \`${result.packageManager}\`.`
-        );
-      } else {
-        lines.push(
-          `⚠️ ${langDisplay} dependency installation FAILED (using \`${result.packageManager}\`).`
-        );
-        for (const issue of result.issues) {
-          lines.push(`   - ${issue}`);
-        }
-        lines.push(
-          `   You may need to run \`${result.packageManager} install\` or address this issue before proceeding.`
-        );
-      }
-    }
-
-    if (result.language === "python") {
-      if (result.dependenciesInstalled) {
-        lines.push(
-          `✅ ${langDisplay} dependencies installed successfully via \`${result.packageManager}\` (from ${result.configFile}).`
-        );
-      } else {
-        lines.push(
-          `⚠️ ${langDisplay} dependency installation FAILED (using \`${result.packageManager}\` from ${result.configFile}).`
-        );
-        for (const issue of result.issues) {
-          lines.push(`   - ${issue}`);
-        }
-        lines.push(
-          `   You may need to run the appropriate install command or address this issue before proceeding.`
-        );
-      }
-    }
-  }
-
-  if (lines.length === 0) {
-    return "";
-  }
-
-  return lines.join("\n");
-}
 
 interface RepoInfo {
   owner: string;
@@ -72,15 +10,10 @@ interface RepoInfo {
   defaultBranch: string;
 }
 
-interface BuildRuntimeContextParams {
-  repo: RepoInfo;
-  prepResults: PrepResult[];
-}
-
 /**
  * Build runtime context string with git status, repo data, and GitHub Actions variables
  */
-function buildRuntimeContext({ repo, prepResults }: BuildRuntimeContextParams): string {
+function buildRuntimeContext(repo: RepoInfo): string {
   const lines: string[] = [];
 
   // working directory
@@ -114,24 +47,15 @@ function buildRuntimeContext({ repo, prepResults }: BuildRuntimeContextParams): 
     }
   }
 
-  // environment setup (dependency installation results)
-  const envSetup = formatPrepResults(prepResults);
-  if (envSetup) {
-    lines.push("");
-    lines.push("environment_setup:");
-    lines.push(envSetup);
-  }
-
   return lines.join("\n");
 }
 
 interface AddInstructionsParams {
   payload: Payload;
-  prepResults: PrepResult[];
   repo: RepoInfo;
 }
 
-export const addInstructions = ({ payload, prepResults, repo }: AddInstructionsParams) => {
+export const addInstructions = ({ payload, repo }: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -143,8 +67,7 @@ export const addInstructions = ({ payload, prepResults, repo }: AddInstructionsP
     encodedEvent = toonEncode(payload.event);
   }
 
-  const runtimeContext = buildRuntimeContext({ repo, prepResults });
-  const dependenciesPreinstalled = prepResults.every((r) => r.dependenciesInstalled) || undefined;
+  const runtimeContext = buildRuntimeContext(repo);
 
   return (
     `
@@ -264,7 +187,7 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 
 ### Available modes
 
-${[...getModes({ disableProgressComment: payload.disableProgressComment, dependenciesPreinstalled }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...getModes({ disableProgressComment: payload.disableProgressComment }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ### Following the mode instructions
 

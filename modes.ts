@@ -8,28 +8,33 @@ export interface Mode {
 
 export interface GetModesParams {
   disableProgressComment: true | undefined;
-  dependenciesPreinstalled: true | undefined;
 }
 
 const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to share progress and results. Continue calling it as you make progress - it will update the same comment. Never create additional comments manually.`;
 
-export function getModes({
-  disableProgressComment,
-  dependenciesPreinstalled,
-}: GetModesParams): Mode[] {
-  const depsContext = dependenciesPreinstalled
-    ? "Dependencies have already been installed."
-    : "understand how to install dependencies,";
+const dependencyInstallationGuidance = `## Dependency Installation
 
+**IMPORTANT**: Immediately after the working branch is checked out, evaluate whether dependencies will be needed at any point during this task:
+- Making code changes that will require testing? → Call \`${ghPullfrogMcpName}/start_dependency_installation\` NOW
+- Running builds, linters, or CLI commands that require installed packages? → Call \`${ghPullfrogMcpName}/start_dependency_installation\` NOW
+- Only reading code or answering questions? → Skip dependency installation
+
+Calling \`start_dependency_installation\` early allows dependencies to install in the background while you explore the codebase and make changes. This is a non-blocking call.
+
+When you need to run tests, builds, or other commands that require dependencies, call \`${ghPullfrogMcpName}/await_dependency_installation\` to ensure they're ready. This will block until installation completes (or auto-start if you forgot to call start earlier).`;
+
+export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
   return [
     {
       name: "Build",
       description:
         "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
       prompt: `Follow these steps:
-1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists, ${depsContext} run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+1. If this is a PR event, the PR branch is already checked out - skip branch creation. Otherwise, create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly (including \`git branch\`, \`git status\`, \`git log\`) - always use ${ghPullfrogMcpName} MCP tools for git operations.
 
-2. If this is a PR event, the PR branch is already checked out - skip branch creation. Otherwise, create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly (including \`git branch\`, \`git status\`, \`git log\`) - always use ${ghPullfrogMcpName} MCP tools for git operations.
+${dependencyInstallationGuidance}
+
+2. If the request requires understanding the codebase structure or conventions, gather relevant context. Read AGENTS.md if it exists. Skip this step if the prompt is trivial and self-contained.
 
 3. Understand the requirements and any existing plan
 
@@ -66,11 +71,13 @@ export function getModes({
       prompt: `Follow these steps:
 1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and configures push settings (including for fork PRs).
 
+${dependencyInstallationGuidance}
+
 2. Review the feedback provided. Understand each review comment and what changes are being requested.
    - **EVENT DATA may contain review comment details**: If available, \`approved_comments\` are comments to address, \`unapproved_comments\` are for context only. The \`triggerer\` field indicates who initiated this action - prioritize their replies when deciding how to implement fixes.
    - You can use ${ghPullfrogMcpName}/get_pull_request to get PR metadata if needed.
 
-3. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context. Read AGENTS.md if it exists.
+3. If the request requires understanding the codebase structure or conventions, gather relevant context. Read AGENTS.md if it exists.
 
 4. Make the necessary code changes to address the feedback. Work through each review comment systematically.
 
@@ -132,7 +139,7 @@ ${
       description:
         "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
       prompt: `Follow these steps:
-1. If the request requires understanding the codebase structure, dependencies, or conventions, gather relevant context (read AGENTS.md if it exists, ${depsContext} run tests, run builds, and make changes according to best practices). Skip this step if the prompt is trivial and self-contained.
+1. If the request requires understanding the codebase structure or conventions, gather relevant context (read AGENTS.md if it exists). Skip this step if the prompt is trivial and self-contained.
 
 2. Analyze the request and break it down into clear, actionable tasks
 
@@ -149,6 +156,9 @@ ${
 
 2. If the task involves making code changes:
    - Create a branch using ${ghPullfrogMcpName}/create_branch. Branch names should be prefixed with "pullfrog/" and reflect the exact changes you are making. Never commit directly to main, master, or production.
+
+${dependencyInstallationGuidance}
+
    - Use file operations to create/modify files with your changes.
    - Use ${ghPullfrogMcpName}/commit_files to commit your changes, then ${ghPullfrogMcpName}/push_branch to push the branch. Do NOT use git commands directly (\`git commit\`, \`git push\`, \`git checkout\`, \`git branch\`) as these will use incorrect credentials.
    - Test your changes to ensure they work correctly.
@@ -163,5 +173,4 @@ ${
 
 export const modes: Mode[] = getModes({
   disableProgressComment: undefined,
-  dependenciesPreinstalled: undefined,
 });

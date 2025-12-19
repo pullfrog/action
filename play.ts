@@ -19,7 +19,7 @@ config({ path: join(process.cwd(), "..", ".env") });
 export async function run(prompt: string): Promise<AgentResult> {
   try {
     const tempDir = join(process.cwd(), ".temp");
-    setupTestRepo({ tempDir, forceClean: true });
+    setupTestRepo({ tempDir });
 
     const originalCwd = process.cwd();
     process.chdir(tempDir);

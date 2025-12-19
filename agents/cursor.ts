@@ -91,7 +91,7 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers, prepResults, repo }) => {
+  run: async ({ payload, apiKey, cliPath, mcpServers, repo }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
     configureCursorSandbox({ sandbox: payload.sandbox ?? false });
 
@@ -166,7 +166,7 @@ export const cursor = agent({
     };
 
     try {
-      const fullPrompt = addInstructions({ payload, prepResults, repo });
+      const fullPrompt = addInstructions({ payload, repo });
       log.group("» Full prompt", () => log.info(fullPrompt));
 
       // configure sandbox mode if enabled

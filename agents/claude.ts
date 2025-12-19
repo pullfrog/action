@@ -14,11 +14,11 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, prepResults, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
-    const prompt = addInstructions({ payload, prepResults, repo });
+    const prompt = addInstructions({ payload, repo });
     log.group("» Full prompt", () => log.info(prompt));
 
     // configure sandbox mode if enabled
