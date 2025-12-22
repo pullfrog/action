@@ -341,12 +341,13 @@ export const log = {
    * Log tool call information to console with formatted output
    */
   toolCall: ({ toolName, input }: { toolName: string; input: unknown }): void => {
-    let output = `→ ${toolName}\n`;
-
     const inputFormatted = formatJsonValue(input);
-    if (inputFormatted !== "{}") {
-      output += formatIndentedField("input", inputFormatted);
-    }
+    // if (inputFormatted !== "{}")
+    const output = inputFormatted !== "{}" ? `${toolName}(${inputFormatted})` : `${toolName}()`;
+
+    // if (inputFormatted !== "{}") {
+    // output += formatIndentedField("input", inputFormatted);
+    // }
 
     log.info(output.trimEnd());
   },

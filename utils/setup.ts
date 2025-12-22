@@ -77,7 +77,7 @@ interface SetupGitAuthParams {
  * FORK PR ARCHITECTURE:
  * - origin: always points to BASE REPO (where PR targets)
  * - checkoutPrBranch sets per-branch pushRemote config for fork PRs
- * - diff operations use: git diff origin/<base>..HEAD
+ * - checkout_pr returns the PR diff via GitHub API (authoritative source)
  */
 export async function setupGitAuth(params: SetupGitAuthParams): Promise<void> {
   const repoDir = process.cwd();

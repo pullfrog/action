@@ -19,6 +19,7 @@ export type CheckoutPrResult = {
   maintainerCanModify: boolean;
   url: string;
   headRepo: string;
+  diff: string;
 };
 
 interface CheckoutPrBranchParams {
@@ -157,6 +158,14 @@ export function CheckoutPrTool(ctx: ToolContext) {
         throw new Error(`PR #${pull_number} source repository was deleted`);
       }
 
+      // fetch PR diff via API (authoritative source - not affected by main advancing)
+      const diffResponse = await ctx.octokit.rest.pulls.get({
+        owner: ctx.owner,
+        repo: ctx.name,
+        pull_number,
+        mediaType: { format: "diff" },
+      });
+
       return {
         success: true,
         number: pr.data.number,
@@ -167,6 +176,7 @@ export function CheckoutPrTool(ctx: ToolContext) {
         maintainerCanModify: pr.data.maintainer_can_modify,
         url: pr.data.html_url,
         headRepo: headRepo.full_name,
+        diff: diffResponse.data as unknown as string,
       } satisfies CheckoutPrResult;
     }),
   });

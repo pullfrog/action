@@ -100,29 +100,26 @@ ${
       description:
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
       prompt: `Follow these steps:
-1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and base branch, preparing the repo for review.
+1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and returns the PR diff in the \`diff\` field of the response. Use this diff for your review - it shows exactly what's in the PR (fetched via GitHub API, so it's not affected by main advancing after the branch was created).
 
-2. **IMPORTANT**: After calling ${ghPullfrogMcpName}/checkout_pr, the PR branch is checked out locally. View diff using: \`git diff origin/<base>..HEAD\` (replace <base> with 'base' from checkout_pr result, e.g., \`git diff origin/main..HEAD\`). Use two dots (..) not three dots (...) for reliable diffs. Do NOT use \`origin/<head>\` - the branch is checked out locally, not as a remote tracking branch. This works for both same-repo and fork PRs.
+2. Start review session using ${ghPullfrogMcpName}/start_review. This creates a pending review on GitHub and returns analysis guidance. Follow the guidance before adding comments.
 
-3. Start review session using ${ghPullfrogMcpName}/start_review. This creates a scratchpad file at a temp path (e.g., \`/tmp/pullfrog-review-abc123.md\`) and returns a session ID. The scratchpad file header contains the session ID for reference. Use this file as free-form space to gather your thoughts before adding comments.
+3. **ANALYZE** - Before adding any comments, think through:
+   - What does this PR change? Summarize in 1-2 sentences.
+   - Is the approach sound? If not, **stop here** and comment on the approach first. Don't waste time on implementation details if the approach is wrong.
+   - What bugs, edge cases, or security issues exist?
 
-4. **ANALYZE** - Use the scratchpad to gather your thoughts:
-   - Summarize what changes this PR makes
-   - Evaluate the approach - is it sound? If not, **stop here** and leave feedback on the approach. Don't waste time on implementation details if the approach is wrong.
-   - If approach is sound, analyze implementation - consider potential issues per file
-   - Identify bugs, security issues, edge cases
+4. **BEFORE COMMENTING** - For each potential comment, ask yourself:
+   - Is this a nitpick? Skip it unless explicitly requested.
+   - Would the codebase maintainer care about this feedback, based on what you can infer about the code quality standards in this repo?
 
-5. **SELF-CRITIQUE** - Before adding comments, review your scratchpad:
-   - Remove nitpicks unless explicitly requested. Think documentation, JSDoc/docstrings, useless comments (compliments)
-   - Your level of nitpickiness should be proportional to the current state of the codebase. Try to guess how much the user will care about a specific critique.
-
-6. Add inline review comments one-by-one using ${ghPullfrogMcpName}/add_review_comment
+5. Add inline review comments one-by-one using ${ghPullfrogMcpName}/add_review_comment
    - Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
    - Use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
    - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
    - For issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y")
 
-7. Submit the review using ${ghPullfrogMcpName}/submit_review
+6. Submit the review using ${ghPullfrogMcpName}/submit_review
    - The "body" field is ONLY for: (1) a 1-3 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
 
 **GENERAL GUIDANCE**

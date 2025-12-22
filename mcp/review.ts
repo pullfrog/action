@@ -1,6 +1,3 @@
-import { randomBytes } from "node:crypto";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
 import type { ToolContext } from "../main.ts";
@@ -65,7 +62,7 @@ export function StartReviewTool(ctx: ToolContext) {
   return tool({
     name: "start_review",
     description:
-      "Start a new review session for a pull request. Creates a scratchpad file for gathering thoughts and a pending review on GitHub. Must be called before add_review_comment.",
+      "Start a new review session for a pull request. Creates a pending review on GitHub. Must be called before add_review_comment.",
     parameters: StartReview,
     execute: execute(async ({ pull_number }) => {
       // check if review already started in this session
@@ -119,12 +116,6 @@ export function StartReviewTool(ctx: ToolContext) {
         }
       }
 
-      // create scratchpad file
-      const scratchpadId = randomBytes(4).toString("hex");
-      const scratchpadPath = join(ctx.sharedTempDir, `pullfrog-review-${scratchpadId}.md`);
-      const scratchpadContent = `# Review ${scratchpadId}\n\n`;
-      writeFileSync(scratchpadPath, scratchpadContent);
-
       // set PR context and review state
       ctx.toolState.prNumber = pull_number;
       ctx.toolState.review = {
@@ -133,9 +124,18 @@ export function StartReviewTool(ctx: ToolContext) {
       };
 
       return {
-        reviewId: scratchpadId,
-        scratchpadPath,
-        message: `Review session started. Use the scratchpad file to gather your thoughts, then call add_review_comment for each comment.`,
+        message: `Review session started for PR #${pull_number}.`,
+        guidance: {
+          analyze: [
+            "What does this PR change? Summarize in 1-2 sentences.",
+            "Is the approach sound? If not, stop and comment on approach first.",
+            "What bugs, edge cases, or security issues exist?",
+          ],
+          beforeCommenting: [
+            "Skip nitpicks unless explicitly requested.",
+            "Would the codebase maintainer care about this feedback, based on what you can infer about the code quality standards in this repo?",
+          ],
+        },
       };
     }),
   });
@@ -281,9 +281,8 @@ export const Review = type({
   })
     .array()
     .describe(
-      // FORK PR NOTE: use HEAD not origin/<head> - for fork PRs, origin/<head> doesn't exist
-      // because the head branch is in a different repo (the fork). HEAD is the locally checked out PR branch.
-      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use 'git diff origin/<base>..HEAD' to find correct line numbers (RIGHT side for new code, LEFT for old). Works for both fork and same-repo PRs."
+      // FORK PR NOTE: checkout_pr returns the diff via GitHub API - use that for line numbers
+      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use the diff returned from checkout_pr to find correct line numbers (RIGHT side for new code, LEFT for old)."
     )
     .optional(),
 });
