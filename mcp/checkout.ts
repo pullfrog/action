@@ -1,11 +1,84 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Octokit } from "@octokit/rest";
+import type { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
 import type { ToolContext } from "../main.ts";
 import { log } from "../utils/cli.ts";
 import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
+
+type PullFile = RestEndpointMethodTypes["pulls"]["listFiles"]["response"]["data"][number];
+
+/**
+ * formats PR files with explicit line numbers for each code line.
+ * preserves all original diff info (file headers, hunk headers) and adds:
+ * OLD | NEW | TYPE | code
+ */
+export function formatFilesWithLineNumbers(files: PullFile[]): string {
+  const output: string[] = [];
+
+  for (const file of files) {
+    // file header
+    output.push(`diff --git a/${file.filename} b/${file.filename}`);
+    output.push(`--- a/${file.filename}`);
+    output.push(`+++ b/${file.filename}`);
+
+    if (!file.patch) {
+      output.push("(binary file or no changes)");
+      output.push("");
+      continue;
+    }
+
+    // parse and format the patch with line numbers
+    const lines = file.patch.split("\n");
+    let oldLine = 0;
+    let newLine = 0;
+
+    for (const line of lines) {
+      // hunk header: @@ -OLD,COUNT +NEW,COUNT @@ optional context
+      const hunkMatch = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (hunkMatch) {
+        oldLine = parseInt(hunkMatch[1], 10);
+        newLine = parseInt(hunkMatch[2], 10);
+        output.push(line); // pass through unchanged
+        continue;
+      }
+
+      // code lines within hunks
+      const changeType = line[0] || " ";
+      const code = line.slice(1);
+
+      if (changeType === "-") {
+        // removed line: show old line number, no new line number
+        output.push(`${padNum(oldLine)} |     | - | ${code}`);
+        oldLine++;
+      } else if (changeType === "+") {
+        // added line: no old line number, show new line number
+        output.push(`    | ${padNum(newLine)} | + | ${code}`);
+        newLine++;
+      } else if (changeType === " " || changeType === "\\") {
+        // context line or "\ No newline at end of file"
+        if (changeType === "\\") {
+          output.push(line); // pass through as-is
+        } else {
+          output.push(`${padNum(oldLine)} | ${padNum(newLine)} |   | ${code}`);
+          oldLine++;
+          newLine++;
+        }
+      } else {
+        // unknown line type, pass through
+        output.push(line);
+      }
+    }
+    output.push(""); // blank line between files
+  }
+
+  return output.join("\n");
+}
+
+function padNum(n: number): string {
+  return n.toString().padStart(4, " ");
+}
 
 export const CheckoutPr = type({
   pull_number: type.number.describe("the pull request number to checkout"),
@@ -170,16 +243,16 @@ export function CheckoutPrTool(ctx: ToolContext) {
         throw new Error(`PR #${pull_number} source repository was deleted`);
       }
 
-      // fetch PR diff via API (authoritative source - not affected by main advancing)
-      const diffResponse = await ctx.octokit.rest.pulls.get({
+      // fetch PR files and format with line numbers
+      const filesResponse = await ctx.octokit.rest.pulls.listFiles({
         owner: ctx.owner,
         repo: ctx.name,
         pull_number,
-        mediaType: { format: "diff" },
+        per_page: 100,
       });
-
-      // write diff to file for grep access
-      const diffContent = diffResponse.data as unknown as string;
+      const diffContent = formatFilesWithLineNumbers(filesResponse.data);
+      const diffPreview = diffContent.split("\n").slice(0, 100).join("\n");
+      log.debug(`formatted diff preview (first 100 lines):\n${diffPreview}`);
       const tempDir = process.env.PULLFROG_TEMP_DIR;
       if (!tempDir) {
         throw new Error(

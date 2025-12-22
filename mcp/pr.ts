@@ -29,7 +29,7 @@ function buildPrBodyWithFooter(ctx: ToolContext, body: string): string {
   return `${bodyWithoutFooter}${footer}`;
 }
 
-export function PullRequestTool(ctx: ToolContext) {
+export function CreatePullRequestTool(ctx: ToolContext) {
   return tool({
     name: "create_pull_request",
     description: "Create a pull request from the current branch",

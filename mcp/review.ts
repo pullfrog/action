@@ -11,7 +11,7 @@ export const CreatePullRequestReview = type({
   pull_number: type.number.describe("The pull request number to review"),
   body: type.string
     .describe(
-      "1-2 sentence high-level summary ONLY. Include urgency level and critical callouts (e.g., API key leak). ALL specific feedback MUST go in 'comments' array instead."
+      "1-2 sentence high-level summary with urgency level, critical callouts, and feedback about code outside the diff. Specific feedback on diff lines goes in 'comments' array."
     )
     .optional(),
   commit_id: type.string
@@ -20,12 +20,12 @@ export const CreatePullRequestReview = type({
   comments: type({
     path: type.string.describe("The file path to comment on (relative to repo root)"),
     line: type.number.describe(
-      "The line number in the file (use line numbers from the diff - usually the RIGHT side/new code)"
+      "Line number from the diff. Each code line shows 'OLD | NEW | TYPE | code'. Use NEW (second column) for added/context lines, OLD (first column) for removed lines."
     ),
     side: type
       .enumerated("LEFT", "RIGHT")
       .describe(
-        "Side of the diff: LEFT (old code) or RIGHT (new code). Defaults to RIGHT if not provided."
+        "Side of the diff: LEFT (old code, lines starting with -) or RIGHT (new code, lines starting with + or unchanged). Defaults to RIGHT."
       )
       .optional(),
     body: type.string.describe(
@@ -37,8 +37,7 @@ export const CreatePullRequestReview = type({
   })
     .array()
     .describe(
-      // FORK PR NOTE: checkout_pr returns the diff via GitHub API - use that for line numbers
-      "PRIMARY location for ALL feedback. 95%+ of review content should be here. Use the diff returned from checkout_pr to find correct line numbers (RIGHT side for new code, LEFT for old)."
+      "Inline comments on lines within diff hunks. Feedback about code outside the diff goes in 'body' instead."
     )
     .optional(),
 });

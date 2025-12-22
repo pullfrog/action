@@ -110,10 +110,9 @@ ${
    - Is the approach sound? If not, focus on the approach first. Don't waste time on implementation details if the approach is wrong.
    - What bugs, edge cases, or security issues exist?
 
-4. **DRAFT** - Mentally list all comments you would make. For each:
-   - Note the file path (relative to repo root, e.g., \`packages/core/src/utils.ts\`)
-   - Note the line number from the diff (use NEW file line number - shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
-   - Draft the comment text
+4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`OLD | NEW | TYPE | code\`
+   - For added lines (\`+\`) or context lines, use the NEW line number (second column)
+   - For removed lines (\`-\`), use the OLD line number (first column) with \`side: "LEFT"\`
 
 5. **SELF-CRITIQUE** - Before submitting, review your draft:
    - DO NOT NITPICK. Do not comment on minor formatting changes, changes to playground/scratch files, lack of docs/docsstrings, or small changes that seem irrelevant. Assume these things are intentional by the PR author.
@@ -122,12 +121,15 @@ ${
    - For issues appearing in multiple places, keep only the FIRST occurrence and reference others (e.g., "also at lines X, Y")
 
 6. **SUBMIT** - Use ${ghPullfrogMcpName}/create_pull_request_review with:
-   - \`comments\`: Array of all inline comments with file paths and line numbers
-   - \`body\`: 1-3 sentence summary with urgency level (e.g., "minor suggestions" vs "blocking issues") and any critical callouts (e.g., API key exposure)
+- \`comments\`: Array of all inline comments with file paths and line numbers
+- \`body\`: Everything else. Aim for a 1-3 sentence summary of the urgency level (e.g., "minor suggestions" vs "blocking issues") and any critical callouts (e.g., API key exposure). It can be longer if there are concerns that do not lend themselves to inline comments.
+   
 
 **CRITICAL RULES**
+- ALL feedback goes in the ONE create_pull_request_review call. Do not create separate comments.
+- Inline \`comments\` can only be placed on lines within diff hunks. For feedback about code outside the diff (e.g., "function X has the same issue"), include it in the \`body\`.
+- Cross-cutting concerns that don't fit on a specific line go in the \`body\`, not in a separate comment.
 - 95%+ of review content should be in inline \`comments\` array, not the \`body\`
-- Only comment on lines that appear in the diff - GitHub will reject comments on unchanged lines
 - Do not leave complimentary comments just to be nice
 - Do not leave comments that are not actionable
 `,

@@ -24,7 +24,7 @@ import { GetIssueCommentsTool } from "./issueComments.ts";
 import { GetIssueEventsTool } from "./issueEvents.ts";
 import { IssueInfoTool } from "./issueInfo.ts";
 import { AddLabelsTool } from "./labels.ts";
-import { PullRequestTool } from "./pr.ts";
+import { CreatePullRequestTool } from "./pr.ts";
 import { PullRequestInfoTool } from "./prInfo.ts";
 import { CreatePullRequestReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
@@ -83,7 +83,7 @@ export async function startMcpHttpServer(
     IssueInfoTool(ctx),
     GetIssueCommentsTool(ctx),
     GetIssueEventsTool(ctx),
-    PullRequestTool(ctx),
+    CreatePullRequestTool(ctx),
     CreatePullRequestReviewTool(ctx),
     PullRequestInfoTool(ctx),
     CheckoutPrTool(ctx),
