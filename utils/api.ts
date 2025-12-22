@@ -36,8 +36,8 @@ export interface WorkflowRunInfo {
 export async function fetchWorkflowRunInfo(runId: string): Promise<WorkflowRunInfo> {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
-  // add timeout to prevent hanging (5 seconds)
-  const timeoutMs = 5000;
+  // add timeout to prevent hanging (30 seconds)
+  const timeoutMs = 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -90,8 +90,8 @@ export async function getRepoSettings(
 ): Promise<RepoSettings> {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
-  // Add timeout to prevent hanging (5 seconds)
-  const timeoutMs = 5000;
+  // Add timeout to prevent hanging (30 seconds)
+  const timeoutMs = 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
