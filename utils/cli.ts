@@ -278,7 +278,7 @@ export const log = {
   /**
    * Print debug message (only if LOG_LEVEL=debug)
    */
-  debug: (message: string): void => {
+  debug: (message: string | unknown): void => {
     if (isDebugEnabled()) {
       if (isGitHubActions) {
         // using this instead of core.debug

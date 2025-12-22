@@ -92,6 +92,13 @@ export function StartReviewTool(ctx: ToolContext) {
           commit_id: pr.data.head.sha,
           // no 'event' = PENDING review
         });
+        log.debug(`createReview response: ${JSON.stringify(result.data)}`);
+        if (!result.data.id || !result.data.node_id) {
+          log.debug(result);
+          throw new Error(
+            `createReview returned invalid data: id=${result.data.id}, node_id=${result.data.node_id}`
+          );
+        }
         reviewId = result.data.id;
         reviewNodeId = result.data.node_id;
         log.debug(`created new pending review: id=${reviewId}`);
@@ -126,10 +133,7 @@ export function StartReviewTool(ctx: ToolContext) {
       log.debug(`review session started: id=${reviewId}, nodeId=${reviewNodeId}`);
 
       return {
-        message: `Review session started for PR #${pull_number}.`,
-        instructions:
-          "Analyze: What does this PR change? Is the approach sound? What bugs, edge cases, or security issues exist? " +
-          "Before commenting: Skip nitpicks unless requested. Only comment if the codebase maintainer would care.",
+        message: `Review session started for PR #${pull_number}. Add comments with add_review_comment, then submit with submit_review.`,
       };
     }),
   });
@@ -160,28 +164,58 @@ export function AddReviewCommentTool(ctx: ToolContext) {
         throw new Error("No review session started. Call start_review first.");
       }
 
+      const reviewNodeId = ctx.toolState.review.nodeId;
       log.debug(
-        `adding review comment: reviewNodeId=${ctx.toolState.review.nodeId}, path=${path}, line=${line}, side=${side || "RIGHT"}`
+        `adding review comment: reviewNodeId=${reviewNodeId}, path=${path}, line=${line}, side=${side || "RIGHT"}`
       );
 
       // add comment thread via GraphQL (REST doesn't support adding to existing pending review)
-      const result = await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
-        ADD_PULL_REQUEST_REVIEW_THREAD,
-        {
-          pullRequestReviewId: ctx.toolState.review.nodeId,
-          path,
-          line,
-          body,
-          side: side || "RIGHT",
-        }
-      );
+      let result: AddPullRequestReviewThreadResponse;
+      try {
+        result = await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
+          ADD_PULL_REQUEST_REVIEW_THREAD,
+          {
+            pullRequestReviewId: reviewNodeId,
+            path,
+            line,
+            body,
+            side: side || "RIGHT",
+          }
+        );
+        log.debug(`addPullRequestReviewThread response: ${JSON.stringify(result)}`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        log.debug(`addPullRequestReviewThread error: ${errorMsg}`);
+        throw new Error(
+          `Failed to add comment to ${path}:${line}. GraphQL error: ${errorMsg}. ` +
+            `Ensure the line is part of the diff and the path is correct.`
+        );
+      }
 
-      log.debug(`review comment added: threadId=${result.addPullRequestReviewThread.thread.id}`);
+      // check if the mutation succeeded - null means the line is not in the diff
+      if (!result) {
+        throw new Error(
+          `Failed to add comment to ${path}:${line}. GraphQL returned null response.`
+        );
+      }
+      if (!result.addPullRequestReviewThread) {
+        throw new Error(
+          `Failed to add comment to ${path}:${line}. addPullRequestReviewThread is null. Response: ${JSON.stringify(result)}`
+        );
+      }
+      if (!result.addPullRequestReviewThread.thread) {
+        throw new Error(
+          `Failed to add comment to ${path}:${line}. thread is null. The line must be part of the diff. Response: ${JSON.stringify(result)}`
+        );
+      }
+
+      const threadId = result.addPullRequestReviewThread.thread.id;
+      log.debug(`review comment added: threadId=${threadId}`);
 
       return {
         success: true,
         message: `Comment added to ${path}:${line}`,
-        threadId: result.addPullRequestReviewThread.thread.id,
+        threadId,
       };
     }),
   });
@@ -238,6 +272,10 @@ export function SubmitReviewTool(ctx: ToolContext) {
         body: bodyWithFooter,
       });
 
+      log.debug(`submitReview response: ${JSON.stringify(result.data)}`);
+      if (!result.data.id) {
+        throw new Error(`submitReview returned invalid data: ${JSON.stringify(result.data)}`);
+      }
       log.debug(`review submitted: reviewId=${result.data.id}, state=${result.data.state}`);
 
       // clear review state
@@ -342,6 +380,10 @@ export function ReviewTool(ctx: ToolContext) {
         });
       }
       const result = await ctx.octokit.rest.pulls.createReview(params);
+      log.debug(`createReview (legacy) response: ${JSON.stringify(result.data)}`);
+      if (!result.data.id) {
+        throw new Error(`createReview returned invalid data: ${JSON.stringify(result.data)}`);
+      }
       const reviewId = result.data.id;
 
       // build quick links footer and update the review body

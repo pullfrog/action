@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Octokit } from "@octokit/rest";
 import { type } from "arktype";
 import type { ToolContext } from "../main.ts";
@@ -20,6 +22,7 @@ export type CheckoutPrResult = {
   url: string;
   headRepo: string;
   diff: string;
+  diffPath: string;
 };
 
 interface CheckoutPrBranchParams {
@@ -140,7 +143,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
   return tool({
     name: "checkout_pr",
     description:
-      "Checkout a pull request branch locally. This fetches the PR branch and sets up push configuration for fork PRs. Use this when you need to work on an existing PR.",
+      "Checkout a pull request branch locally. This fetches the PR branch and sets up push configuration for fork PRs. " +
+      "The PR diff is written to a file (diffPath) for grep access. For small diffs, it's also returned inline.",
     parameters: CheckoutPr,
     execute: execute(async ({ pull_number }) => {
       const result = await checkoutPrBranch({
@@ -174,6 +178,19 @@ export function CheckoutPrTool(ctx: ToolContext) {
         mediaType: { format: "diff" },
       });
 
+      // write diff to file for grep access
+      const diffContent = diffResponse.data as unknown as string;
+      const diffPath = join(process.env.PULLFROG_TEMP_DIR!, `pr-${pull_number}.diff`);
+      writeFileSync(diffPath, diffContent);
+      log.debug(`wrote diff to ${diffPath} (${diffContent.length} bytes)`);
+
+      // return diff inline only if small enough
+      const MAX_INLINE_DIFF_SIZE = 50 * 1024; // 50KB
+      const diff =
+        diffContent.length <= MAX_INLINE_DIFF_SIZE
+          ? diffContent
+          : `Diff is ${(diffContent.length / 1024).toFixed(0)}KB - use grep or read from ${diffPath}`;
+
       return {
         success: true,
         number: pr.data.number,
@@ -184,7 +201,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
         maintainerCanModify: pr.data.maintainer_can_modify,
         url: pr.data.html_url,
         headRepo: headRepo.full_name,
-        diff: diffResponse.data as unknown as string,
+        diff,
+        diffPath,
       } satisfies CheckoutPrResult;
     }),
   });
