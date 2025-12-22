@@ -48,17 +48,16 @@ function isGitHubActionsEnvironment(): boolean {
 }
 
 async function acquireTokenViaOIDC(): Promise<string> {
-  log.debug("» generating OIDC token...");
+  log.info("» generating OIDC token...");
 
   const oidcToken = await core.getIDToken("pullfrog-api");
-  log.debug("» OIDC token generated successfully");
 
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
 
-  log.debug("» exchanging OIDC token for installation token...");
+  log.info("» exchanging OIDC token for installation token...");
 
-  // Add timeout to prevent long waits (5 seconds)
-  const timeoutMs = 5000;
+  // Add timeout to prevent long waits (30 seconds)
+  const timeoutMs = 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -79,7 +78,7 @@ async function acquireTokenViaOIDC(): Promise<string> {
     }
 
     const tokenData = (await tokenResponse.json()) as InstallationToken;
-    log.debug(`» installation token obtained for ${tokenData.repository || "all repositories"}`);
+    log.info(`» installation token obtained for ${tokenData.repository || "all repositories"}`);
 
     return tokenData.token;
   } catch (error) {
