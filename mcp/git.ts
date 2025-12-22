@@ -158,11 +158,23 @@ export function PushBranchTool(_ctx: ToolContext) {
         // no configured pushRemote, default to origin
       }
 
-      const args = force
-        ? ["push", "--force", "-u", remote, branch]
-        : ["push", "-u", remote, branch];
+      // check if branch has a configured merge ref (remote branch name may differ from local)
+      let remoteBranch = branch;
+      try {
+        const mergeRef = $("git", ["config", `branch.${branch}.merge`], { log: false }).trim();
+        // merge ref is like "refs/heads/main", extract the branch name
+        remoteBranch = mergeRef.replace("refs/heads/", "");
+      } catch {
+        // no configured merge ref, use local branch name
+      }
 
-      log.debug(`pushing branch ${branch} to ${remote}`);
+      // use refspec when local and remote branch names differ
+      const refspec = branch === remoteBranch ? branch : `${branch}:${remoteBranch}`;
+      const args = force
+        ? ["push", "--force", "-u", remote, refspec]
+        : ["push", "-u", remote, refspec];
+
+      log.debug(`pushing ${branch} to ${remote}/${remoteBranch}`);
       if (force) {
         log.warning(`force pushing - this will overwrite remote history`);
       }
@@ -171,9 +183,10 @@ export function PushBranchTool(_ctx: ToolContext) {
       return {
         success: true,
         branch,
+        remoteBranch,
         remote,
         force,
-        message: `successfully pushed branch ${branch}`,
+        message: `successfully pushed ${branch} to ${remote}/${remoteBranch}`,
       };
     }),
   });

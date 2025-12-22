@@ -61,12 +61,17 @@ export async function checkoutPrBranch(
   const baseBranch = pr.data.base.ref;
   const headBranch = pr.data.head.ref;
 
-  // check if we're already on the correct branch
-  const currentBranch = $("git", ["rev-parse", "--abbrev-ref", "HEAD"], { log: false }).trim();
-  const alreadyOnBranch = currentBranch === headBranch;
+  // always use pr-{number} as local branch name for consistency
+  // this avoids naming conflicts and makes push config simpler
+  const localBranch = `pr-${pullNumber}`;
+
+  // check if we're already on the correct commit (not just branch name)
+  // this handles fork PRs where head branch name might match base branch name
+  const currentSha = $("git", ["rev-parse", "HEAD"], { log: false }).trim();
+  const alreadyOnBranch = currentSha === pr.data.head.sha;
 
   if (alreadyOnBranch) {
-    log.debug(`already on PR branch ${headBranch}, skipping checkout`);
+    log.debug(`already on PR branch ${localBranch}, skipping checkout`);
   } else {
     // fetch base branch so origin/<base> exists for diff operations
     log.debug(`📥 fetching base branch (${baseBranch})...`);
@@ -77,11 +82,11 @@ export async function checkoutPrBranch(
     $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
     // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-    log.debug(`🌿 fetching PR #${pullNumber} (${headBranch})...`);
-    $("git", ["fetch", "--no-tags", "origin", `pull/${pullNumber}/head:${headBranch}`]);
+    log.debug(`🌿 fetching PR #${pullNumber} (${localBranch})...`);
+    $("git", ["fetch", "--no-tags", "origin", `pull/${pullNumber}/head:${localBranch}`]);
 
     // checkout the branch
-    $("git", ["checkout", headBranch]);
+    $("git", ["checkout", localBranch]);
     log.debug(`✓ checked out PR #${pullNumber}`);
   }
 
@@ -110,8 +115,10 @@ export async function checkoutPrBranch(
     }
 
     // set branch push config so `git push` knows where to push
-    $("git", ["config", `branch.${headBranch}.pushRemote`, remoteName]);
-    log.debug(`📌 configured branch '${headBranch}' to push to '${remoteName}'`);
+    $("git", ["config", `branch.${localBranch}.pushRemote`, remoteName]);
+    // set merge ref so git knows the remote branch name (may differ from local)
+    $("git", ["config", `branch.${localBranch}.merge`, `refs/heads/${headBranch}`]);
+    log.debug(`📌 configured branch '${localBranch}' to push to '${remoteName}/${headBranch}'`);
 
     // warn if maintainer can't modify (push will likely fail)
     if (!pr.data.maintainer_can_modify) {
@@ -122,7 +129,8 @@ export async function checkoutPrBranch(
     }
   } else {
     // for same-repo PRs, push to origin
-    $("git", ["config", `branch.${headBranch}.pushRemote`, "origin"]);
+    $("git", ["config", `branch.${localBranch}.pushRemote`, "origin"]);
+    $("git", ["config", `branch.${localBranch}.merge`, `refs/heads/${headBranch}`]);
   }
 
   return { prNumber: pullNumber };
