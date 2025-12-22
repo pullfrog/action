@@ -275,11 +275,20 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
     return false;
   }
 
-  await ctx.octokit.rest.issues.deleteComment({
-    owner: ctx.owner,
-    repo: ctx.name,
-    comment_id: existingCommentId,
-  });
+  try {
+    await ctx.octokit.rest.issues.deleteComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      comment_id: existingCommentId,
+    });
+  } catch (error) {
+    // ignore 404 - comment already deleted
+    if (error instanceof Error && error.message.includes("Not Found")) {
+      // comment already deleted, continue
+    } else {
+      throw error;
+    }
+  }
 
   // reset state but mark as "updated" so ensureProgressCommentUpdated doesn't try to handle it
   progressCommentId = null;
