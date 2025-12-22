@@ -1,6 +1,7 @@
 import { createSign } from "node:crypto";
 import * as core from "@actions/core";
 import { log } from "./cli.ts";
+import { retry } from "./retry.ts";
 
 export interface InstallationToken {
   token: string;
@@ -56,7 +57,6 @@ async function acquireTokenViaOIDC(): Promise<string> {
 
   log.info("» exchanging OIDC token for installation token...");
 
-  // Add timeout to prevent long waits (30 seconds)
   const timeoutMs = 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -234,7 +234,7 @@ async function acquireTokenViaGitHubApp(): Promise<string> {
 
 async function acquireNewToken(): Promise<string> {
   if (isGitHubActionsEnvironment()) {
-    return await acquireTokenViaOIDC();
+    return await retry(() => acquireTokenViaOIDC(), { label: "token exchange" });
   } else {
     return await acquireTokenViaGitHubApp();
   }

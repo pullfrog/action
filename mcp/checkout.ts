@@ -107,13 +107,13 @@ export async function checkoutPrBranch(
     const remoteName = `pr-${pullNumber}`;
     const forkUrl = `https://x-access-token:${token}@github.com/${headRepo.full_name}.git`;
 
-    // add fork as a named remote (ignore error if already exists)
+    // add fork as a named remote (suppress logging to avoid "error: remote already exists" spam)
     try {
-      $("git", ["remote", "add", remoteName, forkUrl]);
+      $("git", ["remote", "add", remoteName, forkUrl], { log: false });
       log.debug(`📌 added remote '${remoteName}' for fork ${headRepo.full_name}`);
     } catch {
       // remote already exists, update its URL
-      $("git", ["remote", "set-url", remoteName, forkUrl]);
+      $("git", ["remote", "set-url", remoteName, forkUrl], { log: false });
       log.debug(`📌 updated remote '${remoteName}' for fork ${headRepo.full_name}`);
     }
 
