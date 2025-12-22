@@ -116,9 +116,8 @@ ${
    - Draft the comment text
 
 5. **SELF-CRITIQUE** - Before submitting, review your draft:
-   - Remove nitpicks unless the user explicitly told you to be nitpicky. Nitpicks may include: requesting documentation/docstrings/JSDoc, commenting on minor code/whitespace formatting, commenting on small changes unrelated to the main changes.
-   - Ensure each comment is actionable - would the author know exactly what to do?
-   - Would the codebase maintainer care about this feedback?
+   - DO NOT NITPICK. Do not comment on minor formatting changes, changes to playground/scratch files, lack of docs/docsstrings, or small changes that seem irrelevant. Assume these things are intentional by the PR author.
+   - DO NOT LEAVE USELESS OR NON-ACTIONABLE COMMENTS. Compliments are not actionable.
    - If you have approach-level concerns, consider whether implementation-level comments are worth including
    - For issues appearing in multiple places, keep only the FIRST occurrence and reference others (e.g., "also at lines X, Y")
 
