@@ -180,7 +180,13 @@ export function CheckoutPrTool(ctx: ToolContext) {
 
       // write diff to file for grep access
       const diffContent = diffResponse.data as unknown as string;
-      const diffPath = join(process.env.PULLFROG_TEMP_DIR!, `pr-${pull_number}.diff`);
+      const tempDir = process.env.PULLFROG_TEMP_DIR;
+      if (!tempDir) {
+        throw new Error(
+          "PULLFROG_TEMP_DIR not set - checkout_pr must run in pullfrog action context"
+        );
+      }
+      const diffPath = join(tempDir, `pr-${pull_number}.diff`);
       writeFileSync(diffPath, diffContent);
       log.debug(`wrote diff to ${diffPath} (${diffContent.length} bytes)`);
 

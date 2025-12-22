@@ -100,36 +100,38 @@ ${
       description:
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
       prompt: `Follow these steps:
-1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and returns the PR diff in the \`diff\` field of the response. Use this diff for your review - it shows exactly what's in the PR (fetched via GitHub API, so it's not affected by main advancing after the branch was created).
 
-2. Start review session using ${ghPullfrogMcpName}/start_review. This creates a pending review on GitHub and returns analysis guidance. Follow the guidance before adding comments.
+1. **CHECKOUT** - Use ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and returns the diff. Use this diff for your review - it shows exactly what's in the PR.
 
-3. **ANALYZE** - Before adding any comments, think through:
+2. **UNDERSTAND CONTEXT** - Read the modified files to understand the changes in context. Don't just look at the diff - understand how the changes affect the overall codebase.
+
+3. **ANALYZE** - Think through:
    - What does this PR change? Summarize in 1-2 sentences.
-   - Is the approach sound? If not, **stop here** and comment on the approach first. Don't waste time on implementation details if the approach is wrong.
+   - Is the approach sound? If not, focus on the approach first. Don't waste time on implementation details if the approach is wrong.
    - What bugs, edge cases, or security issues exist?
 
-4. **BEFORE COMMENTING** - For each potential comment, ask yourself:
-   - Is this a nitpick? Skip it unless explicitly requested.
-   - Would the codebase maintainer care about this feedback, based on what you can infer about the code quality standards in this repo?
+4. **DRAFT** - Mentally list all comments you would make. For each:
+   - Note the file path (relative to repo root, e.g., \`packages/core/src/utils.ts\`)
+   - Note the line number from the diff (use NEW file line number - shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
+   - Draft the comment text
 
-5. Add inline review comments one-by-one using ${ghPullfrogMcpName}/add_review_comment
-   - Use **relative paths** from repo root (e.g., \`packages/core/src/utils.ts\`)
-   - Use the NEW file line number from the diff (shown after \`+\` in hunk headers like \`@@ -10,5 +12,8 @@\` means new file starts at line 12)
-   - Only comment on lines that appear in the diff. GitHub will reject comments on unchanged lines.
-   - For issues appearing in multiple places, comment on the FIRST occurrence and reference others (e.g., "also at lines X, Y")
+5. **SELF-CRITIQUE** - Before submitting, review your draft:
+   - Remove nitpicks unless the user explicitly told you to be nitpicky. Nitpicks may include: requesting documentation/docstrings/JSDoc, commenting on minor code/whitespace formatting, commenting on small changes unrelated to the main changes.
+   - Ensure each comment is actionable - would the author know exactly what to do?
+   - Would the codebase maintainer care about this feedback?
+   - If you have approach-level concerns, consider whether implementation-level comments are worth including
+   - For issues appearing in multiple places, keep only the FIRST occurrence and reference others (e.g., "also at lines X, Y")
 
-6. Submit the review using ${ghPullfrogMcpName}/submit_review
-   - The "body" field is ONLY for: (1) a 1-3 sentence high-level overview, (2) urgency level (e.g., "minor suggestions" vs "blocking issues"), (3) critical security callouts (e.g., API key exposure)
+6. **SUBMIT** - Use ${ghPullfrogMcpName}/create_pull_request_review with:
+   - \`comments\`: Array of all inline comments with file paths and line numbers
+   - \`body\`: 1-3 sentence summary with urgency level (e.g., "minor suggestions" vs "blocking issues") and any critical callouts (e.g., API key exposure)
 
-**GENERAL GUIDANCE**
-
-- Do not leave any comments that are not potentially actionable. Do not leave complimentary comments just to be nice.
-- Do not nitpick unless instructed explicitly to do so by the user's additional instructions. This includes: requesting documentation/docstrings/JSDoc.
-- **CRITICAL: Prioritize per-line feedback over summary text.**
-  - All specific feedback MUST go in inline review comments with file paths and line numbers from the diff
-  - The vast majority of review content should be in inline review comments; the body should be brief and only summarize the urgency of the review and any cross-cutting concerns.
-  `,
+**CRITICAL RULES**
+- 95%+ of review content should be in inline \`comments\` array, not the \`body\`
+- Only comment on lines that appear in the diff - GitHub will reject comments on unchanged lines
+- Do not leave complimentary comments just to be nice
+- Do not leave comments that are not actionable
+`,
     },
     {
       name: "Plan",
