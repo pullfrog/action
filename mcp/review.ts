@@ -123,19 +123,13 @@ export function StartReviewTool(ctx: ToolContext) {
         id: reviewId,
       };
 
+      log.debug(`review session started: id=${reviewId}, nodeId=${reviewNodeId}`);
+
       return {
         message: `Review session started for PR #${pull_number}.`,
-        guidance: {
-          analyze: [
-            "What does this PR change? Summarize in 1-2 sentences.",
-            "Is the approach sound? If not, stop and comment on approach first.",
-            "What bugs, edge cases, or security issues exist?",
-          ],
-          beforeCommenting: [
-            "Skip nitpicks unless explicitly requested.",
-            "Would the codebase maintainer care about this feedback, based on what you can infer about the code quality standards in this repo?",
-          ],
-        },
+        instructions:
+          "Analyze: What does this PR change? Is the approach sound? What bugs, edge cases, or security issues exist? " +
+          "Before commenting: Skip nitpicks unless requested. Only comment if the codebase maintainer would care.",
       };
     }),
   });
@@ -166,8 +160,12 @@ export function AddReviewCommentTool(ctx: ToolContext) {
         throw new Error("No review session started. Call start_review first.");
       }
 
+      log.debug(
+        `adding review comment: reviewNodeId=${ctx.toolState.review.nodeId}, path=${path}, line=${line}, side=${side || "RIGHT"}`
+      );
+
       // add comment thread via GraphQL (REST doesn't support adding to existing pending review)
-      await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
+      const result = await ctx.octokit.graphql<AddPullRequestReviewThreadResponse>(
         ADD_PULL_REQUEST_REVIEW_THREAD,
         {
           pullRequestReviewId: ctx.toolState.review.nodeId,
@@ -178,9 +176,12 @@ export function AddReviewCommentTool(ctx: ToolContext) {
         }
       );
 
+      log.debug(`review comment added: threadId=${result.addPullRequestReviewThread.thread.id}`);
+
       return {
         success: true,
         message: `Comment added to ${path}:${line}`,
+        threadId: result.addPullRequestReviewThread.thread.id,
       };
     }),
   });
@@ -211,6 +212,9 @@ export function SubmitReviewTool(ctx: ToolContext) {
       }
 
       const reviewId = ctx.toolState.review.id;
+      log.debug(
+        `submitting review: id=${reviewId}, nodeId=${ctx.toolState.review.nodeId}, prNumber=${ctx.toolState.prNumber}`
+      );
 
       // build quick links footer
       const apiUrl = process.env.API_URL || "https://pullfrog.com";
@@ -233,6 +237,8 @@ export function SubmitReviewTool(ctx: ToolContext) {
         event: "COMMENT",
         body: bodyWithFooter,
       });
+
+      log.debug(`review submitted: reviewId=${result.data.id}, state=${result.data.state}`);
 
       // clear review state
       delete ctx.toolState.review;

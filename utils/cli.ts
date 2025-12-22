@@ -342,12 +342,11 @@ export const log = {
    */
   toolCall: ({ toolName, input }: { toolName: string; input: unknown }): void => {
     const inputFormatted = formatJsonValue(input);
-    // if (inputFormatted !== "{}")
-    const output = inputFormatted !== "{}" ? `${toolName}(${inputFormatted})` : `${toolName}()`;
-
-    // if (inputFormatted !== "{}") {
-    // output += formatIndentedField("input", inputFormatted);
-    // }
+    const timestamp = isDebugEnabled() ? ` [${new Date().toISOString()}]` : "";
+    const output =
+      inputFormatted !== "{}"
+        ? `→ ${toolName}(${inputFormatted})${timestamp}`
+        : `→ ${toolName}()${timestamp}`;
 
     log.info(output.trimEnd());
   },
