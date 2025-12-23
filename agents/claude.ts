@@ -57,7 +57,7 @@ export const claude = agent({
       options: {
         ...sandboxOptions,
         mcpServers,
-        model: "claude-opus-4-5",
+
         pathToClaudeCodeExecutable: cliPath,
         env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
       },
@@ -147,6 +147,7 @@ const messageHandlers: SDKMessageHandlers = {
     }
   },
   result: async (data) => {
+    log.debug(JSON.stringify(data, null, 2));
     if (data.subtype === "success") {
       await log.summaryTable([
         [

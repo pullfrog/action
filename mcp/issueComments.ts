@@ -28,11 +28,7 @@ export function GetIssueCommentsTool(ctx: ToolContext) {
           id: comment.id,
           body: comment.body,
           user: comment.user?.login,
-          created_at: comment.created_at,
-          updated_at: comment.updated_at,
-          html_url: comment.html_url,
           author_association: comment.author_association,
-          reactions: comment.reactions,
         })),
         count: comments.length,
       };

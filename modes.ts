@@ -101,7 +101,7 @@ ${
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
       prompt: `Follow these steps. THINK HARDER.
 
-1. **CHECKOUT** - Use ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and returns the diff. Use this diff for your review - it shows exactly what's in the PR.
+1. **CHECKOUT** - Use ${ghPullfrogMcpName}/checkout_pr with the PR number. This returns all PR metadata (title, base, head, fork status) AND a \`diffPath\` pointing to a file containing the formatted diff.
 
 2. **UNDERSTAND CONTEXT** - Read the modified files to understand the changes in context. Don't just look at the diff - understand how the changes affect the overall codebase.
 
@@ -111,7 +111,7 @@ ${
    - What bugs, edge cases, or security issues exist?
    - Could this be made more elegant?
 
-4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
+4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
 
 5. **SELF-CRITIQUE** - Before submitting, review your draft:
    - DO NOT NITPICK. Do not comment on minor formatting changes, changes to playground/scratch files, lack of docs/docsstrings, or small changes that seem irrelevant. Assume these things are intentional by the PR author.

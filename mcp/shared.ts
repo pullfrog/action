@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { encode as toonEncode } from "@toon-format/toon";
 import type { FastMCP, Tool } from "fastmcp";
 import type { ToolContext } from "../main.ts";
 
@@ -12,14 +13,10 @@ export interface ToolResult {
   isError?: boolean;
 }
 
-export const handleToolSuccess = (data: Record<string, any>): ToolResult => {
+export const handleToolSuccess = (data: Record<string, any> | string): ToolResult => {
+  const text = typeof data === "string" ? data : toonEncode(data);
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(data, null, 2),
-      },
-    ],
+    content: [{ type: "text", text }],
   };
 };
 
@@ -40,7 +37,7 @@ export const handleToolError = (error: unknown): ToolResult => {
  * Helper to wrap a tool execute function with error handling.
  * Captures ctx in closure so tools don't need to handle try/catch.
  */
-export const execute = <T>(fn: (params: T) => Promise<Record<string, any>>) => {
+export const execute = <T>(fn: (params: T) => Promise<Record<string, any> | string>) => {
   return async (params: T): Promise<ToolResult> => {
     try {
       const result = await fn(params);

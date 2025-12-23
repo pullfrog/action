@@ -12,7 +12,7 @@ type PullFile = RestEndpointMethodTypes["pulls"]["listFiles"]["response"]["data"
 /**
  * formats PR files with explicit line numbers for each code line.
  * preserves all original diff info (file headers, hunk headers) and adds:
- * OLD | NEW | TYPE | code
+ * | OLD | NEW | TYPE | code
  */
 export function formatFilesWithLineNumbers(files: PullFile[]): string {
   const output: string[] = [];
@@ -50,18 +50,18 @@ export function formatFilesWithLineNumbers(files: PullFile[]): string {
 
       if (changeType === "-") {
         // removed line: show old line number, no new line number
-        output.push(`${padNum(oldLine)} |     | - | ${code}`);
+        output.push(`| ${padNum(oldLine)} |      | - | ${code}`);
         oldLine++;
       } else if (changeType === "+") {
         // added line: no old line number, show new line number
-        output.push(`    | ${padNum(newLine)} | + | ${code}`);
+        output.push(`|      | ${padNum(newLine)} | + | ${code}`);
         newLine++;
       } else if (changeType === " " || changeType === "\\") {
         // context line or "\ No newline at end of file"
         if (changeType === "\\") {
           output.push(line); // pass through as-is
         } else {
-          output.push(`${padNum(oldLine)} | ${padNum(newLine)} |   | ${code}`);
+          output.push(`| ${padNum(oldLine)} | ${padNum(newLine)} |   | ${code}`);
           oldLine++;
           newLine++;
         }
@@ -263,12 +263,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
       writeFileSync(diffPath, diffContent);
       log.debug(`wrote diff to ${diffPath} (${diffContent.length} bytes)`);
 
-      // return diff inline only if small enough
-      const MAX_INLINE_DIFF_SIZE = 50 * 1024; // 50KB
-      const diff =
-        diffContent.length <= MAX_INLINE_DIFF_SIZE
-          ? diffContent
-          : `Diff is ${(diffContent.length / 1024).toFixed(0)}KB - use grep or read from ${diffPath}`;
+      // don't inline diff - always point to file to reduce context size
+      const diff = `Diff written to ${diffPath} (${(diffContent.length / 1024).toFixed(1)}KB). Use grep or read_file to explore.`;
 
       return {
         success: true,
