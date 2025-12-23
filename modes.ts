@@ -113,14 +113,7 @@ ${
 
 3. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
 
-4. **SELF-CRITIQUE** - Before submitting, DELETE any comments that are nitpicks. Make sure you understanExamples of nitpicks to DELETE:
-   - Whitespace/formatting changes
-   - Changes to playground/scratch/test files (e.g. play.ts, scratch.ts)
-   - Missing docs/docstrings
-   - Stylistic preferences that don't affect correctness
-   - Anything you'd describe as "minor cleanup" or "should revert"
-   
-   Only keep comments about: bugs, security issues, logic errors, API design problems, or missing edge cases. If in doubt, DELETE the comment.s
+4. **FILTER COMMENTS** - Do not nitpick! Do not leave compliments that are not actionable. Do not critique the code hygiene or anything stylistic.
 
 5. **SUBMIT** — Use ${ghPullfrogMcpName}/create_pull_request_review with:
 - \`comments\`: Array of all inline comments with file paths and line numbers
