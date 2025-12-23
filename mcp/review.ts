@@ -20,7 +20,7 @@ export const CreatePullRequestReview = type({
   comments: type({
     path: type.string.describe("The file path to comment on (relative to repo root)"),
     line: type.number.describe(
-      "Line number from the diff. Each code line shows 'OLD | NEW | TYPE | code'. Use NEW (second column) for added/context lines, OLD (first column) for removed lines."
+      "Line number from the diff. Each code line shows 'OLD | NEW | TYPE | CODE'. Use the NEW column (second column)."
     ),
     side: type
       .enumerated("LEFT", "RIGHT")

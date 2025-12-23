@@ -110,9 +110,7 @@ ${
    - Is the approach sound? If not, focus on the approach first. Don't waste time on implementation details if the approach is wrong.
    - What bugs, edge cases, or security issues exist?
 
-4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`OLD | NEW | TYPE | code\`
-   - For added lines (\`+\`) or context lines, use the NEW line number (second column)
-   - For removed lines (\`-\`), use the OLD line number (first column) with \`side: "LEFT"\`
+4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
 
 5. **SELF-CRITIQUE** - Before submitting, review your draft:
    - DO NOT NITPICK. Do not comment on minor formatting changes, changes to playground/scratch files, lack of docs/docsstrings, or small changes that seem irrelevant. Assume these things are intentional by the PR author.
