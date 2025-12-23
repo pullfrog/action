@@ -29,7 +29,7 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
       name: "Build",
       description:
         "Implement, build, create, or develop code changes; make specific changes to files or features; execute a plan; or handle tasks with specific implementation details",
-      prompt: `Follow these steps:
+      prompt: `Follow these steps. THINK HARDER.
 1. If this is a PR event, the PR branch is already checked out - skip branch creation. Otherwise, create a branch using ${ghPullfrogMcpName}/create_branch. The branch name should be prefixed with "pullfrog/". The rest of the name should reflect the exact changes you are making. It should be specific to avoid collisions with other branches. Never commit directly to main, master, or production. Do NOT use git commands directly (including \`git branch\`, \`git status\`, \`git log\`) - always use ${ghPullfrogMcpName} MCP tools for git operations.
 
 ${dependencyInstallationGuidance}
@@ -68,7 +68,7 @@ ${dependencyInstallationGuidance}
       name: "Address Reviews",
       description:
         "Address PR review feedback; respond to reviewer comments; make requested changes to an existing PR",
-      prompt: `Follow these steps:
+      prompt: `Follow these steps. THINK HARDER.
 1. Checkout the PR using ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and configures push settings (including for fork PRs).
 
 ${dependencyInstallationGuidance}
@@ -99,16 +99,17 @@ ${
       name: "Review",
       description:
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
-      prompt: `Follow these steps:
+      prompt: `Follow these steps. THINK HARDER.
 
 1. **CHECKOUT** - Use ${ghPullfrogMcpName}/checkout_pr with the PR number. This fetches the PR branch and returns the diff. Use this diff for your review - it shows exactly what's in the PR.
 
 2. **UNDERSTAND CONTEXT** - Read the modified files to understand the changes in context. Don't just look at the diff - understand how the changes affect the overall codebase.
 
-3. **ANALYZE** - Think through:
+3. **ANALYZE** 
    - What does this PR change? Summarize in 1-2 sentences.
    - Is the approach sound? If not, focus on the approach first. Don't waste time on implementation details if the approach is wrong.
    - What bugs, edge cases, or security issues exist?
+   - Could this be made more elegant?
 
 4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
 
@@ -136,7 +137,7 @@ ${
       name: "Plan",
       description:
         "Create plans, break down tasks, outline steps, analyze requirements, understand scope of work, or provide task breakdowns",
-      prompt: `Follow these steps:
+      prompt: `Follow these steps. THINK HARDER.
 1. If the request requires understanding the codebase structure or conventions, gather relevant context (read AGENTS.md if it exists). Skip this step if the prompt is trivial and self-contained.
 
 2. Analyze the request and break it down into clear, actionable tasks
@@ -149,7 +150,7 @@ ${
       name: "Prompt",
       description:
         "Fallback for tasks that don't fit other workflows, e.g. direct prompts via comments, or requests requiring general assistance",
-      prompt: `Follow these steps:
+      prompt: `Follow these steps. THINK HARDER.
 1. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.${disableProgressComment ? "" : "\n\n2. When creating comments, always use report_progress. Do not use create_issue_comment."}
 
 2. If the task involves making code changes:
