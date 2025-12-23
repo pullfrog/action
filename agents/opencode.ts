@@ -30,7 +30,7 @@ export const opencode = agent({
     configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
 
     const prompt = addInstructions({ payload, repo });
-    log.group("» Full prompt", () => log.info(prompt));
+    log.group("Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags
     const args = ["run", prompt, "--format", "json"];

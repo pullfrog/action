@@ -162,7 +162,7 @@ export const gemini = agent({
     }
 
     const sessionPrompt = addInstructions({ payload, repo });
-    log.group("» Full prompt", () => log.info(sessionPrompt));
+    log.group("Full prompt", () => log.info(sessionPrompt));
 
     // configure sandbox mode if enabled
     // --allowed-tools restricts which tools are available (removes others from registry entirely)

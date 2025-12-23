@@ -19,7 +19,7 @@ export const claude = agent({
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, repo });
-    log.group("» Full prompt", () => log.info(prompt));
+    log.group("Full prompt", () => log.info(prompt));
 
     // configure sandbox mode if enabled
     const sandboxOptions: Options = payload.sandbox
