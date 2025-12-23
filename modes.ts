@@ -101,7 +101,7 @@ ${
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
       prompt: `Follow these steps. THINK HARDER.
 
-1. **CHECKOUT** - Use ${ghPullfrogMcpName}/checkout_pr with the PR number. This returns all PR metadata (title, base, head, fork status) AND a \`diffPath\` pointing to a file containing the formatted diff.
+1. **CHECKOUT** - Call ${ghPullfrogMcpName}/checkout_pr with the PR number. This returns all PR metadata you need (title, base, head, fork status, url) - do not call get_pull_request separately. It also returns a \`diffPath\` - read this file to see the diff.
 
 2. **UNDERSTAND CONTEXT** - Read the modified files to understand the changes in context. Don't just look at the diff - understand how the changes affect the overall codebase.
 

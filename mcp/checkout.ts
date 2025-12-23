@@ -94,7 +94,6 @@ export type CheckoutPrResult = {
   maintainerCanModify: boolean;
   url: string;
   headRepo: string;
-  diff: string;
   diffPath: string;
 };
 
@@ -217,7 +216,7 @@ export function CheckoutPrTool(ctx: ToolContext) {
     name: "checkout_pr",
     description:
       "Checkout a pull request branch locally. This fetches the PR branch and sets up push configuration for fork PRs. " +
-      "The PR diff is written to a file (diffPath) for grep access. For small diffs, it's also returned inline.",
+      "Returns diffPath pointing to the formatted diff file.",
     parameters: CheckoutPr,
     execute: execute(async ({ pull_number }) => {
       const result = await checkoutPrBranch({
@@ -263,9 +262,6 @@ export function CheckoutPrTool(ctx: ToolContext) {
       writeFileSync(diffPath, diffContent);
       log.debug(`wrote diff to ${diffPath} (${diffContent.length} bytes)`);
 
-      // don't inline diff - always point to file to reduce context size
-      const diff = `Diff written to ${diffPath} (${(diffContent.length / 1024).toFixed(1)}KB). Use grep or read_file to explore.`;
-
       return {
         success: true,
         number: pr.data.number,
@@ -276,7 +272,6 @@ export function CheckoutPrTool(ctx: ToolContext) {
         maintainerCanModify: pr.data.maintainer_can_modify,
         url: pr.data.html_url,
         headRepo: headRepo.full_name,
-        diff,
         diffPath,
       } satisfies CheckoutPrResult;
     }),

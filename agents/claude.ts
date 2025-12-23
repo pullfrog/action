@@ -53,11 +53,10 @@ export const claude = agent({
     // This ensures secrets are only available to Claude Code subprocess, not user code
     const queryInstance = query({
       prompt,
-
       options: {
         ...sandboxOptions,
         mcpServers,
-
+        model: "claude-opus-4-5",
         pathToClaudeCodeExecutable: cliPath,
         env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
       },
