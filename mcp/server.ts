@@ -17,7 +17,6 @@ import {
   AwaitDependencyInstallationTool,
   StartDependencyInstallationTool,
 } from "./dependencies.ts";
-import { ListFilesTool } from "./files.ts";
 import { CommitFilesTool, CreateBranchTool, PushBranchTool } from "./git.ts";
 import { IssueTool } from "./issue.ts";
 import { GetIssueCommentsTool } from "./issueComments.ts";
@@ -95,7 +94,6 @@ export async function startMcpHttpServer(
     CreateBranchTool(ctx),
     CommitFilesTool(ctx),
     PushBranchTool(ctx),
-    ListFilesTool(ctx),
   ];
 
   if (!ctx.payload.disableProgressComment) {
