@@ -1,10 +1,12 @@
 /**
- * ⚠️ NO IMPORTS except modes.ts - this file is imported by Next.js and must avoid pulling in backend code.
+ * ⚠️ MINIMAL IMPORTS ONLY - this file is imported by Next.js and must avoid pulling in backend code.
+ * Only frontend-safe imports (arktype, zod, modes.ts) are allowed.
  * All shared constants, types, and data used by both the Next.js app and the action runtime live here.
  * Other files in action/ re-export from this file for backward compatibility.
  */
 
 import { type } from "arktype";
+import { z } from "zod";
 import type { Mode } from "./modes.ts";
 
 // mcp name constant
@@ -50,6 +52,34 @@ export type AgentName = keyof typeof agentsManifest;
 export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
+
+// per-agent configuration options
+export interface AgentConfigOptions {
+  readonly: boolean; // no write access
+  network: boolean; // can access web/fetch
+  bash: boolean; // can run shell commands
+  cliArgs: string; // additional CLI args to append (space-separated)
+}
+
+export const DEFAULT_AGENT_CONFIG: AgentConfigOptions = {
+  readonly: false,
+  network: true,
+  bash: true,
+  cliArgs: "",
+};
+
+// zod schema for per-agent config (used by web app forms and API validation)
+const agentNameKeys = Object.keys(agentsManifest) as [AgentName, ...AgentName[]];
+
+export const agentConfigSchema = z.object({
+  agentName: z.enum(agentNameKeys),
+  readonly: z.boolean().default(false),
+  network: z.boolean().default(true),
+  bash: z.boolean().default(true),
+  cliArgs: z.string().default(""),
+});
+
+export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
 // base interface for common payload event fields
 interface BasePayloadEvent {

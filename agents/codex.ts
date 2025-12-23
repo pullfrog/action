@@ -8,6 +8,7 @@ import {
   agent,
   type ConfigureMcpServersParams,
   installFromNpmTarball,
+  parseCliArgs,
   setupProcessAgentEnv,
 } from "./shared.ts";
 
@@ -20,7 +21,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, agentConfig }) => {
     // create config directory for codex before setting HOME
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "codex");
@@ -39,26 +40,18 @@ export const codex = agent({
       codexPathOverride: cliPath,
     };
 
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    const cliArgs = parseCliArgs(agentConfig.cliArgs);
+    if (cliArgs.length > 0) {
+      log.info(`📋 extra CLI args: ${cliArgs.join(" ")}`);
     }
 
-    const codex = new Codex(codexOptions);
+    const codexInstance = new Codex(codexOptions);
     // valid sandbox modes: read-only, workspace-write, danger-full-access
-    const thread = codex.startThread(
-      payload.sandbox
-        ? {
-            approvalPolicy: "never",
-            sandboxMode: "read-only",
-            networkAccessEnabled: false,
-          }
-        : {
-            approvalPolicy: "never",
-            // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
-            sandboxMode: "danger-full-access",
-            networkAccessEnabled: true,
-          }
-    );
+    const thread = codexInstance.startThread({
+      approvalPolicy: "never",
+      sandboxMode: agentConfig.readonly ? "read-only" : "danger-full-access",
+      networkAccessEnabled: agentConfig.network,
+    });
 
     try {
       const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));
