@@ -146,18 +146,28 @@ const messageHandlers: SDKMessageHandlers = {
     }
   },
   result: async (data) => {
-    log.debug(JSON.stringify(data, null, 2));
     if (data.subtype === "success") {
+      const usage = data.usage;
+      const inputTokens = usage?.input_tokens || 0;
+      const cacheRead = usage?.cache_read_input_tokens || 0;
+      const cacheWrite = usage?.cache_creation_input_tokens || 0;
+      const outputTokens = usage?.output_tokens || 0;
+      const totalInput = inputTokens + cacheRead + cacheWrite;
+
       await log.summaryTable([
         [
           { data: "Cost", header: true },
-          { data: "Input Tokens", header: true },
-          { data: "Output Tokens", header: true },
+          { data: "Input", header: true },
+          { data: "Cache Read", header: true },
+          { data: "Cache Write", header: true },
+          { data: "Output", header: true },
         ],
         [
           `$${data.total_cost_usd?.toFixed(4) || "0.0000"}`,
-          String(data.usage?.input_tokens || 0),
-          String(data.usage?.output_tokens || 0),
+          String(totalInput),
+          String(cacheRead),
+          String(cacheWrite),
+          String(outputTokens),
         ],
       ]);
     } else if (data.subtype === "error_max_turns") {

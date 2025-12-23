@@ -99,38 +99,35 @@ ${
       name: "Review",
       description:
         "Review code, PRs, or implementations; provide feedback or suggestions; identify issues; or check code quality, style, and correctness",
-      prompt: `Follow these steps. THINK HARDER.
+      prompt: `Follow these steps to review the PR. Think hard. Do not nitpick.
 
-1. **CHECKOUT** - Call ${ghPullfrogMcpName}/checkout_pr with the PR number. This returns all PR metadata you need (title, base, head, fork status, url) - do not call get_pull_request separately. It also returns a \`diffPath\` - read this file to see the diff.
+1. **CHECKOUT** - Call ${ghPullfrogMcpName}/checkout_pr with the PR number. This should give you all PR metadata you need, including a \`diffPath\`: a path to a temp file containing the PR diff.
 
-2. **UNDERSTAND CONTEXT** - Read the modified files to understand the changes in context. Don't just look at the diff - understand how the changes affect the overall codebase.
 
-3. **ANALYZE** 
-   - What does this PR change? Summarize in 1-2 sentences.
+2. **ANALYZE** 
+   - Read the modified files to understand the changes in context. Make sure you understand what's being changed.
+   - Is it a good idea? Think about the tradeoffs.
    - Is the approach sound? If not, focus on the approach first. Don't waste time on implementation details if the approach is wrong.
-   - What bugs, edge cases, or security issues exist?
-   - Could this be made more elegant?
+   - Can you imagine a better approach? If so, explain. Make sure it's strictly better, not just different.
+   - Are there bugs, edge cases, security issues, or usability issues? Use your imagination.
 
-4. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
+3. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
 
-5. **SELF-CRITIQUE** - Before submitting, review your draft:
-   - DO NOT NITPICK. Do not comment on minor formatting changes, changes to playground/scratch files, lack of docs/docsstrings, or small changes that seem irrelevant. Assume these things are intentional by the PR author.
-   - DO NOT LEAVE USELESS OR NON-ACTIONABLE COMMENTS. Compliments are not actionable.
-   - If you have approach-level concerns, consider whether implementation-level comments are worth including
-   - For issues appearing in multiple places, keep only the FIRST occurrence and reference others (e.g., "also at lines X, Y")
+4. **SELF-CRITIQUE** - Before submitting, DELETE any comments that are nitpicks. Make sure you understanExamples of nitpicks to DELETE:
+   - Whitespace/formatting changes
+   - Changes to playground/scratch/test files (e.g. play.ts, scratch.ts)
+   - Missing docs/docstrings
+   - Stylistic preferences that don't affect correctness
+   - Anything you'd describe as "minor cleanup" or "should revert"
+   
+   Only keep comments about: bugs, security issues, logic errors, API design problems, or missing edge cases. If in doubt, DELETE the comment.s
 
-6. **SUBMIT** - Use ${ghPullfrogMcpName}/create_pull_request_review with:
+5. **SUBMIT** — Use ${ghPullfrogMcpName}/create_pull_request_review with:
 - \`comments\`: Array of all inline comments with file paths and line numbers
 - \`body\`: Everything else. Aim for a 1-3 sentence summary of the urgency level (e.g., "minor suggestions" vs "blocking issues") and any critical callouts (e.g., API key exposure). It can be longer if there are concerns that do not lend themselves to inline comments.
-   
+- If you have no substantive feedback, submit an empty comments array with a brief approving body.
+- Again, do not nitpick.
 
-**CRITICAL RULES**
-- ALL feedback goes in the ONE create_pull_request_review call. Do not create separate comments.
-- Inline \`comments\` can only be placed on lines within diff hunks. For feedback about code outside the diff (e.g., "function X has the same issue"), include it in the \`body\`.
-- Cross-cutting concerns that don't fit on a specific line go in the \`body\`, not in a separate comment.
-- 95%+ of review content should be in inline \`comments\` array, not the \`body\`
-- Do not leave complimentary comments just to be nice
-- Do not leave comments that are not actionable
 `,
     },
     {
