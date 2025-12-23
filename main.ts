@@ -7,8 +7,8 @@ import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import type { AgentName, Payload } from "./external.ts";
-import { agentsManifest } from "./external.ts";
+import type { AgentConfigOptions, AgentName, Payload } from "./external.ts";
+import { agentsManifest, DEFAULT_AGENT_CONFIG } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
@@ -507,6 +507,44 @@ function validateApiKey(params: {
   };
 }
 
+/**
+ * Resolve agent config from repo settings and payload.
+ * Handles compatibility with payload.sandbox flag.
+ */
+function resolveAgentConfig(params: {
+  agent: Agent;
+  repoSettings: RepoSettings;
+  payload: Payload;
+}): AgentConfigOptions {
+  // find agent-specific config from repo settings
+  const agentConfigRecord = params.repoSettings.agentConfigs.find(
+    (c) => c.agentName === params.agent.name
+  );
+
+  // start with defaults, merge with repo config if found
+  const baseConfig: AgentConfigOptions = agentConfigRecord
+    ? {
+        readonly: agentConfigRecord.readonly,
+        network: agentConfigRecord.network,
+        bash: agentConfigRecord.bash,
+        cliArgs: agentConfigRecord.cliArgs,
+      }
+    : { ...DEFAULT_AGENT_CONFIG };
+
+  // sandbox mode: restricts agent for non-contributor runs (security feature)
+  if (params.payload.sandbox) {
+    log.info("🔒 sandbox mode enabled - restricting agent to read-only");
+    return {
+      readonly: true,
+      network: false,
+      bash: false,
+      cliArgs: baseConfig.cliArgs, // preserve cliArgs from config
+    };
+  }
+
+  return baseConfig;
+}
+
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   log.info(`Running ${ctx.agent.name}...`);
   // strip context from event
@@ -514,6 +552,13 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   // format: prompt + two newlines + TOON encoded event
   const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
   log.box(promptContent, { title: "Prompt" });
+
+  // resolve agent config from repo settings + payload sandbox flag
+  const agentConfig = resolveAgentConfig({
+    agent: ctx.agent,
+    repoSettings: ctx.repoSettings,
+    payload: ctx.payload,
+  });
 
   return ctx.agent.run({
     payload: ctx.payload,
@@ -526,6 +571,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       name: ctx.name,
       defaultBranch: ctx.repo.default_branch,
     },
+    agentConfig,
   });
 }
 

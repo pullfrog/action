@@ -9,6 +9,7 @@ import {
   type ConfigureMcpServersParams,
   createAgentEnv,
   installFromGithub,
+  parseCliArgs,
 } from "./shared.ts";
 
 // gemini cli event types inferred from stream-json output (NDJSON format)
@@ -156,7 +157,7 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath, repo }) => {
+  run: async ({ payload, apiKey, mcpServers, cliPath, repo, agentConfig }) => {
     configureGeminiMcpServers({ mcpServers, cliPath });
 
     if (!apiKey) {
@@ -166,24 +167,27 @@ export const gemini = agent({
     const sessionPrompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(sessionPrompt));
 
-    // configure sandbox mode if enabled
-    // --allowed-tools restricts which tools are available (removes others from registry entirely)
-    // in sandbox mode: only read-only tools available (no write_file, run_shell_command, web_fetch)
-    const args = payload.sandbox
-      ? [
-          "--allowed-tools",
-          "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
-          "--allowed-mcp-server-names",
-          "gh_pullfrog",
-          "--output-format=stream-json",
-          "-p",
-          sessionPrompt,
-        ]
-      : ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    // build CLI args based on config
+    const baseArgs: string[] = [];
+    if (agentConfig.readonly) {
+      // in readonly mode: only read-only tools available
+      baseArgs.push(
+        "--allowed-tools",
+        "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
+        "--allowed-mcp-server-names",
+        "gh_pullfrog"
+      );
+    } else {
+      baseArgs.push("--yolo");
     }
+
+    const args = [
+      ...baseArgs,
+      ...parseCliArgs(agentConfig.cliArgs),
+      "--output-format=stream-json",
+      "-p",
+      sessionPrompt,
+    ];
 
     let finalOutput = "";
     let stdoutBuffer = ""; // buffer for incomplete lines across chunks

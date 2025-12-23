@@ -1,4 +1,4 @@
-import type { AgentName } from "../external.ts";
+import type { AgentConfig, AgentName } from "../external.ts";
 import type { RepoContext } from "./github.ts";
 
 export interface Mode {
@@ -14,6 +14,7 @@ export interface RepoSettings {
   webAccessAllowTrusted: boolean;
   webAccessDomains: string;
   modes: Mode[];
+  agentConfigs: AgentConfig[];
 }
 
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {
@@ -22,6 +23,7 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   webAccessAllowTrusted: false,
   webAccessDomains: "",
   modes: [],
+  agentConfigs: [],
 };
 
 export interface WorkflowRunInfo {

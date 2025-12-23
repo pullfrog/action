@@ -5,8 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import type { show } from "@ark/util";
-import { type AgentManifest, type AgentName, agentsManifest, type Payload } from "../external.ts";
+import {
+  type AgentConfigOptions,
+  type AgentManifest,
+  type AgentName,
+  agentsManifest,
+  type Payload,
+} from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { getGitHubInstallationToken } from "../utils/github.ts";
 
@@ -30,7 +35,7 @@ export interface RepoInfo {
 }
 
 /**
- * Configuration for agent creation
+ * Configuration passed to agent.run() from main.ts
  */
 export interface AgentConfig {
   apiKey: string;
@@ -39,6 +44,17 @@ export interface AgentConfig {
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
   repo: RepoInfo;
+  agentConfig: AgentConfigOptions;
+}
+
+/**
+ * Parse space-separated CLI args string into array.
+ * Handles quoted strings: --flag "value with spaces"
+ */
+export function parseCliArgs(cliArgs: string): string[] {
+  if (!cliArgs.trim()) return [];
+  // split on spaces, respecting double quotes, single quotes, and backticks
+  return cliArgs.match(/(?:[^\s"'`]+|"[^"]*"|'[^']*'|`[^`]*`)+/g) || [];
 }
 
 /**
@@ -498,18 +514,25 @@ export async function installFromCurl({
   return cliPath;
 }
 
-export const agent = <const input extends AgentInput>(input: input): defineAgent<input> => {
-  return { ...input, ...agentsManifest[input.name] } as never;
-};
-
+/**
+ * Input type for defining an agent.
+ */
 export interface AgentInput {
   name: AgentName;
   install: (token?: string) => Promise<string>;
   run: (config: AgentConfig) => Promise<AgentResult>;
 }
 
+/**
+ * Agent definition with manifest metadata.
+ */
 export interface Agent extends AgentInput, AgentManifest {}
 
 type agentManifest<name extends AgentName> = (typeof agentsManifest)[name];
 
-type defineAgent<input extends AgentInput> = show<input & agentManifest<input["name"]>>;
+/**
+ * Helper to define an agent. Merges input with manifest metadata.
+ */
+export const agent = (input: AgentInput): Agent & agentManifest<typeof input.name> => {
+  return { ...input, ...agentsManifest[input.name] };
+};

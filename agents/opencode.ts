@@ -1,5 +1,4 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
@@ -8,6 +7,7 @@ import {
   agent,
   type ConfigureMcpServersParams,
   installFromNpmTarball,
+  parseCliArgs,
   setupProcessAgentEnv,
 } from "./shared.ts";
 
@@ -21,23 +21,28 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, repo }) => {
+  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, repo, agentConfig }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
+    // build permission config
+    const permission = {
+      edit: agentConfig.readonly ? ("deny" as const) : ("allow" as const),
+      bash: agentConfig.bash ? ("allow" as const) : ("deny" as const),
+      webfetch: agentConfig.network ? ("allow" as const) : ("deny" as const),
+      doom_loop: "allow" as const,
+      external_directory: "allow" as const,
+    };
+
+    configureOpenCode({ mcpServers, permission });
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags
-    const args = ["run", prompt, "--format", "json"];
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
+    const args = ["run", prompt, "--format", "json", ...parseCliArgs(agentConfig.cliArgs)];
 
     // 6. set up environment
     setupProcessAgentEnv({ HOME: tempHome });
@@ -187,14 +192,20 @@ export const opencode = agent({
 
 interface ConfigureOpenCodeParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
-  sandbox: boolean;
+  permission: {
+    edit: "allow" | "deny";
+    bash: "allow" | "deny";
+    webfetch: "allow" | "deny";
+    doom_loop: "allow";
+    external_directory: "allow";
+  };
 }
 
 /**
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): void {
+function configureOpenCode({ mcpServers, permission }: ConfigureOpenCodeParams): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -218,23 +229,6 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
     };
   }
 
-  // build permissions config
-  const permission = sandbox
-    ? {
-        edit: "deny",
-        bash: "deny",
-        webfetch: "deny",
-        doom_loop: "allow",
-        external_directory: "allow",
-      }
-    : {
-        edit: "allow",
-        bash: "allow",
-        webfetch: "allow",
-        doom_loop: "allow",
-        external_directory: "allow",
-      };
-
   // build complete config in one object
   const config = {
     mcp: opencodeMcpServers,
@@ -251,7 +245,7 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
     throw error;
   }
 
-  log.info(`» OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
+  log.info(`» OpenCode config written to ${configPath}`);
   log.debug(`OpenCode config contents:\n${configJson}`);
 }
 
