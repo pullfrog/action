@@ -44,11 +44,12 @@ ${dependencyInstallationGuidance}
 
 6. ${reportProgressInstruction}
 
-7. When you are done, use ${ghPullfrogMcpName}/create_pull_request to create a PR. If relevant, indicate which issue the PR addresses in the PR body (e.g. "Fixes #123").
+7. **PR vs Branch-Only Decision:**
+   - Check if the user explicitly requested branch-only by looking for keywords like "create a branch", "new branch", "branch only", "don't create a PR", "no PR", "just push", or similar phrases indicating they want a branch without a PR.
+   - If branch-only is detected: Do NOT create a PR. Just push the branch (already done in step 4).
+   - Otherwise: Create a PR using ${ghPullfrogMcpName}/create_pull_request. If relevant, indicate which issue the PR addresses in the PR body (e.g. "Fixes #123").
 
-8. By default, create a PR with an informative title and body. However, if the user explicitly requests a branch without a PR (e.g. "implement X in a new branch", "don't create a PR", "branch only"), you still need to use ${ghPullfrogMcpName}/create_pull_request to ensure commits are properly attributed - you can note in the PR description that it's branch-only if needed. 
-
-9. Call report_progress one final time ONLY if you haven't already included all the important information (PR links, branch links, summary) in a previous report_progress call. If you already called report_progress with complete information including PR links after creating the PR, you do NOT need to call it again. Only make a final call if you need to add missing information. When making the final call, ensure it includes:
+8. Call report_progress one final time ONLY if you haven't already included all the important information (PR links, branch links, summary) in a previous report_progress call. If you already called report_progress with complete information including PR links after creating the PR, you do NOT need to call it again. Only make a final call if you need to add missing information. When making the final call, ensure it includes:
   - A summary of what was accomplished
   - Links to any artifacts created (PRs, branches, issues)
   - If you created a PR, ALWAYS include the PR link. e.g.: 
