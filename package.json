@@ -20,7 +20,8 @@
     "scratch": "node scratch.ts",
     "upDeps": "pnpm up --latest",
     "lock": "pnpm --ignore-workspace install",
-    "prepare": "husky"
+    "prepare": "husky",
+    "testPerms": "node test-agents.ts"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
@@ -38,7 +39,8 @@
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "fastmcp": "^3.20.0",
-    "table": "^6.9.0"
+    "table": "^6.9.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
