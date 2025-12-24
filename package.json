@@ -20,7 +20,8 @@
     "scratch": "node scratch.ts",
     "upDeps": "pnpm up --latest",
     "lock": "pnpm --ignore-workspace install",
-    "prepare": "husky"
+    "prepare": "husky",
+    "testPerms": "node test-agents.ts"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

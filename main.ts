@@ -516,33 +516,39 @@ function resolveAgentConfig(params: {
   repoSettings: RepoSettings;
   payload: Payload;
 }): AgentConfigOptions {
-  // find agent-specific config from repo settings
-  const agentConfigRecord = params.repoSettings.agentConfigs.find(
-    (c) => c.agentName === params.agent.name
-  );
-
-  // start with defaults, merge with repo config if found
-  const baseConfig: AgentConfigOptions = agentConfigRecord
-    ? {
-        readonly: agentConfigRecord.readonly,
-        network: agentConfigRecord.network,
-        bash: agentConfigRecord.bash,
-        cliArgs: agentConfigRecord.cliArgs,
-      }
-    : { ...DEFAULT_AGENT_CONFIG };
-
   // sandbox mode: restricts agent for non-contributor runs (security feature)
+  // takes highest precedence
   if (params.payload.sandbox) {
     log.info("🔒 sandbox mode enabled - restricting agent to read-only");
     return {
       readonly: true,
       network: false,
       bash: false,
-      cliArgs: baseConfig.cliArgs, // preserve cliArgs from config
+      cliArgs: "", // sandbox mode clears cliArgs for security
     };
   }
 
-  return baseConfig;
+  // payload agentConfig override (for testing individual flags)
+  if (params.payload.agentConfig) {
+    log.info("🔧 using agentConfig from payload");
+    return params.payload.agentConfig;
+  }
+
+  // find agent-specific config from repo settings (default to empty array if not present)
+  const agentConfigs = params.repoSettings.agentConfigs || [];
+  const agentConfigRecord = agentConfigs.find((c) => c.agentName === params.agent.name);
+
+  // start with defaults, merge with repo config if found
+  if (agentConfigRecord) {
+    return {
+      readonly: agentConfigRecord.readonly,
+      network: agentConfigRecord.network,
+      bash: agentConfigRecord.bash,
+      cliArgs: agentConfigRecord.cliArgs,
+    };
+  }
+
+  return { ...DEFAULT_AGENT_CONFIG };
 }
 
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {

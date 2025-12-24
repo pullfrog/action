@@ -282,6 +282,12 @@ export interface DispatchOptions {
    * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)
    */
   readonly disableProgressComment?: true;
+
+  /**
+   * Optional agent config override for testing individual permission flags.
+   * Takes precedence over repo settings but is overridden by sandbox mode.
+   */
+  readonly agentConfig?: AgentConfigOptions;
 }
 
 // payload type for agent execution
