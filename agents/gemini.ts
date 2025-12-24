@@ -1,4 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
@@ -265,35 +267,60 @@ export const gemini = agent({
 });
 
 /**
- * Configure MCP servers for Gemini using the CLI.
- * Gemini CLI syntax: gemini mcp add <name> <commandOrUrl> [args...] --transport <type>
- * For HTTP-based servers, use: gemini mcp add <name> <url> --transport http
+ * Configure MCP servers for Gemini by writing to settings.json.
+ * Gemini CLI uses `httpUrl` for HTTP/streamable transport, `url` for SSE transport.
+ * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
-function configureGeminiMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams): void {
+function configureGeminiMcpServers({ mcpServers }: ConfigureMcpServersParams): void {
+  const realHome = homedir();
+  const geminiConfigDir = join(realHome, ".gemini");
+  const settingsPath = join(geminiConfigDir, "settings.json");
+  mkdirSync(geminiConfigDir, { recursive: true });
+
+  // read existing settings if present
+  let existingSettings: Record<string, unknown> = {};
+  try {
+    const content = readFileSync(settingsPath, "utf-8");
+    existingSettings = JSON.parse(content);
+  } catch {
+    // file doesn't exist or is invalid - start fresh
+  }
+
+  // convert to Gemini's expected format (httpUrl for HTTP transport, no type field)
+  type GeminiMcpServerConfig = {
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    cwd?: string;
+    url?: string;
+    httpUrl?: string;
+    headers?: Record<string, string>;
+    timeout?: number;
+    trust?: boolean;
+    description?: string;
+    includeTools?: string[];
+    excludeTools?: string[];
+  };
+  const geminiMcpServers: Record<string, GeminiMcpServerConfig> = {};
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    if (serverConfig.type === "http") {
-      // HTTP-based MCP server - use URL with --transport http flag
-      const addArgs = ["mcp", "add", serverName, serverConfig.url, "--transport", "http"];
-
-      log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
-      const addResult = spawnSync("node", [cliPath, ...addArgs], {
-        stdio: "pipe",
-        encoding: "utf-8",
-        env: {
-          ...process.env,
-        },
-      });
-
-      if (addResult.status !== 0) {
-        throw new Error(
-          `gemini mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-        );
-      }
-      log.info(`✓ MCP server '${serverName}' configured`);
-    } else {
+    if (serverConfig.type !== "http") {
       throw new Error(
-        `Unsupported MCP server type for Gemini: ${(serverConfig as any).type || "unknown"}`
+        `Unsupported MCP server type for Gemini: ${(serverConfig as { type?: string }).type || "unknown"}`
       );
     }
+    geminiMcpServers[serverName] = {
+      httpUrl: serverConfig.url,
+      trust: true, // trust our own MCP server to avoid confirmation prompts
+    };
+    log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
   }
+
+  // merge with existing settings, overwriting mcpServers
+  const newSettings = {
+    ...existingSettings,
+    mcpServers: geminiMcpServers,
+  };
+
+  writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
+  log.info(`» MCP config written to ${settingsPath}`);
 }
