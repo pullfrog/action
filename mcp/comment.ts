@@ -363,10 +363,10 @@ export async function ensureProgressCommentUpdated(payload?: Payload): Promise<v
 
   const runId = process.env.GITHUB_RUN_ID;
   const workflowRunLink = runId
-    ? `[workflow](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
-    : "workflow";
+    ? `[workflow run logs](https://github.com/${repoContext.owner}/${repoContext.name}/actions/runs/${runId})`
+    : "workflow run logs";
 
-  const errorMessage = `❌ this run croaked
+  const errorMessage = `This run croaked 😵
 
 The workflow encountered an error before any progress could be reported. Please check the ${workflowRunLink} for details.`;
 
