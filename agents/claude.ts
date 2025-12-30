@@ -56,7 +56,7 @@ export const claude = agent({
       options: {
         ...sandboxOptions,
         mcpServers,
-        model: "claude-opus-4-5",
+        // model: "claude-opus-4-5",
         pathToClaudeCodeExecutable: cliPath,
         env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
       },
