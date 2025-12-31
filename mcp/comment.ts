@@ -15,7 +15,17 @@ import { execute, tool } from "./shared.ts";
  */
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
 
-async function buildCommentFooter(payload: Payload, octokit?: Octokit): Promise<string> {
+interface BuildCommentFooterParams {
+  payload: Payload;
+  octokit?: Octokit | undefined;
+  customParts?: string[] | undefined;
+}
+
+async function buildCommentFooter({
+  payload,
+  octokit,
+  customParts,
+}: BuildCommentFooterParams): Promise<string> {
   const repoContext = parseRepoContext();
   const runId = process.env.GITHUB_RUN_ID;
 
@@ -38,7 +48,7 @@ async function buildCommentFooter(payload: Payload, octokit?: Octokit): Promise<
     }
   }
 
-  return buildPullfrogFooter({
+  const footerParams = {
     triggeredBy: true,
     agent: {
       displayName: agentInfo?.displayName || "Unknown agent",
@@ -52,12 +62,27 @@ async function buildCommentFooter(payload: Payload, octokit?: Octokit): Promise<
           ...(workflowRunHtmlUrl ? { htmlUrl: workflowRunHtmlUrl } : {}),
         }
       : undefined,
-  });
+  };
+
+  if (customParts && customParts.length > 0) {
+    return buildPullfrogFooter({ ...footerParams, customParts });
+  }
+  return buildPullfrogFooter(footerParams);
+}
+
+function buildImplementPlanLink(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  commentId: number
+): string {
+  const apiUrl = process.env.API_URL || "https://pullfrog.com";
+  return `[Implement plan ➔](${apiUrl}/trigger/${owner}/${repo}/${issueNumber}?action=implement&comment_id=${commentId})`;
 }
 
 async function addFooter(body: string, payload: Payload, octokit?: Octokit): Promise<string> {
   const bodyWithoutFooter = stripExistingFooter(body);
-  const footer = await buildCommentFooter(payload, octokit);
+  const footer = await buildCommentFooter({ payload, octokit });
   return `${bodyWithoutFooter}${footer}`;
 }
 
@@ -181,11 +206,26 @@ export async function reportProgress(
     }
   | undefined
 > {
-  const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
   const existingCommentId = getProgressCommentId();
+  const issueNumber =
+    ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
+  const isPlanMode = ctx.toolState.selectedMode === "Plan";
 
   // if we already have a progress comment, update it
   if (existingCommentId) {
+    const customParts =
+      isPlanMode && issueNumber !== undefined
+        ? [buildImplementPlanLink(ctx.owner, ctx.name, issueNumber, existingCommentId)]
+        : undefined;
+
+    const bodyWithoutFooter = stripExistingFooter(body);
+    const footer = await buildCommentFooter({
+      payload: ctx.payload,
+      octokit: ctx.octokit,
+      customParts,
+    });
+    const bodyWithFooter = `${bodyWithoutFooter}${footer}`;
+
     const result = await ctx.octokit.rest.issues.updateComment({
       owner: ctx.owner,
       repo: ctx.name,
@@ -205,23 +245,50 @@ export async function reportProgress(
 
   // no existing comment - create one
   // use fallback chain: dynamically set context > event payload
-  const issueNumber =
-    ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   if (issueNumber === undefined) {
     // cannot create comment without issue_number (e.g., workflow_dispatch events)
     return undefined;
   }
 
+  // for new comments, we need to create first, then update with Plan link if in Plan mode
+  const initialBody = await addFooter(body, ctx.payload, ctx.octokit);
+
   const result = await ctx.octokit.rest.issues.createComment({
     owner: ctx.owner,
     repo: ctx.name,
     issue_number: issueNumber,
-    body: bodyWithFooter,
+    body: initialBody,
   });
 
   // store the comment ID for future updates
   setProgressCommentId(result.data.id);
   progressCommentWasUpdated = true;
+
+  // if Plan mode, update the comment to add the "Implement plan" link
+  if (isPlanMode) {
+    const customParts = [buildImplementPlanLink(ctx.owner, ctx.name, issueNumber, result.data.id)];
+    const bodyWithoutFooter = stripExistingFooter(body);
+    const footer = await buildCommentFooter({
+      payload: ctx.payload,
+      octokit: ctx.octokit,
+      customParts,
+    });
+    const bodyWithPlanLink = `${bodyWithoutFooter}${footer}`;
+
+    const updateResult = await ctx.octokit.rest.issues.updateComment({
+      owner: ctx.owner,
+      repo: ctx.name,
+      comment_id: result.data.id,
+      body: bodyWithPlanLink,
+    });
+
+    return {
+      commentId: updateResult.data.id,
+      url: updateResult.data.html_url,
+      body: updateResult.data.body || "",
+      action: "created",
+    };
+  }
 
   return {
     commentId: result.data.id,

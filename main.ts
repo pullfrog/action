@@ -337,6 +337,7 @@ export interface DependencyInstallationState {
 export interface ToolState {
   prNumber?: number;
   issueNumber?: number;
+  selectedMode?: string;
   review?: {
     id: number; // REST API database ID (for fix URLs)
     nodeId: string; // GraphQL node ID (for mutations)

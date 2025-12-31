@@ -212,6 +212,13 @@ interface FixReviewEvent extends BasePayloadEvent {
   unapproved_comments: ReviewCommentData[];
 }
 
+interface ImplementPlanEvent extends BasePayloadEvent {
+  trigger: "implement_plan";
+  issue_number: number;
+  plan_comment_id: number;
+  plan_content: string;
+}
+
 interface UnknownEvent extends BasePayloadEvent {
   trigger: "unknown";
 }
@@ -231,6 +238,7 @@ export type PayloadEvent =
   | CheckSuiteCompletedEvent
   | WorkflowDispatchEvent
   | FixReviewEvent
+  | ImplementPlanEvent
   | UnknownEvent;
 
 export interface DispatchOptions {

@@ -25,6 +25,9 @@ export function SelectModeTool(ctx: ToolContext) {
         };
       }
 
+      // store selected mode in toolState for use by other tools (e.g., report_progress)
+      ctx.toolState.selectedMode = selectedMode.name;
+
       return {
         modeName: selectedMode.name,
         description: selectedMode.description,
