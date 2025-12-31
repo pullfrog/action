@@ -473,6 +473,9 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
         body: bodyWithFooter,
       });
 
+      // mark progress as updated so ensureProgressCommentUpdated doesn't think the run failed
+      progressCommentWasUpdated = true;
+
       return {
         success: true,
         commentId: result.data.id,
