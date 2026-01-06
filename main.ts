@@ -7,8 +7,8 @@ import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import type { AgentName, Payload } from "./external.ts";
-import { agentsManifest } from "./external.ts";
+import type { AgentConfigOptions, AgentName, Payload } from "./external.ts";
+import { agentsManifest, DEFAULT_AGENT_CONFIG } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
@@ -507,6 +507,50 @@ function validateApiKey(params: {
   };
 }
 
+/**
+ * Resolve agent config from repo settings and payload.
+ * Handles compatibility with payload.sandbox flag.
+ */
+function resolveAgentConfig(params: {
+  agent: Agent;
+  repoSettings: RepoSettings;
+  payload: Payload;
+}): AgentConfigOptions {
+  // sandbox mode: restricts agent for non-contributor runs (security feature)
+  // takes highest precedence
+  if (params.payload.sandbox) {
+    log.info("🔒 sandbox mode enabled - restricting agent to read-only");
+    return {
+      readonly: true,
+      network: false,
+      bash: false,
+      cliArgs: "", // sandbox mode clears cliArgs for security
+    };
+  }
+
+  // payload agentConfig override (for testing individual flags)
+  if (params.payload.agentConfig) {
+    log.info("🔧 using agentConfig from payload");
+    return params.payload.agentConfig;
+  }
+
+  // find agent-specific config from repo settings (default to empty array if not present)
+  const agentConfigs = params.repoSettings.agentConfigs || [];
+  const agentConfigRecord = agentConfigs.find((c) => c.agentName === params.agent.name);
+
+  // start with defaults, merge with repo config if found
+  if (agentConfigRecord) {
+    return {
+      readonly: agentConfigRecord.readonly,
+      network: agentConfigRecord.network,
+      bash: agentConfigRecord.bash,
+      cliArgs: agentConfigRecord.cliArgs,
+    };
+  }
+
+  return { ...DEFAULT_AGENT_CONFIG };
+}
+
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   log.info(`Running ${ctx.agent.name}...`);
   // strip context from event
@@ -514,6 +558,13 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   // format: prompt + two newlines + TOON encoded event
   const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
   log.box(promptContent, { title: "Prompt" });
+
+  // resolve agent config from repo settings + payload sandbox flag
+  const agentConfig = resolveAgentConfig({
+    agent: ctx.agent,
+    repoSettings: ctx.repoSettings,
+    payload: ctx.payload,
+  });
 
   return ctx.agent.run({
     payload: ctx.payload,
@@ -526,6 +577,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       name: ctx.name,
       defaultBranch: ctx.repo.default_branch,
     },
+    agentConfig,
   });
 }
 

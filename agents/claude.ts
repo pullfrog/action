@@ -2,7 +2,7 @@ import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
+import { agent, createAgentEnv, installFromNpmTarball, parseCliArgs } from "./shared.ts";
 
 export const claude = agent({
   name: "claude",
@@ -14,39 +14,48 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, agentConfig }) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // configure sandbox mode if enabled
-    const sandboxOptions: Options = payload.sandbox
-      ? {
-          permissionMode: "default",
-          disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
-          async canUseTool(toolName, input, _options) {
-            if (toolName.startsWith("mcp__gh_pullfrog__"))
+    // build disallowed tools list based on config
+    const disallowedTools = [
+      ...(agentConfig.readonly ? ["Write"] : []),
+      ...(!agentConfig.network ? ["WebSearch", "WebFetch"] : []),
+      ...(!agentConfig.bash ? ["Bash"] : []),
+    ];
+
+    // build SDK options
+    const configOptions: Options =
+      disallowedTools.length > 0
+        ? {
+            permissionMode: "default",
+            disallowedTools,
+            async canUseTool(toolName, input, _options) {
+              if (toolName.startsWith("mcp__gh_pullfrog__"))
+                return {
+                  behavior: "allow",
+                  updatedInput: input,
+                  updatedPermissions: [],
+                };
+
+              console.error("can i use this tool?", toolName);
               return {
-                behavior: "allow",
-                updatedInput: input,
-                updatedPermissions: [],
+                behavior: "deny",
+                message: "You are not allowed to use this tool.",
               };
+            },
+          }
+        : {
+            permissionMode: "bypassPermissions",
+          };
 
-            console.error("can i use this tool?", toolName);
-            return {
-              behavior: "deny",
-              message: "You are not allowed to use this tool.",
-            };
-          },
-        }
-      : {
-          permissionMode: "bypassPermissions" as const,
-        };
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    const cliArgs = parseCliArgs(agentConfig.cliArgs);
+    if (cliArgs.length > 0) {
+      log.info(`📋 extra CLI args: ${cliArgs.join(" ")}`);
     }
 
     // Pass secrets via SDK's env option only (not process.env)
@@ -54,7 +63,7 @@ export const claude = agent({
     const queryInstance = query({
       prompt,
       options: {
-        ...sandboxOptions,
+        ...configOptions,
         mcpServers,
         // model: "claude-opus-4-5",
         pathToClaudeCodeExecutable: cliPath,
