@@ -1,5 +1,7 @@
-import { createSign } from "node:crypto";
 import * as core from "@actions/core";
+import { throttling } from "@octokit/plugin-throttling";
+import { Octokit } from "@octokit/rest";
+import { createSign } from "node:crypto";
 import { log } from "./cli.ts";
 import { retry } from "./retry.ts";
 
@@ -310,4 +312,23 @@ export function parseRepoContext(): RepoContext {
   }
 
   return { owner, name };
+}
+
+export type OctokitWithPlugins = InstanceType<ReturnType<typeof Octokit.plugin<typeof Octokit, [typeof throttling]>>>
+
+export function createOctokit(token: string): OctokitWithPlugins {
+  // `OctokitWithPlugins` initialization based on https://github.com/actions/toolkit/blob/2506e78e82fbd2f9e94d63e75f5309118c8de1b1/packages/github/src/github.ts#L15-L22
+  // we can't use it directly because it's stuck on `@octokit/core@v5` and we use the hottest `@octokit/core@v7`
+  const OctokitWithPlugins = Octokit.plugin(throttling);
+  return new OctokitWithPlugins({
+    auth: token,
+    throttle: {
+      onRateLimit: (retryAfter, options, octokit, retryCount) => {
+        return retryCount <= 2;
+      },
+      onSecondaryRateLimit: (retryAfter, options, octokit, retryCount) => {
+        return retryCount <= 2;
+      },
+    }
+  });
 }

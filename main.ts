@@ -19,6 +19,7 @@ import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./ut
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
 import {
+  createOctokit,
   parseRepoContext,
   revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
@@ -354,7 +355,7 @@ async function initializeGitHub(): Promise<GitHubSetup> {
   const token = await setupGitHubInstallationToken();
   const { owner, name } = parseRepoContext();
 
-  const octokit = new Octokit({ auth: token });
+  const octokit = createOctokit(token);
 
   // fetch repo data and settings in parallel
   const [repoResponse, repoSettings] = await Promise.all([

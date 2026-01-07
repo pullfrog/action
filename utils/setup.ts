@@ -1,10 +1,10 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import type { Octokit } from "@octokit/rest";
 import type { Payload } from "../external.ts";
 import type { ToolState } from "../main.ts";
 import { checkoutPrBranch } from "../mcp/checkout.ts";
 import { log } from "./cli.ts";
+import type { OctokitWithPlugins } from "./github.ts";
 import { $ } from "./shell.ts";
 
 export interface SetupOptions {
@@ -66,7 +66,7 @@ interface SetupGitAuthParams {
   owner: string;
   name: string;
   payload: Payload;
-  octokit: Octokit;
+  octokit: OctokitWithPlugins;
   toolState: ToolState;
 }
 
