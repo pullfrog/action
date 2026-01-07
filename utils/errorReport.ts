@@ -1,6 +1,5 @@
-import { Octokit } from "@octokit/rest";
 import { fetchWorkflowRunInfo } from "./api.ts";
-import { getGitHubInstallationToken, parseRepoContext } from "./github.ts";
+import { createOctokit, getGitHubInstallationToken, parseRepoContext } from "./github.ts";
 
 /**
  * Get progress comment ID from environment variable or database.
@@ -55,8 +54,7 @@ export async function reportErrorToComment({
 
   // update comment directly using GitHub API
   const repoContext = parseRepoContext();
-  const token = getGitHubInstallationToken();
-  const octokit = new Octokit({ auth: token });
+  const octokit = createOctokit(getGitHubInstallationToken());
 
   await octokit.rest.issues.updateComment({
     owner: repoContext.owner,
