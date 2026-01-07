@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import { throttling } from "@octokit/plugin-throttling";
 import { Octokit } from "@octokit/rest";
+import assert from "node:assert/strict";
 import { createSign } from "node:crypto";
 import { log } from "./cli.ts";
 import { retry } from "./retry.ts";
@@ -248,31 +249,29 @@ let githubInstallationToken: string | undefined;
 /**
  * Setup GitHub installation token for the action
  */
-export async function setupGitHubInstallationToken(): Promise<string> {
+export async function setupGitHubInstallationToken() {
+  assert(!githubInstallationToken, "GitHub installation token is already set.");
   const acquiredToken = await acquireNewToken();
   core.setSecret(acquiredToken);
   githubInstallationToken = acquiredToken;
-  return acquiredToken;
+  return {
+    token: acquiredToken,
+    [Symbol.asyncDispose]() {
+      githubInstallationToken = undefined;
+      return revokeGitHubInstallationToken(acquiredToken);
+    },
+  };
 }
 
 /**
  * Get the GitHub installation token from memory
  */
 export function getGitHubInstallationToken(): string {
-  if (!githubInstallationToken) {
-    throw new Error("GitHub installation token not set. Call setupGitHubInstallationToken first.");
-  }
+  assert(githubInstallationToken, "GitHub installation token not set. Call setupGitHubInstallationToken first.");
   return githubInstallationToken;
 }
 
-export async function revokeGitHubInstallationToken(): Promise<void> {
-  if (!githubInstallationToken) {
-    return;
-  }
-
-  const token = githubInstallationToken;
-  githubInstallationToken = undefined;
-
+async function revokeGitHubInstallationToken(token: string): Promise<void> {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
 
   try {

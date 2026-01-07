@@ -21,7 +21,6 @@ import { reportErrorToComment } from "./utils/errorReport.ts";
 import {
   createOctokit,
   parseRepoContext,
-  revokeGitHubInstallationToken,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
@@ -54,7 +53,6 @@ export interface MainResult {
 
 // intermediate result types for deterministic context building
 interface GitHubSetup {
-  token: string;
   owner: string;
   name: string;
   octokit: Octokit;
@@ -67,12 +65,12 @@ type ApiKeySetup =
   | { success: false; error: string };
 
 export async function main(inputs: Inputs): Promise<MainResult> {
+  const timer = new Timer();
+  await using installationToken = await setupGitHubInstallationToken();
   let mcpServerClose: (() => Promise<void>) | undefined;
   let payload: Payload | undefined;
 
   try {
-    const timer = new Timer();
-
     // phase 1: parse and validate inputs
     payload = parsePayload(inputs);
     Inputs.assert(inputs);
@@ -80,7 +78,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     // phase 2: fast setup (github + temp dir)
     const [githubSetup, sharedTempDir] = await Promise.all([
-      initializeGitHub(),
+      initializeGitHub(installationToken.token),
       createTempDirectory(),
     ]);
     timer.checkpoint("githubSetup");
@@ -108,9 +106,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // phase 5: parallel long-running operations (agent install + git auth)
     const toolState: ToolState = {};
     const [cliPath] = await Promise.all([
-      installAgentCli({ agent, token: githubSetup.token }),
+      installAgentCli({ agent, token: installationToken.token }),
       setupGitAuth({
-        token: githubSetup.token,
+        token: installationToken.token,
         owner: githubSetup.owner,
         name: githubSetup.name,
         payload: resolvedPayload,
@@ -157,7 +155,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const toolContext: ToolContext = {
       owner: githubSetup.owner,
       name: githubSetup.name,
-      githubInstallationToken: githubSetup.token,
+      githubInstallationToken: installationToken.token,
       octokit: githubSetup.octokit,
       payload: resolvedPayload,
       repo: githubSetup.repo,
@@ -230,7 +228,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     if (mcpServerClose) {
       await mcpServerClose();
     }
-    await revokeGitHubInstallationToken();
   }
 }
 
@@ -349,10 +346,9 @@ export interface ToolState {
 /**
  * Initialize GitHub connection: token, octokit, repo data, settings
  */
-async function initializeGitHub(): Promise<GitHubSetup> {
+async function initializeGitHub(token: string): Promise<GitHubSetup> {
   log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
 
-  const token = await setupGitHubInstallationToken();
   const { owner, name } = parseRepoContext();
 
   const octokit = createOctokit(token);
@@ -364,7 +360,6 @@ async function initializeGitHub(): Promise<GitHubSetup> {
   ]);
 
   return {
-    token,
     owner,
     name,
     octokit,
