@@ -1,0 +1,21 @@
+[package]
+name = "sandbox"
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", features = ["napi4"] }
+napi-derive = "2"
+landlock = "0.4"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true
+strip = true
+

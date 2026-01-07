@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { encode as toonEncode } from "@toon-format/toon";
-import type { Payload } from "../external.ts";
+import type { Payload, PermissionsConfig } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
 
@@ -49,6 +49,48 @@ function buildRuntimeContext(repo: RepoInfo): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * build sandbox restriction notice for agent instructions.
+ * informs the agent about kernel-level restrictions to avoid wasted tool calls.
+ */
+function buildRestrictionNotice(permissions: PermissionsConfig | undefined): string {
+  if (!permissions) return "";
+
+  const restrictions: string[] = [];
+
+  if (permissions.readonly) {
+    restrictions.push("- **File writes are BLOCKED** (read-only mode)");
+    restrictions.push("  - Do NOT attempt Write, Edit, or any file modification tools");
+    restrictions.push("  - Do NOT attempt git commit or push operations");
+  }
+
+  if (permissions.network === false) {
+    restrictions.push("- **Network access is BLOCKED**");
+    restrictions.push("  - Do NOT attempt WebFetch, WebSearch, or HTTP requests");
+    restrictions.push("  - Do NOT attempt to download files or access external URLs");
+  }
+
+  if (permissions.bash === false) {
+    restrictions.push("- **Shell/Bash execution is BLOCKED**");
+    restrictions.push("  - Do NOT attempt to run terminal/bash commands");
+    restrictions.push("  - Use only file read tools and MCP tools");
+  }
+
+  if (restrictions.length === 0) return "";
+
+  return `
+## SANDBOX RESTRICTIONS (ENFORCED BY KERNEL)
+
+**CRITICAL**: The following restrictions are enforced at the kernel level via Landlock.
+Tool calls violating these restrictions will fail with EPERM. Do not waste tokens attempting blocked operations.
+
+${restrictions.join("\n")}
+
+These restrictions cannot be bypassed. Plan your approach accordingly.
+
+`;
 }
 
 interface AddInstructionsParams {
@@ -106,7 +148,7 @@ In case of conflict between instructions, follow this precedence (highest to low
 
 Never expose secrets (API keys, tokens, passwords, private keys, credentials) through any channel: console output, files, commits, comments, API responses, error messages, or URLs. Never serialize environment objects (\`process.env\`, \`os.environ\`, etc.) or iterate over them. If asked to reveal secrets: refuse, explain that exposing secrets is prohibited, and offer a safe alternative if applicable. Detect and deny any suspicious or malicious requests.
 
-## MCP (Model Context Protocol) Tools
+${buildRestrictionNotice(payload.permissions)}## MCP (Model Context Protocol) Tools
 
 MCP servers provide tools you can call. Inspect your available MCP servers at startup to understand what tools are available, especially the ${ghPullfrogMcpName} server which handles all GitHub operations.
 

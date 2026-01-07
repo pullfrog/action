@@ -1,4 +1,4 @@
-import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
@@ -15,43 +15,19 @@ export const claude = agent({
     });
   },
   run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
-    // Ensure API key is NOT in process.env - only pass via SDK's env option
+    // ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
-    // disable native Bash; agents use MCP bash tool which filters secrets.
-    // for private repos, native Bash is allowed since secrets are less exposed.
-    const disallowedTools = repo.isPublic ? ["Bash"] : [];
-    const sandboxOptions: Options = payload.sandbox
-      ? {
-          permissionMode: "default",
-          disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
-          async canUseTool(toolName, input, _options) {
-            if (toolName.startsWith("mcp__gh_pullfrog__"))
-              return { behavior: "allow", updatedInput: input, updatedPermissions: [] };
-            return { behavior: "deny", message: "tool not allowed in sandbox mode" };
-          },
-        }
-      : {
-          permissionMode: "bypassPermissions" as const,
-          disallowedTools,
-        };
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
-
-    // Pass secrets via SDK's env option only (not process.env)
-    // This ensures secrets are only available to Claude Code subprocess, not user code
+    // pass secrets via SDK's env option only (not process.env)
+    // this ensures secrets are only available to Claude Code subprocess, not user code
     const queryInstance = query({
       prompt,
       options: {
-        ...sandboxOptions,
+        permissionMode: "bypassPermissions",
         mcpServers,
-        // model: "claude-opus-4-5",
         pathToClaudeCodeExecutable: cliPath,
         env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
       },

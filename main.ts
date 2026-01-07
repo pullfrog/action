@@ -7,7 +7,7 @@ import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import type { AgentName, Payload } from "./external.ts";
+import type { AgentName, Payload, PermissionsConfig } from "./external.ts";
 import { agentsManifest } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -15,6 +15,7 @@ import { startMcpHttpServer } from "./mcp/server.ts";
 import { getModes, type Mode, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
 import type { PrepResult } from "./prep/index.ts";
+import { applySandbox, buildSandboxConfig, isLandlockSupported } from "./sandbox/index.ts";
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
@@ -70,8 +71,40 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   let payload: Payload | undefined;
 
   try {
+<<<<<<< HEAD
     // phase 1: parse and validate inputs
+=======
+    const timer = new Timer();
+
+    // phase 0: parse payload early to check for sandbox config
+>>>>>>> c0d8aec (init)
     payload = parsePayload(inputs);
+
+    // phase 0.5: apply sandbox restrictions before any other IO
+    // this must happen before any file operations, network requests, or subprocess spawning
+    if (payload.permissions) {
+      const support = isLandlockSupported();
+      if (support.supported) {
+        const sandboxConfig = buildSandboxConfig(payload.permissions);
+        applySandbox(sandboxConfig);
+        log.info(`🔒 Sandbox applied: ${formatPermissions(payload.permissions)}`);
+      } else {
+        const disableLandlock = process.env.PULLFROG_DISABLE_LANDLOCK === "1";
+        if (disableLandlock) {
+          log.warning(
+            "⚠️ Landlock not available. Running WITHOUT sandbox restrictions. " +
+              "This is fine for local dev but should not happen in CI."
+          );
+        } else {
+          throw new Error(
+            `Sandbox required but Landlock not available: ${support.message}. ` +
+              "Set PULLFROG_DISABLE_LANDLOCK=1 for local development."
+          );
+        }
+      }
+    }
+
+    // phase 1: validate inputs
     Inputs.assert(inputs);
     setupGitConfig();
 
@@ -535,4 +568,18 @@ async function handleAgentResult(result: AgentResult): Promise<MainResult> {
     success: true,
     output: result.output || "",
   };
+}
+
+/**
+ * format permissions config for logging
+ */
+function formatPermissions(permissions: PermissionsConfig): string {
+  const parts: string[] = [];
+  if (permissions.readonly) parts.push("readonly");
+  if (permissions.network === false) parts.push("no-network");
+  if (permissions.bash === false) parts.push("no-bash");
+  if (permissions.allowedPaths?.length) {
+    parts.push(`allowed-paths: ${permissions.allowedPaths.length}`);
+  }
+  return parts.length > 0 ? parts.join(", ") : "default";
 }

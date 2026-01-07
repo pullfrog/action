@@ -23,5 +23,10 @@ All three of these actions should fail because you are running in sandbox mode w
     issue_number: 1,
   },
   modes: [],
-  sandbox: true,
+  permissions: {
+    readonly: true,
+    network: false,
+    bash: false,
+    allowedPaths: [],
+  },
 } satisfies Payload;

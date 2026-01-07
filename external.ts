@@ -241,12 +241,24 @@ export type PayloadEvent =
   | ImplementPlanEvent
   | UnknownEvent;
 
+/** granular permission configuration for sandbox enforcement */
+export interface PermissionsConfig {
+  /** restrict to read-only filesystem access */
+  readonly?: boolean;
+  /** allow network access (default: true) */
+  network?: boolean;
+  /** allow bash/shell execution (default: true) */
+  bash?: boolean;
+  /** additional writable paths beyond the workspace */
+  allowedPaths?: string[];
+}
+
 export interface DispatchOptions {
   /**
-   * Sandbox mode flag - when true, restricts agent to read-only operations
-   * (no Write, Web, or Bash access)
+   * Granular permission configuration for Landlock sandbox.
+   * When set, enables kernel-level restrictions that apply to all subprocesses.
    */
-  readonly sandbox?: boolean;
+  readonly permissions?: PermissionsConfig;
 
   /**
    * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)

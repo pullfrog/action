@@ -166,32 +166,7 @@ export const gemini = agent({
     const sessionPrompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(sessionPrompt));
 
-    // build CLI args based on sandbox mode
-    // for public repos, native shell is disabled via excludeTools in settings.json
-    let args: string[];
-    if (payload.sandbox) {
-      // sandbox mode: read-only tools only
-      args = [
-        "--allowed-tools",
-        "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
-        "--allowed-mcp-server-names",
-        "gh_pullfrog",
-        "--output-format=stream-json",
-        "-p",
-        sessionPrompt,
-      ];
-    } else {
-      // normal mode: --yolo for auto-approval
-      // for public repos, shell is excluded via settings.json excludeTools
-      args = ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
-      if (repo.isPublic) {
-        log.info("🔒 public repo: native shell disabled via excludeTools, using MCP bash");
-      }
-    }
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
+    const args = ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
 
     let finalOutput = "";
     let stdoutBuffer = "";
