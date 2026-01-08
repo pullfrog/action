@@ -74,7 +74,7 @@ Use this tool to:
 - Execute build tools (npm, pnpm, cargo, make, etc.)
 - Run tests and linters
 - Perform git operations
-${isPublicRepo ? "\nThe command runs in a bash shell with a filtered environment that excludes sensitive variables like API keys and tokens." : ""}`,
+- Run shell commands in a secure environment. Unlike the built-in bash tool, this tool filters sensitive environment variables from the subprocess's environment to avoid leaking secrets.`,
     parameters: BashParams,
     execute: execute(async (params) => {
       const timeout = Math.min(params.timeout ?? 120000, 600000);

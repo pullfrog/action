@@ -142,6 +142,12 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 
 **Efficiency**: Trust the tools - do not repeatedly verify file contents or git status after operations. If a tool reports success, proceed to the next step. Only verify if you encounter an actual error.
 
+${
+  useNativeBash
+    ? `**Shell commands**: Use your native bash/shell tool for shell command execution.`
+    : `**Shell commands**: Use the \`${ghPullfrogMcpName}/bash\` MCP tool for all shell command execution. This tool provides a secure environment with filtered credentials. Do NOT use any native shell/bash tool - it is disabled for security.`
+}
+
 **Command execution**: Never use \`sleep\` to wait for commands to complete. Commands run synchronously - when the bash tool returns, the command has finished.
 
 **Commenting style**: When posting comments via ${ghPullfrogMcpName}, write as a professional team member would. Your final comments should be polished and actionable—do not include intermediate reasoning like "I'll now look at the code" or "Let me respond to the question."
