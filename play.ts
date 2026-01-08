@@ -112,19 +112,23 @@ Examples:
     const envFile = join(process.cwd(), "..", ".env");
     const envFlags = existsSync(envFile) ? ["--env-file", envFile] : [];
 
-    // SSH agent forwarding for git (macOS Docker Desktop magic path)
+    // SSH for git - mount individual SSH files to avoid permission issues
     const sshFlags: string[] = [];
-    if (process.env.SSH_AUTH_SOCK) {
-      sshFlags.push(
-        "-v",
-        "/run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock",
-        "-e",
-        "SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock"
-      );
-    }
     const home = process.env.HOME;
-    if (home && existsSync(join(home, ".ssh", "known_hosts"))) {
-      sshFlags.push("-v", `${home}/.ssh/known_hosts:/root/.ssh/known_hosts:ro`);
+    if (home) {
+      const sshDir = join(home, ".ssh");
+      // mount SSH keys (try common key names)
+      for (const keyName of ["id_rsa", "id_ed25519", "id_ecdsa"]) {
+        const keyPath = join(sshDir, keyName);
+        if (existsSync(keyPath)) {
+          sshFlags.push("-v", `${keyPath}:/root/.ssh/${keyName}:ro`);
+        }
+      }
+      // mount known_hosts
+      const knownHostsPath = join(sshDir, "known_hosts");
+      if (existsSync(knownHostsPath)) {
+        sshFlags.push("-v", `${knownHostsPath}:/root/.ssh/known_hosts:ro`);
+      }
     }
 
     const ttyFlags = process.stdin.isTTY ? ["-it"] : [];
