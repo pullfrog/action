@@ -66,8 +66,7 @@ type ApiKeySetup =
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   const timer = new Timer();
-  await using installationToken = await setupGitHubInstallationToken();
-  let mcpServerClose: (() => Promise<void>) | undefined;
+  await using tokenRef = await setupGitHubInstallationToken();
   let payload: Payload | undefined;
 
   try {
@@ -78,7 +77,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     // phase 2: fast setup (github + temp dir)
     const [githubSetup, sharedTempDir] = await Promise.all([
-      initializeGitHub(installationToken.token),
+      initializeGitHub(tokenRef.token),
       createTempDirectory(),
     ]);
     timer.checkpoint("githubSetup");
@@ -106,9 +105,9 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // phase 5: parallel long-running operations (agent install + git auth)
     const toolState: ToolState = {};
     const [cliPath] = await Promise.all([
-      installAgentCli({ agent, token: installationToken.token }),
+      installAgentCli({ agent, token: tokenRef.token }),
       setupGitAuth({
-        token: installationToken.token,
+        token: tokenRef.token,
         owner: githubSetup.owner,
         name: githubSetup.name,
         payload: resolvedPayload,
@@ -155,7 +154,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const toolContext: ToolContext = {
       owner: githubSetup.owner,
       name: githubSetup.name,
-      githubInstallationToken: installationToken.token,
+      githubInstallationToken: tokenRef.token,
       octokit: githubSetup.octokit,
       payload: resolvedPayload,
       repo: githubSetup.repo,
@@ -168,11 +167,10 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       jobId,
     };
 
-    const { url: mcpServerUrl, close: mcpServerCloseFunc } = await startMcpHttpServer(toolContext);
-    mcpServerClose = mcpServerCloseFunc;
-    log.info(`🚀 MCP server started at ${mcpServerUrl}`);
+    await using mcpHttpServer = await startMcpHttpServer(toolContext);
+    log.info(`🚀 MCP server started at ${mcpHttpServer.url}`);
 
-    const mcpServers = createMcpConfigs(mcpServerUrl);
+    const mcpServers = createMcpConfigs(mcpHttpServer.url);
     log.debug(`📋 MCP Config: ${JSON.stringify(mcpServers, null, 2)}`);
     timer.checkpoint("mcpServer");
 
@@ -180,8 +178,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     const ctx: AgentContext = {
       ...toolContext,
       inputs,
-      mcpServerUrl,
-      mcpServerClose: mcpServerCloseFunc,
+      mcpServerUrl: mcpHttpServer.url,
       mcpServers,
       cliPath,
       apiKey: apiKeySetup.apiKey,
@@ -223,10 +220,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       await ensureProgressCommentUpdated(payload);
     } catch {
       // error updating comment, but don't let it mask the original error
-    }
-
-    if (mcpServerClose) {
-      await mcpServerClose();
     }
   }
 }
@@ -319,7 +312,6 @@ export interface ToolContext {
 export interface AgentContext extends Readonly<ToolContext> {
   readonly inputs: Inputs;
   readonly mcpServerUrl: string;
-  readonly mcpServerClose: () => Promise<void>;
   readonly mcpServers: ReturnType<typeof createMcpConfigs>;
   readonly cliPath: string;
   readonly apiKey: string;

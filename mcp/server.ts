@@ -64,7 +64,7 @@ async function findAvailablePort(startPort: number): Promise<number> {
  */
 export async function startMcpHttpServer(
   ctx: ToolContext
-): Promise<{ url: string; close: () => Promise<void> }> {
+): Promise<{ url: string; [Symbol.asyncDispose]: () => Promise<void> }> {
   const server = new FastMCP({
     name: ghPullfrogMcpName,
     version: "0.0.1",
@@ -119,7 +119,7 @@ export async function startMcpHttpServer(
 
   return {
     url,
-    close: async () => {
+    [Symbol.asyncDispose]: async () => {
       await server.stop();
     },
   };
