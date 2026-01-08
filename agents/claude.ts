@@ -21,28 +21,21 @@ export const claude = agent({
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // configure sandbox mode if enabled
+    // SECURITY: Claude Code spawns subprocesses with full process.env, leaking API keys.
+    // disable native Bash; agents use MCP bash tool which filters secrets.
     const sandboxOptions: Options = payload.sandbox
       ? {
           permissionMode: "default",
           disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
           async canUseTool(toolName, input, _options) {
             if (toolName.startsWith("mcp__gh_pullfrog__"))
-              return {
-                behavior: "allow",
-                updatedInput: input,
-                updatedPermissions: [],
-              };
-
-            console.error("can i use this tool?", toolName);
-            return {
-              behavior: "deny",
-              message: "You are not allowed to use this tool.",
-            };
+              return { behavior: "allow", updatedInput: input, updatedPermissions: [] };
+            return { behavior: "deny", message: "tool not allowed in sandbox mode" };
           },
         }
       : {
           permissionMode: "bypassPermissions" as const,
+          disallowedTools: ["Bash"],
         };
 
     if (payload.sandbox) {

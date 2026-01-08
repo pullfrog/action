@@ -43,8 +43,8 @@ export const codex = agent({
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
     }
 
+    // Codex SDK isolates subprocess env - native bash is safe, no MCP override needed
     const codex = new Codex(codexOptions);
-    // valid sandbox modes: read-only, workspace-write, danger-full-access
     const thread = codex.startThread(
       payload.sandbox
         ? {
@@ -61,7 +61,7 @@ export const codex = agent({
     );
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));
+      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo, useNativeBash: true }));
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {

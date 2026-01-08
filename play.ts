@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -67,7 +68,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const args = arg({
     "--help": Boolean,
     "--raw": String,
+    "--local": Boolean,
     "-h": "--help",
+    "-l": "--local",
   });
 
   if (args["--help"]) {
@@ -81,16 +84,77 @@ Arguments:
 
 Options:
   --raw [prompt]          Use raw string as prompt instead of loading from file
+  --local, -l             Run locally on macOS (default: runs in Docker)
   -h, --help              Show this help message
 
+Environment:
+  PLAY_LOCAL=1            Same as --local
+
 Examples:
-  tsx play.ts                        # Use default fixture
-  tsx play.ts fixtures/basic.txt     # Use specific text file
-  tsx play.ts custom.json            # Use JSON file
-  tsx play.ts fixtures/test.ts       # Use TypeScript file
+  tsx play.ts bash-test.ts           # Run in Docker (default)
+  tsx play.ts --local bash-test.ts   # Run locally on macOS
   tsx play.ts --raw "Hello world"    # Use raw string as prompt
     `);
     process.exit(0);
+  }
+
+  // default: run in Docker (unless --local or PLAY_LOCAL=1 or already inside Docker)
+  const isInsideDocker = existsSync("/.dockerenv");
+  const useLocal = args["--local"] || process.env.PLAY_LOCAL === "1" || isInsideDocker;
+
+  if (!useLocal) {
+    log.info("» running in Docker container...");
+
+    const passArgs = process.argv.slice(2);
+    const nodeCmd = `node play.ts ${passArgs.join(" ")}`;
+
+    // collect env vars to pass through
+    const envFlags: string[] = [];
+    for (const [key, value] of Object.entries(process.env)) {
+      const shouldPass =
+        key.includes("API_KEY") ||
+        key.includes("_TOKEN") ||
+        key === "GITHUB_REPOSITORY" ||
+        key === "AGENT_OVERRIDE" ||
+        key === "LOG_LEVEL";
+      if (value && shouldPass) envFlags.push("-e", `${key}=${value}`);
+    }
+
+    // SSH agent forwarding for git (macOS Docker Desktop magic path)
+    const sshFlags: string[] = [];
+    if (process.env.SSH_AUTH_SOCK) {
+      sshFlags.push(
+        "-v", "/run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock",
+        "-e", "SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock",
+      );
+    }
+    const home = process.env.HOME;
+    if (home && existsSync(join(home, ".ssh", "known_hosts"))) {
+      sshFlags.push("-v", `${home}/.ssh/known_hosts:/root/.ssh/known_hosts:ro`);
+    }
+
+    const ttyFlags = process.stdin.isTTY ? ["-it"] : [];
+
+    const result = spawnSync(
+      "docker",
+      [
+        "run", "--rm", ...ttyFlags,
+        "-v", `${process.cwd()}:/app/action:cached`,
+        "-v", "pullfrog-action-node-modules:/app/action/node_modules",
+        "-w", "/app/action",
+        "-e", "GITHUB_ACTIONS=true",
+        "-e", "CI=true",
+        ...envFlags, ...sshFlags,
+        "--cap-add", "SYS_ADMIN",
+        "--security-opt", "seccomp:unconfined",
+        "node:22",
+        "bash", "-c",
+        `corepack enable pnpm >/dev/null 2>&1 && pnpm install --frozen-lockfile && ${nodeCmd}`,
+      ],
+      { stdio: "inherit" },
+    );
+
+    process.exit(result.status ?? 1);
   }
 
   let prompt: string;
@@ -135,10 +199,11 @@ Examples:
 
         if (typeof module.default === "string") {
           prompt = module.default;
-        } else if (typeof module.default === "object" && module.default.prompt) {
-          prompt = module.default.prompt;
-        } else {
+        } else if (typeof module.default === "object") {
+          // Payload objects (with ~pullfrog) should be stringified
           prompt = JSON.stringify(module.default, null, 2);
+        } else {
+          throw new Error(`Unsupported default export type: ${typeof module.default}`);
         }
         break;
       }

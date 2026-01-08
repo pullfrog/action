@@ -29,6 +29,7 @@ import { CreatePullRequestReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
 import { addTools } from "./shared.ts";
+import { BashTool } from "./bash.ts";
 
 /**
  * Find an available port starting from the given port
@@ -94,6 +95,7 @@ export async function startMcpHttpServer(
     CreateBranchTool(ctx),
     CommitFilesTool(ctx),
     PushBranchTool(ctx),
+    BashTool(ctx),
   ];
 
   if (!ctx.payload.disableProgressComment) {

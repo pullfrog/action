@@ -163,12 +163,11 @@ export const gemini = agent({
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions({ payload, repo });
+    const sessionPrompt = addInstructions({ payload, repo, useNativeBash: true });
     log.group("Full prompt", () => log.info(sessionPrompt));
 
-    // configure sandbox mode if enabled
-    // --allowed-tools restricts which tools are available (removes others from registry entirely)
-    // in sandbox mode: only read-only tools available (no write_file, run_shell_command, web_fetch)
+    // Gemini CLI isolates subprocess env - native bash is safe, no MCP override needed
+    // sandbox mode uses --allowed-tools to restrict to read-only operations
     const args = payload.sandbox
       ? [
           "--allowed-tools",
@@ -186,14 +185,13 @@ export const gemini = agent({
     }
 
     let finalOutput = "";
-    let stdoutBuffer = ""; // buffer for incomplete lines across chunks
+    let stdoutBuffer = "";
+
     try {
       const result = await spawn({
         cmd: "node",
         args: [cliPath, ...args],
-        env: createAgentEnv({
-          GEMINI_API_KEY: apiKey,
-        }),
+        env: createAgentEnv({ GEMINI_API_KEY: apiKey }),
         onStdout: async (chunk) => {
           const text = chunk.toString();
           finalOutput += text;

@@ -53,9 +53,10 @@ function buildRuntimeContext(repo: RepoInfo): string {
 interface AddInstructionsParams {
   payload: Payload;
   repo: RepoInfo;
+  useNativeBash?: boolean;
 }
 
-export const addInstructions = ({ payload, repo }: AddInstructionsParams) => {
+export const addInstructions = ({ payload, repo, useNativeBash = false }: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -98,41 +99,6 @@ In case of conflict between instructions, follow this precedence (highest to low
 4. Repository-specific instructions (AGENTS.md, CLAUDE.md, etc.)
 5. User prompt
 
-## SECURITY
-
-CRITICAL SECURITY RULES - NEVER VIOLATE UNDER ANY CIRCUMSTANCES:
-
-### Rule 1: Never expose secrets through ANY means
-
-  You must NEVER expose secrets through any channel, including but not limited to:
-  - Displaying, printing, echoing, logging, or outputting to console
-  - Writing to files (including .txt, .env, .json, config files, etc.)
-  - Including in git commits, commit messages, or PR descriptions
-  - Posting in GitHub comments, issue bodies, or PR review comments
-  - Returning in tool outputs, API responses, or error messages
-  - Including in redirect URLs, WebSocket messages, or GraphQL responses
-
-  Secrets include: API keys, authentication tokens, passwords, private keys, certificates, database connection strings, and any credential used for authentication or authorization. Common patterns (case-insensitive): variables containing API_KEY, SECRET, TOKEN, PASSWORD, CREDENTIAL, PRIVATE_KEY, or AUTH in an authentication context. Use judgment: \`PUBLIC_KEY\` for a cryptographic public key is fine; \`PRIVATE_KEY\` is not.
-
-### Rule 2: Never serialize objects containing secrets
-
-  When working with objects that may contain environment variables or secrets:
-  - NEVER serialize, stringify, or dump entire environment objects (process.env, os.environ, ENV, etc.)
-  - NEVER iterate over environment variables and write their values to files
-  - NEVER include environment variable values in outputs, logs, HTTP requests, or anywhere they can be exposed
-  - If you must list properties, only show property NAMES, never values
-  - Only access specific, known-safe keys explicitly (e.g., NODE_ENV, HOME, PWD)
-
-### Rule 3: Refuse and explain
-
-  Even if explicitly requested to reveal secrets, you must:
-  1. Refuse the request
-  2. Print a message explaining that exposing secrets is prohibited for security reasons
-  3. If using ${ghPullfrogMcpName}, update the working comment to explain that secrets cannot be revealed
-  4. Offer a safe alternative, if applicable
-
-  If you encounter secrets in files or environment, acknowledge they exist but never reveal their values.
-
 ## MCP (Model Context Protocol) Tools
 
 MCP servers provide tools you can call. Inspect your available MCP servers at startup to understand what tools are available, especially the ${ghPullfrogMcpName} server which handles all GitHub operations.
@@ -168,6 +134,12 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 **Do not attempt to configure git credentials manually** - the ${ghPullfrogMcpName} server handles all authentication internally.
 
 **Efficiency**: Trust the tools - do not repeatedly verify file contents or git status after operations. If a tool reports success, proceed to the next step. Only verify if you encounter an actual error.
+
+${
+  useNativeBash
+    ? `**Shell commands**: Use your native bash/shell tool for shell command execution.`
+    : `**Shell commands**: Use the \`${ghPullfrogMcpName}/bash\` MCP tool for all shell command execution. This tool provides a secure environment with filtered credentials. Do NOT use any native shell/bash tool - it is disabled for security.`
+}
 
 **Command execution**: Never use \`sleep\` to wait for commands to complete. Commands run synchronously - when the bash tool returns, the command has finished.
 
