@@ -25,7 +25,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
-    "@anthropic-ai/claude-agent-sdk": "0.1.37",
+    "@anthropic-ai/claude-agent-sdk": "0.1.77",
     "@ark/fs": "0.53.0",
     "@ark/util": "0.53.0",
     "@octokit/plugin-throttling": "^11.0.3",
@@ -39,7 +39,7 @@
     "package-manager-detector": "^1.6.0",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
-    "fastmcp": "^3.20.0",
+    "fastmcp": "^3.26.8",
     "table": "^6.9.0"
   },
   "devDependencies": {
