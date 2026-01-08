@@ -19,11 +19,7 @@ import { applySandbox, buildSandboxConfig, isLandlockSupported } from "./sandbox
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
-import {
-  createOctokit,
-  parseRepoContext,
-  setupGitHubInstallationToken,
-} from "./utils/github.ts";
+import { createOctokit, parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
@@ -71,13 +67,7 @@ export async function main(inputs: Inputs): Promise<MainResult> {
   let payload: Payload | undefined;
 
   try {
-<<<<<<< HEAD
-    // phase 1: parse and validate inputs
-=======
-    const timer = new Timer();
-
     // phase 0: parse payload early to check for sandbox config
->>>>>>> c0d8aec (init)
     payload = parsePayload(inputs);
 
     // phase 0.5: apply sandbox restrictions before any other IO
