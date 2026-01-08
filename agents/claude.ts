@@ -21,8 +21,10 @@ export const claude = agent({
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // SECURITY: Claude Code spawns subprocesses with full process.env, leaking API keys.
+    // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
+    // for private repos, native Bash is allowed since secrets are less exposed.
+    const disallowedTools = repo.isPublic ? ["Bash"] : [];
     const sandboxOptions: Options = payload.sandbox
       ? {
           permissionMode: "default",
@@ -35,7 +37,7 @@ export const claude = agent({
         }
       : {
           permissionMode: "bypassPermissions" as const,
-          disallowedTools: ["Bash"],
+          disallowedTools,
         };
 
     if (payload.sandbox) {

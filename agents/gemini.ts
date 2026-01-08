@@ -157,28 +157,37 @@ export const gemini = agent({
     });
   },
   run: async ({ payload, apiKey, mcpServers, cliPath, repo }) => {
-    configureGeminiMcpServers({ mcpServers, cliPath });
+    configureGeminiMcpServers({ mcpServers, isPublicRepo: repo.isPublic });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions({ payload, repo, useNativeBash: true });
+    const sessionPrompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(sessionPrompt));
 
-    // Gemini CLI isolates subprocess env - native bash is safe, no MCP override needed
-    // sandbox mode uses --allowed-tools to restrict to read-only operations
-    const args = payload.sandbox
-      ? [
-          "--allowed-tools",
-          "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
-          "--allowed-mcp-server-names",
-          "gh_pullfrog",
-          "--output-format=stream-json",
-          "-p",
-          sessionPrompt,
-        ]
-      : ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+    // build CLI args based on sandbox mode
+    // for public repos, native shell is disabled via excludeTools in settings.json
+    let args: string[];
+    if (payload.sandbox) {
+      // sandbox mode: read-only tools only
+      args = [
+        "--allowed-tools",
+        "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
+        "--allowed-mcp-server-names",
+        "gh_pullfrog",
+        "--output-format=stream-json",
+        "-p",
+        sessionPrompt,
+      ];
+    } else {
+      // normal mode: --yolo for auto-approval
+      // for public repos, shell is excluded via settings.json excludeTools
+      args = ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+      if (repo.isPublic) {
+        log.info("🔒 public repo: native shell disabled via excludeTools, using MCP bash");
+      }
+    }
 
     if (payload.sandbox) {
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
@@ -264,12 +273,19 @@ export const gemini = agent({
   },
 });
 
+type ConfigureGeminiParams = {
+  mcpServers: ConfigureMcpServersParams["mcpServers"];
+  isPublicRepo: boolean;
+};
+
 /**
  * Configure MCP servers for Gemini by writing to settings.json.
  * Gemini CLI uses `httpUrl` for HTTP/streamable transport, `url` for SSE transport.
  * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
+ *
+ * For public repos, also configures excludeTools to disable native shell.
  */
-function configureGeminiMcpServers({ mcpServers }: ConfigureMcpServersParams): void {
+function configureGeminiMcpServers({ mcpServers, isPublicRepo }: ConfigureGeminiParams): void {
   const realHome = homedir();
   const geminiConfigDir = join(realHome, ".gemini");
   const settingsPath = join(geminiConfigDir, "settings.json");
@@ -314,10 +330,15 @@ function configureGeminiMcpServers({ mcpServers }: ConfigureMcpServersParams): v
   }
 
   // merge with existing settings, overwriting mcpServers
-  const newSettings = {
+  // for public repos, exclude native shell tool to prevent secret leakage via env
+  const newSettings: Record<string, unknown> = {
     ...existingSettings,
     mcpServers: geminiMcpServers,
   };
+
+  if (isPublicRepo) {
+    newSettings.excludeTools = ["run_shell_command"];
+  }
 
   writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
   log.info(`» MCP config written to ${settingsPath}`);

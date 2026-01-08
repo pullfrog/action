@@ -1,6 +1,8 @@
 # Bash Tool Security
 
-## Architecture
+> **Note**: Security measures described here apply to **PUBLIC repositories only**. For private repos, agents can use native bash with full environment access.
+
+## Architecture (Public Repos)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -15,7 +17,7 @@
 │  │  ┌─────────────────────────────────────────────────────┐ │ │
 │  │  │  Agent CLI (Claude/Cursor/OpenCode/etc.)            │ │ │
 │  │  │  - receives filtered env (only API key it needs)    │ │ │
-│  │  │  - has built-in Bash tool (DISABLED)                │ │ │
+│  │  │  - has built-in Bash tool (DISABLED for public)     │ │ │
 │  │  │  - connects to MCP server for tools                 │ │ │
 │  │  │                                                     │ │ │
 │  │  │  ┌───────────────────────────────────────────────┐ │ │ │
@@ -35,11 +37,24 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key insight**: The Pullfrog Action process has all secrets in `process.env`. Agent CLIs have built-in Bash tools that we can't trust. We disable those and provide our own MCP Bash tool that spawns subprocesses securely.
+**Key insight**: For **public repos**, the Pullfrog Action process has all secrets in `process.env`. Agent CLIs have built-in Bash tools that we can't trust since malicious actors can submit PRs with prompt injections. We disable those and provide our own MCP Bash tool that spawns subprocesses securely.
+
+For **private repos**, the threat model is different — only trusted collaborators can trigger workflows, so we allow native bash with full environment access for better performance and compatibility.
 
 ---
 
-## Threat Model
+## Public vs Private Repos
+
+| Repo Visibility | Native Bash | Env Filtering | PID Isolation |
+|-----------------|-------------|---------------|---------------|
+| **Public** | Disabled | Yes | Yes (in CI) |
+| **Private** | Enabled | No | No |
+
+**Rationale**: Public repos are at risk from prompt injection attacks via pull requests from untrusted contributors. Private repos only allow trusted collaborators, so the attack surface is much smaller.
+
+---
+
+## Threat Model (Public Repos)
 
 A prompt-injected agent could run malicious bash commands to exfiltrate API keys.
 
@@ -55,7 +70,7 @@ The first two are solved by passing filtered env to subprocess. The third requir
 
 ---
 
-## Attack: /proc/$PPID/environ
+## Attack: /proc/$PPID/environ (Public Repos)
 
 On Linux, any process can read its parent's environment via `/proc/$PPID/environ`. Even if we spawn bash with a clean environment, the bash process can:
 
@@ -75,7 +90,7 @@ This bypasses environment filtering because we're reading the parent process's m
 
 ---
 
-## Solution: PID Namespace Isolation
+## Solution: PID Namespace Isolation (Public Repos)
 
 We use Linux PID namespaces to hide the parent process:
 
@@ -104,53 +119,72 @@ unshare --pid --fork --mount-proc bash -c "$CMD"
 ```typescript
 import { spawn } from "node:child_process";
 
-// filter sensitive env vars (defense in depth)
-function filterEnv(): Record<string, string> {
-  const SENSITIVE = [/_KEY$/i, /_SECRET$/i, /_TOKEN$/i, /^ANTHROPIC/i, ...];
+// filter sensitive env vars (only for public repos)
+function filterEnv(isPublicRepo: boolean): Record<string, string> {
+  const SENSITIVE = [/_KEY$/i, /_SECRET$/i, /_TOKEN$/i, /_PASSWORD$/i, /_CREDENTIAL$/i];
   const filtered: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (value && !SENSITIVE.some(p => p.test(key))) {
-      filtered[key] = value;
-    }
+    if (value === undefined) continue;
+    // only filter sensitive vars for public repos
+    if (isPublicRepo && SENSITIVE.some(p => p.test(key))) continue;
+    filtered[key] = value;
   }
   return filtered;
 }
 
-// spawn with PID namespace in GitHub Actions, plain spawn locally
-function spawnSandboxed(command: string, options: { env, cwd }): ChildProcess {
-  if (process.env.GITHUB_ACTIONS === "true") {
+// spawn with PID namespace in CI for public repos, plain spawn otherwise
+function spawnSandboxed(command: string, options: { env, cwd, isPublicRepo }): ChildProcess {
+  const useNamespaceIsolation = process.env.CI === "true" && options.isPublicRepo;
+  if (useNamespaceIsolation) {
     return spawn("unshare", ["--pid", "--fork", "--mount-proc", "bash", "-c", command], options);
   }
   return spawn("bash", ["-c", command], options);
 }
+
+// BashTool uses ctx.repo.private to determine visibility
+export function BashTool(ctx: ToolContext) {
+  const isPublicRepo = !ctx.repo.private;
+  // ... spawns with filterEnv(isPublicRepo) and isPublicRepo flag
+}
 ```
 
-**Defense in depth:**
-1. `filterEnv()` - prevents `env` and `echo $VAR` attacks
+**Defense in depth (public repos only):**
+1. `filterEnv(true)` - prevents `env` and `echo $VAR` attacks
 2. `unshare` - prevents `/proc/$PPID/environ` attack
 
 ---
 
-## Disabling Native Bash Tools
+## Disabling Native Bash Tools (Public Repos)
 
-Each agent has built-in Bash/Shell tools that we can't control. We disable them and force agents to use our MCP Bash tool:
+For **public repos**, each agent's built-in Bash/Shell tools are disabled. Agents use our MCP Bash tool which filters secrets:
 
 ```typescript
-// Claude
-disallowedTools: ["Bash"],
+// Claude - conditional based on repo.isPublic
+const disallowedTools = repo.isPublic ? ["Bash"] : [];
+{ permissionMode: "bypassPermissions", disallowedTools }
 
-// Cursor  
-permissions: { deny: ["Shell(**)"] }
+// Cursor - conditional shell denial
+const denyShell = isPublicRepo ? ["Shell(*)"] : [];
+{ permissions: { allow: ["Read(**)", "Write(**)"], deny: denyShell } }
 
-// OpenCode
-permission: { bash: "deny" }
+// OpenCode - conditional bash denial
+const bashPermission = isPublicRepo ? "deny" : "allow";
+{ permission: { edit: "allow", bash: bashPermission, ... } }
+
+// Gemini - uses excludeTools in ~/.gemini/settings.json
+newSettings.excludeTools = ["run_shell_command"];
+
+// Codex - NO SDK mechanism to disable native shell
+// Relies on instructions only (limitation)
 ```
+
+For **private repos**, native bash is allowed for all agents.
 
 ---
 
-## Testing
+## Testing (Public Repo Scenario)
 
-Run the vulnerability test in Docker:
+Run the vulnerability test in Docker to verify protection for public repos:
 
 ```bash
 # from action/ directory
@@ -177,7 +211,26 @@ Expected output:
 
 ---
 
-## What This Does NOT Protect Against
+## Platform Notes
+
+| Environment | Repo | Our approach |
+|-------------|------|--------------|
+| GitHub Actions (Linux) | Public | filterEnv + unshare + disable native bash |
+| GitHub Actions (Linux) | Private | Full env + native bash allowed |
+| Local dev (any OS) | Any | No filtering (local dev assumed trusted) |
+
+We check `process.env.CI === "true"` (set by GitHub Actions) combined with `ctx.repo.private` to determine the security posture:
+- **CI + Public repo**: Full protection with PID namespace isolation
+- **CI + Private repo**: No protection (trusted collaborators only)
+- **Local**: No protection (developer's own machine)
+
+GitHub Actions uses Ubuntu runners where `unshare` works without root.
+
+---
+
+## What This Does NOT Protect Against (Public Repos)
+
+Even with protections enabled, bash subprocesses can still:
 
 - **Network exfiltration**: Child has full network access
 - **File access**: Child can read any file the runner can (same UID)
@@ -185,31 +238,47 @@ Expected output:
 
 For those, you'd need `bwrap` with `--unshare-net`, `--ro-bind`, etc. But for the stated goal—preventing secret exfiltration via env—this is sufficient.
 
+For **private repos**, none of these protections apply since we trust collaborators.
+
 ---
 
 ## Agent-Specific Notes
 
-### Platform Environments
+### Claude, Cursor, OpenCode (Public Repos)
 
-| Environment | `CI` | Our approach |
-|-------------|------|--------------|
-| GitHub Actions (Linux) | `"true"` | filterEnv + unshare |
-| Local dev (any OS) | unset | filterEnv only |
+These agents have their native Bash disabled via configuration. They use our `gh_pullfrog` MCP server's `bash` tool which implements `filterEnv()` + `unshare`.
 
-We check `CI=true` (set automatically by GitHub) rather than platform detection. This means:
-- **In CI**: Full protection with PID namespace isolation
-- **Locally**: Easier testing without Docker/unshare requirements
+For private repos, native bash is enabled for these agents.
 
-GitHub Actions uses Ubuntu runners where `unshare` works without root.
+### Gemini (Public Repos)
 
-### Agents Using MCP Bash (Claude, Cursor, OpenCode)
+Gemini CLI supports `excludeTools` in its user-level settings file (`~/.gemini/settings.json`). For public repos, we exclude the native shell tool:
 
-These agents have their native Bash disabled. They use our `gh_pullfrog` MCP server's `bash` tool which implements `filterEnv()` + `unshare`.
+```typescript
+// written to ~/.gemini/settings.json
+newSettings.excludeTools = ["run_shell_command"];
+```
 
-### Gemini
+This is a blocklist approach which explicitly excludes the shell tool while allowing all other tools.
 
-Has built-in CI detection that filters shell env when `GITHUB_SHA` or `SURFACE=Github` is set. We set `SURFACE=Github` in our env. Double protection with our `createAgentEnv()`.
+Additionally, Gemini has built-in CI detection that filters shell env when `GITHUB_SHA` is set.
 
-### Codex
+### Codex (Limitation)
 
-Uses `shell_environment_policy` in config. Needs proper configuration or MCP bash fallback.
+**⚠️ Codex SDK does not support disabling native shell commands.** The SDK only offers `sandboxMode` options which control filesystem access, not specific tool availability.
+
+For public repos, we rely on:
+1. **Instructions** telling the agent to use MCP bash instead of native shell
+2. **MCP bash tool** being available as an alternative
+
+This is a known limitation. Codex may still use native shell if it doesn't follow instructions.
+
+### Summary by Agent
+
+| Agent | Public Repo | Private Repo |
+|-------|-------------|--------------|
+| Claude | Native bash **disabled** | Native bash allowed |
+| Cursor | Native shell **disabled** | Native shell allowed |
+| OpenCode | Native bash **disabled** | Native bash allowed |
+| Gemini | Native shell **disabled** (via excludeTools) | Native bash allowed |
+| Codex | Instructions only (**⚠️ not enforced**) | Native bash allowed |

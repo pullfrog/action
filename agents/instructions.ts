@@ -8,6 +8,7 @@ interface RepoInfo {
   owner: string;
   name: string;
   defaultBranch: string;
+  isPublic: boolean;
 }
 
 /**
@@ -53,14 +54,12 @@ function buildRuntimeContext(repo: RepoInfo): string {
 interface AddInstructionsParams {
   payload: Payload;
   repo: RepoInfo;
-  useNativeBash?: boolean;
 }
 
-export const addInstructions = ({
-  payload,
-  repo,
-  useNativeBash = false,
-}: AddInstructionsParams) => {
+export const addInstructions = ({ payload, repo }: AddInstructionsParams) => {
+  // for public repos, always use MCP bash for security (filters secrets)
+  // for private repos, agents can use their native bash
+  const useNativeBash = !repo.isPublic;
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);

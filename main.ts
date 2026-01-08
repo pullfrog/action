@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
-import { Octokit } from "@octokit/rest";
+import type { Octokit } from "@octokit/rest";
 import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
@@ -513,6 +513,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       owner: ctx.owner,
       name: ctx.name,
       defaultBranch: ctx.repo.default_branch,
+      isPublic: !ctx.repo.private,
     },
   });
 }

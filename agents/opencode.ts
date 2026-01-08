@@ -28,7 +28,11 @@ export const opencode = agent({
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
+    configureOpenCode({
+      mcpServers,
+      sandbox: payload.sandbox ?? false,
+      isPublicRepo: repo.isPublic,
+    });
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
@@ -190,13 +194,14 @@ export const opencode = agent({
 interface ConfigureOpenCodeParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
   sandbox: boolean;
+  isPublicRepo: boolean;
 }
 
 /**
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): void {
+function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenCodeParams): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -220,11 +225,25 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
     };
   }
 
-  // SECURITY: OpenCode spawns subprocesses with full process.env, leaking API keys.
+  // SECURITY: For PUBLIC repos, OpenCode spawns subprocesses with full process.env, leaking API keys.
   // disable native bash; agents use MCP bash tool which filters secrets.
+  // for private repos, native bash is allowed.
+  const bashPermission = isPublicRepo ? "deny" : "allow";
   const permission = sandbox
-    ? { edit: "deny", bash: "deny", webfetch: "deny", doom_loop: "allow", external_directory: "allow" }
-    : { edit: "allow", bash: "deny", webfetch: "allow", doom_loop: "allow", external_directory: "allow" };
+    ? {
+        edit: "deny",
+        bash: "deny",
+        webfetch: "deny",
+        doom_loop: "allow",
+        external_directory: "allow",
+      }
+    : {
+        edit: "allow",
+        bash: bashPermission,
+        webfetch: "allow",
+        doom_loop: "allow",
+        external_directory: "allow",
+      };
 
   // build complete config in one object
   const config = {

@@ -43,7 +43,16 @@ export const codex = agent({
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
     }
 
-    // Codex SDK isolates subprocess env - native bash is safe, no MCP override needed
+    // SECURITY NOTE: Codex SDK does not have an option to disable native shell commands.
+    // For public repos, we rely on instructions telling the agent to use MCP bash instead.
+    // The MCP bash tool filters sensitive environment variables.
+    // This is not as robust as Claude/Cursor/OpenCode which can explicitly disable native bash.
+    if (repo.isPublic) {
+      log.info(
+        "🔒 public repo: instructions direct to MCP bash (native shell NOT disabled in SDK)"
+      );
+    }
+
     const codex = new Codex(codexOptions);
     const thread = codex.startThread(
       payload.sandbox
@@ -61,7 +70,7 @@ export const codex = agent({
     );
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo, useNativeBash: true }));
+      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
