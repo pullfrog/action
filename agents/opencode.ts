@@ -7,6 +7,7 @@ import { addInstructions } from "./instructions.ts";
 import {
   agent,
   type ConfigureMcpServersParams,
+  createAgentEnv,
   installFromNpmTarball,
   setupProcessAgentEnv,
 } from "./shared.ts";
@@ -27,7 +28,11 @@ export const opencode = agent({
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    configureOpenCode({ mcpServers, sandbox: payload.sandbox ?? false });
+    configureOpenCode({
+      mcpServers,
+      sandbox: payload.sandbox ?? false,
+      isPublicRepo: repo.isPublic,
+    });
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
@@ -42,24 +47,25 @@ export const opencode = agent({
     // 6. set up environment
     setupProcessAgentEnv({ HOME: tempHome });
 
-    // build env vars: start with process.env (includes all API_KEY vars loaded by config())
-    // exclude GITHUB_TOKEN - OpenCode should use MCP server for GitHub operations, not direct token
-    // then override with apiKeys, HOME, and XDG_CONFIG_HOME
+    // SECURITY: build env vars from whitelisted base env to prevent API key leakage
+    // this prevents leaking other API keys (ANTHROPIC, GEMINI, etc.) to OpenCode subprocess
     // XDG_CONFIG_HOME must be set because GitHub Actions sets it to a different path,
     // and OpenCode follows XDG spec (checks XDG_CONFIG_HOME before falling back to $HOME/.config)
     const env: Record<string, string> = {
-      ...(Object.fromEntries(
-        Object.entries(process.env).filter(
-          ([key, value]) => value !== undefined && key !== "GITHUB_TOKEN"
-        )
-      ) as Record<string, string>),
-      HOME: tempHome,
+      ...createAgentEnv({ HOME: tempHome }),
       XDG_CONFIG_HOME: join(tempHome, ".config"),
     };
+    // OpenCode doesn't support GitHub App installation tokens
+    delete env.GITHUB_TOKEN;
 
-    // add/override API keys from apiKeys object (uppercase keys)
+    // add API keys from apiKeys object
     for (const [key, value] of Object.entries(apiKeys || {})) {
-      env[key.toUpperCase()] = value;
+      const upperKey = key.toUpperCase();
+      env[upperKey] = value;
+      // also set GOOGLE_GENERATIVE_AI_API_KEY for Google provider compatibility
+      if (upperKey === "GEMINI_API_KEY") {
+        env.GOOGLE_GENERATIVE_AI_API_KEY = value;
+      }
     }
 
     // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
@@ -188,13 +194,14 @@ export const opencode = agent({
 interface ConfigureOpenCodeParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
   sandbox: boolean;
+  isPublicRepo: boolean;
 }
 
 /**
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): void {
+function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenCodeParams): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -218,7 +225,10 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
     };
   }
 
-  // build permissions config
+  // SECURITY: For PUBLIC repos, OpenCode spawns subprocesses with full process.env, leaking API keys.
+  // disable native bash; agents use MCP bash tool which filters secrets.
+  // for private repos, native bash is allowed.
+  const bashPermission = isPublicRepo ? "deny" : "allow";
   const permission = sandbox
     ? {
         edit: "deny",
@@ -229,7 +239,7 @@ function configureOpenCode({ mcpServers, sandbox }: ConfigureOpenCodeParams): vo
       }
     : {
         edit: "allow",
-        bash: "allow",
+        bash: bashPermission,
         webfetch: "allow",
         doom_loop: "allow",
         external_directory: "allow",

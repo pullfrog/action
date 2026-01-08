@@ -27,6 +27,7 @@ export interface RepoInfo {
   owner: string;
   name: string;
   defaultBranch: string;
+  isPublic: boolean;
 }
 
 /**

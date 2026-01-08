@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { flatMorph } from "@ark/util";
-import { Octokit } from "@octokit/rest";
+import type { Octokit } from "@octokit/rest";
 import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
@@ -370,6 +370,7 @@ function resolveAgent({
   repoSettings: RepoSettings;
 }): Agent {
   const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
+  log.debug(`» determineAgent: agentOverride=${agentOverride}, payload.agent=${payload.agent}, repoSettings.defaultAgent=${repoSettings.defaultAgent}`);
   const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
   if (configuredAgentName) {
@@ -513,6 +514,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       owner: ctx.owner,
       name: ctx.name,
       defaultBranch: ctx.repo.default_branch,
+      isPublic: !ctx.repo.private,
     },
   });
 }

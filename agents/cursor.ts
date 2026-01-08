@@ -93,7 +93,7 @@ export const cursor = agent({
   },
   run: async ({ payload, apiKey, cliPath, mcpServers, repo }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
-    configureCursorSandbox({ sandbox: payload.sandbox ?? false });
+    configureCursorSandbox({ sandbox: payload.sandbox ?? false, isPublicRepo: repo.isPublic });
 
     // track logged model_call_ids to avoid duplicates
     // cursor emits each assistant message twice: once without model_call_id, then again with it
@@ -314,39 +314,46 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
 
 /**
  * Configure Cursor CLI sandbox mode via cli-config.json.
- * When sandbox is enabled, denies all file writes and shell commands.
- * In print mode without --force, writes are blocked by default, but we add
- * explicit deny rules as defense in depth.
  *
- * See: https://cursor.com/docs/cli/reference/permissions
+ * SECURITY: For PUBLIC repos, Cursor spawns subprocesses with full process.env, leaking API keys.
+ * We deny native Shell via Shell(*) rule, forcing use of MCP bash tool which
+ * filters secrets. Note: Shell(**) does NOT work, must use Shell(*).
+ * For private repos, native Shell is allowed.
+ *
+ * Config path: $XDG_CONFIG_HOME/cursor/ (not ~/.cursor/) because createAgentEnv
+ * sets XDG_CONFIG_HOME=$HOME/.config. See issues/cursor-perms.md.
  */
-function configureCursorSandbox({ sandbox }: { sandbox: boolean }): void {
+function configureCursorSandbox({
+  sandbox,
+  isPublicRepo,
+}: {
+  sandbox: boolean;
+  isPublicRepo: boolean;
+}): void {
   const realHome = homedir();
-  const cursorConfigDir = join(realHome, ".cursor");
+  const cursorConfigDir = join(realHome, ".config", "cursor");
   const cliConfigPath = join(cursorConfigDir, "cli-config.json");
   mkdirSync(cursorConfigDir, { recursive: true });
 
+  // deny native shell for public repos to prevent secret leakage
+  const denyShell = isPublicRepo ? ["Shell(*)"] : [];
+
   const config = sandbox
     ? {
-        // sandbox mode: deny all writes and shell commands
         permissions: {
-          allow: [
-            "Read(**)", // allow reading all files
-          ],
-          deny: [
-            "Write(**)", // deny all file writes
-            "Shell(**)", // deny all shell commands
-          ],
+          allow: ["Read(**)"],
+          deny: ["Write(**)", ...denyShell],
         },
       }
     : {
-        // normal mode: allow everything
         permissions: {
-          allow: ["Read(**)", "Write(**)", "Shell(**)"],
-          deny: [],
+          allow: ["Read(**)", "Write(**)"],
+          deny: denyShell,
         },
       };
 
   writeFileSync(cliConfigPath, JSON.stringify(config, null, 2), "utf-8");
-  log.info(`» CLI config written to ${cliConfigPath} (sandbox: ${sandbox})`);
+  log.info(
+    `» CLI config written to ${cliConfigPath} (sandbox: ${sandbox}, isPublicRepo: ${isPublicRepo})`
+  );
 }

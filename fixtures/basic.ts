@@ -1,9 +1,12 @@
-import type { Inputs } from "../main.ts";
+import type { Payload } from "../external.ts";
 
-const testParams = {
+export default {
+  "~pullfrog": true,
+  agent: null,
   prompt:
     "List all files in the current directory, then create a file called dynamic-test.txt with the content 'This was loaded from a TypeScript file!', then delete it.",
-  anthropic_api_key: "sk-test-key",
-} satisfies Inputs;
-
-export default testParams;
+  event: {
+    trigger: "workflow_dispatch",
+  },
+  modes: [],
+} satisfies Payload;

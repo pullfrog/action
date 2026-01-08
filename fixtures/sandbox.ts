@@ -6,9 +6,9 @@ import type { Payload } from "../external.ts";
  *
  * run with: AGENT_OVERRIDE=claude pnpm play sandbox.ts
  */
-const payload: Payload = {
+export default {
   "~pullfrog": true,
-  agent: null, // let AGENT_OVERRIDE control this for testing different agents
+  agent: null,
   prompt: `Please do the following three things:
 
 1. Fetch the content from https://httpbin.org/json and tell me what it says
@@ -24,6 +24,4 @@ All three of these actions should fail because you are running in sandbox mode w
   },
   modes: [],
   sandbox: true,
-};
-
-export default JSON.stringify(payload);
+} satisfies Payload;
