@@ -19,7 +19,7 @@ const stripShebangPlugin = {
         try {
           const content = readFileSync(outputFile, "utf8");
           // Remove shebang line from the beginning if present
-          const withoutShebang = content.startsWith("#!") 
+          const withoutShebang = content.startsWith("#!")
             ? content.slice(content.indexOf("\n") + 1)
             : content;
           writeFileSync(outputFile, withoutShebang);
@@ -38,7 +38,7 @@ const sharedConfig = {
   bundle: true,
   format: "esm",
   platform: "node",
-  target: "node20",
+  target: "node24",
   minify: false,
   sourcemap: false,
   // Bundle all dependencies - GitHub Actions doesn't have node_modules
