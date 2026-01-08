@@ -49,11 +49,11 @@ function filterEnv(): Record<string, string> {
  */
 function spawnSandboxed(
   command: string,
-  options: { env: Record<string, string>; cwd: string },
+  options: { env: Record<string, string>; cwd: string }
 ): ChildProcess {
   const stdio: ["ignore", "pipe", "pipe"] = ["ignore", "pipe", "pipe"];
   const spawnOpts = { env: options.env, cwd: options.cwd, stdio, detached: true };
-  return process.env.GITHUB_ACTIONS === "true"
+  return process.env.CI === "true" // requires linux runner or this will fail.
     ? spawn("unshare", ["--pid", "--fork", "--mount-proc", "bash", "-c", command], spawnOpts)
     : spawn("bash", ["-c", command], spawnOpts);
 }
@@ -66,7 +66,11 @@ async function killProcessGroup(proc: ChildProcess): Promise<void> {
     await new Promise((r) => setTimeout(r, 200));
     process.kill(-proc.pid, "SIGKILL");
   } catch {
-    try { proc.kill("SIGKILL"); } catch { /* already dead */ }
+    try {
+      proc.kill("SIGKILL");
+    } catch {
+      /* already dead */
+    }
   }
 }
 
@@ -88,24 +92,45 @@ The command runs in a bash shell with a filtered environment that excludes sensi
       const cwd = params.working_directory ?? process.cwd();
       const proc = spawnSandboxed(params.command, { env: filterEnv(), cwd });
 
-      let stdout = "", stderr = "", timedOut = false, exited = false;
-      proc.stdout?.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-      proc.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+      let stdout = "",
+        stderr = "",
+        timedOut = false,
+        exited = false;
+      proc.stdout?.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+      proc.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
 
       const timeoutId = setTimeout(async () => {
-        if (!exited) { timedOut = true; await killProcessGroup(proc); }
+        if (!exited) {
+          timedOut = true;
+          await killProcessGroup(proc);
+        }
       }, timeout);
 
       const exitCode = await new Promise<number | null>((resolve) => {
-        const done = (code: number | null) => { exited = true; clearTimeout(timeoutId); resolve(code); };
+        const done = (code: number | null) => {
+          exited = true;
+          clearTimeout(timeoutId);
+          resolve(code);
+        };
         proc.on("exit", done);
         proc.on("error", () => done(null));
       });
 
       let output = stderr ? (stdout ? `${stdout}\n${stderr}` : stderr) : stdout;
-      if (timedOut) output = output ? `${output}\n[timed out after ${timeout}ms]` : `[timed out after ${timeout}ms]`;
+      if (timedOut)
+        output = output
+          ? `${output}\n[timed out after ${timeout}ms]`
+          : `[timed out after ${timeout}ms]`;
 
-      return { output: output.trim(), exit_code: exitCode ?? (timedOut ? 124 : -1), timed_out: timedOut };
+      return {
+        output: output.trim(),
+        exit_code: exitCode ?? (timedOut ? 124 : -1),
+        timed_out: timedOut,
+      };
     }),
   });
 }

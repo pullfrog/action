@@ -1,8 +1,8 @@
+import assert from "node:assert/strict";
+import { createSign } from "node:crypto";
 import * as core from "@actions/core";
 import { throttling } from "@octokit/plugin-throttling";
 import { Octokit } from "@octokit/rest";
-import assert from "node:assert/strict";
-import { createSign } from "node:crypto";
 import { log } from "./cli.ts";
 import { retry } from "./retry.ts";
 
@@ -47,8 +47,11 @@ interface RepositoriesResponse {
   repositories: Repository[];
 }
 
-function isGitHubActionsEnvironment(): boolean {
-  return Boolean(process.env.GITHUB_ACTIONS);
+function isOIDCAvailable(): boolean {
+  // OIDC requires both env vars to be set (only in real GitHub Actions with id-token permission)
+  return Boolean(
+    process.env.ACTIONS_ID_TOKEN_REQUEST_URL && process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
+  );
 }
 
 async function acquireTokenViaOIDC(): Promise<string> {
@@ -236,7 +239,7 @@ async function acquireTokenViaGitHubApp(): Promise<string> {
 }
 
 async function acquireNewToken(): Promise<string> {
-  if (isGitHubActionsEnvironment()) {
+  if (isOIDCAvailable()) {
     return await retry(() => acquireTokenViaOIDC(), { label: "token exchange" });
   } else {
     return await acquireTokenViaGitHubApp();
@@ -267,7 +270,10 @@ export async function setupGitHubInstallationToken() {
  * Get the GitHub installation token from memory
  */
 export function getGitHubInstallationToken(): string {
-  assert(githubInstallationToken, "GitHub installation token not set. Call setupGitHubInstallationToken first.");
+  assert(
+    githubInstallationToken,
+    "GitHub installation token not set. Call setupGitHubInstallationToken first."
+  );
   return githubInstallationToken;
 }
 
@@ -313,7 +319,9 @@ export function parseRepoContext(): RepoContext {
   return { owner, name };
 }
 
-export type OctokitWithPlugins = InstanceType<ReturnType<typeof Octokit.plugin<typeof Octokit, [typeof throttling]>>>
+export type OctokitWithPlugins = InstanceType<
+  ReturnType<typeof Octokit.plugin<typeof Octokit, [typeof throttling]>>
+>;
 
 export function createOctokit(token: string): OctokitWithPlugins {
   // `OctokitWithPlugins` initialization based on https://github.com/actions/toolkit/blob/2506e78e82fbd2f9e94d63e75f5309118c8de1b1/packages/github/src/github.ts#L15-L22
@@ -328,6 +336,6 @@ export function createOctokit(token: string): OctokitWithPlugins {
       onSecondaryRateLimit: (retryAfter, options, octokit, retryCount) => {
         return retryCount <= 2;
       },
-    }
+    },
   });
 }
