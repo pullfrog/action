@@ -83,9 +83,7 @@ Use this tool to:
 - Run shell commands (ls, cat, grep, find, etc.)
 - Execute build tools (npm, pnpm, cargo, make, etc.)
 - Run tests and linters
-- Perform git operations
-
-The command runs in a bash shell with a filtered environment that excludes sensitive variables like API keys and tokens.`,
+- Perform git operations`,
     parameters: BashParams,
     execute: execute(async (params) => {
       const timeout = Math.min(params.timeout ?? 120000, 600000);

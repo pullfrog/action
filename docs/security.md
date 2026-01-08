@@ -177,21 +177,6 @@ Expected output:
 
 ---
 
-## Platform Notes
-
-| Environment | `GITHUB_ACTIONS` | Our approach |
-|-------------|------------------|--------------|
-| GitHub Actions (Linux) | `"true"` | filterEnv + unshare |
-| Local dev (any OS) | unset | filterEnv only |
-
-We check `GITHUB_ACTIONS=true` (set automatically by GitHub) rather than platform detection. This means:
-- **In CI**: Full protection with PID namespace isolation
-- **Locally**: Easier testing without Docker/unshare requirements
-
-GitHub Actions uses Ubuntu runners where `unshare` works without root.
-
----
-
 ## What This Does NOT Protect Against
 
 - **Network exfiltration**: Child has full network access
@@ -203,6 +188,19 @@ For those, you'd need `bwrap` with `--unshare-net`, `--ro-bind`, etc. But for th
 ---
 
 ## Agent-Specific Notes
+
+### Platform Environments
+
+| Environment | `CI` | Our approach |
+|-------------|------|--------------|
+| GitHub Actions (Linux) | `"true"` | filterEnv + unshare |
+| Local dev (any OS) | unset | filterEnv only |
+
+We check `CI=true` (set automatically by GitHub) rather than platform detection. This means:
+- **In CI**: Full protection with PID namespace isolation
+- **Locally**: Easier testing without Docker/unshare requirements
+
+GitHub Actions uses Ubuntu runners where `unshare` works without root.
 
 ### Agents Using MCP Bash (Claude, Cursor, OpenCode)
 
