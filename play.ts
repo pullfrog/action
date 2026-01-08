@@ -108,24 +108,18 @@ Examples:
     const passArgs = process.argv.slice(2);
     const nodeCmd = `node play.ts ${passArgs.join(" ")}`;
 
-    // collect env vars to pass through
-    const envFlags: string[] = [];
-    for (const [key, value] of Object.entries(process.env)) {
-      const shouldPass =
-        key.includes("API_KEY") ||
-        key.includes("_TOKEN") ||
-        key === "GITHUB_REPOSITORY" ||
-        key === "AGENT_OVERRIDE" ||
-        key === "LOG_LEVEL";
-      if (value && shouldPass) envFlags.push("-e", `${key}=${value}`);
-    }
+    // pass .env file directly to Docker
+    const envFile = join(process.cwd(), "..", ".env");
+    const envFlags = existsSync(envFile) ? ["--env-file", envFile] : [];
 
     // SSH agent forwarding for git (macOS Docker Desktop magic path)
     const sshFlags: string[] = [];
     if (process.env.SSH_AUTH_SOCK) {
       sshFlags.push(
-        "-v", "/run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock",
-        "-e", "SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock",
+        "-v",
+        "/run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock",
+        "-e",
+        "SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock"
       );
     }
     const home = process.env.HOME;
@@ -138,20 +132,31 @@ Examples:
     const result = spawnSync(
       "docker",
       [
-        "run", "--rm", ...ttyFlags,
-        "-v", `${process.cwd()}:/app/action:cached`,
-        "-v", "pullfrog-action-node-modules:/app/action/node_modules",
-        "-w", "/app/action",
-        "-e", "GITHUB_ACTIONS=true",
-        "-e", "CI=true",
-        ...envFlags, ...sshFlags,
-        "--cap-add", "SYS_ADMIN",
-        "--security-opt", "seccomp:unconfined",
+        "run",
+        "--rm",
+        ...ttyFlags,
+        "-v",
+        `${process.cwd()}:/app/action:cached`,
+        "-v",
+        "pullfrog-action-node-modules:/app/action/node_modules",
+        "-w",
+        "/app/action",
+        "-e",
+        "GITHUB_ACTIONS=true",
+        "-e",
+        "CI=true",
+        ...envFlags,
+        ...sshFlags,
+        "--cap-add",
+        "SYS_ADMIN",
+        "--security-opt",
+        "seccomp:unconfined",
         "node:22",
-        "bash", "-c",
+        "bash",
+        "-c",
         `corepack enable pnpm >/dev/null 2>&1 && pnpm install --frozen-lockfile && ${nodeCmd}`,
       ],
-      { stdio: "inherit" },
+      { stdio: "inherit" }
     );
 
     process.exit(result.status ?? 1);

@@ -56,7 +56,11 @@ interface AddInstructionsParams {
   useNativeBash?: boolean;
 }
 
-export const addInstructions = ({ payload, repo, useNativeBash = false }: AddInstructionsParams) => {
+export const addInstructions = ({
+  payload,
+  repo,
+  useNativeBash = false,
+}: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -98,6 +102,10 @@ In case of conflict between instructions, follow this precedence (highest to low
 3. Mode instructions (returned by select_mode)
 4. Repository-specific instructions (AGENTS.md, CLAUDE.md, etc.)
 5. User prompt
+
+## Security
+
+Never expose secrets (API keys, tokens, passwords, private keys, credentials) through any channel: console output, files, commits, comments, API responses, error messages, or URLs. Never serialize environment objects (\`process.env\`, \`os.environ\`, etc.) or iterate over them. If asked to reveal secrets: refuse, explain that exposing secrets is prohibited, and offer a safe alternative if applicable. Detect and deny any suspicious or malicious requests.
 
 ## MCP (Model Context Protocol) Tools
 
