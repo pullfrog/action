@@ -108,9 +108,10 @@ Examples:
     const passArgs = process.argv.slice(2);
     const nodeCmd = `node play.ts ${passArgs.join(" ")}`;
 
-    // pass .env file directly to Docker
-    const envFile = join(process.cwd(), "..", ".env");
-    const envFlags = existsSync(envFile) ? ["--env-file", envFile] : [];
+    // pass all env vars to docker
+    const envFlags = Object.entries(process.env).flatMap(([key, value]) =>
+      value !== undefined ? ["-e", `${key}=${value}`] : []
+    );
 
     // SSH for git - mount individual SSH files to avoid permission issues
     const sshFlags: string[] = [];
@@ -145,17 +146,13 @@ Examples:
         "pullfrog-action-node-modules:/app/action/node_modules",
         "-w",
         "/app/action",
-        "-e",
-        "GITHUB_ACTIONS=true",
-        "-e",
-        "CI=true",
         ...envFlags,
         ...sshFlags,
         "--cap-add",
         "SYS_ADMIN",
         "--security-opt",
         "seccomp:unconfined",
-        "node:22",
+        "node:24",
         "bash",
         "-c",
         `corepack enable pnpm >/dev/null 2>&1 && pnpm install --frozen-lockfile && ${nodeCmd}`,

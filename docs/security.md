@@ -174,8 +174,8 @@ const bashPermission = isPublicRepo ? "deny" : "allow";
 // Gemini - uses excludeTools in ~/.gemini/settings.json
 newSettings.excludeTools = ["run_shell_command"];
 
-// Codex - NO SDK mechanism to disable native shell
-// Relies on instructions only (limitation)
+// Codex - CLI internally scrubs env before spawning shell
+// No SDK-level config needed; Codex handles this automatically
 ```
 
 For **private repos**, native bash is allowed for all agents.
@@ -263,15 +263,37 @@ This is a blocklist approach which explicitly excludes the shell tool while allo
 
 Additionally, Gemini has built-in CI detection that filters shell env when `GITHUB_SHA` is set.
 
-### Codex (Limitation)
+### Codex
 
-**⚠️ Codex SDK does not support disabling native shell commands.** The SDK only offers `sandboxMode` options which control filesystem access, not specific tool availability.
+Codex CLI filters out env vars matching `KEY`, `SECRET`, or `TOKEN` (case-insensitive) by default via `shell_environment_policy.ignore_default_excludes = false`.
 
-For public repos, we rely on:
-1. **Instructions** telling the agent to use MCP bash instead of native shell
-2. **MCP bash tool** being available as an alternative
+**Vulnerability**: If a user's `~/.codex/config.toml` has `ignore_default_excludes = true`, secrets will leak to shell commands.
 
-This is a known limitation. Codex may still use native shell if it doesn't follow instructions.
+**Our mitigation**: We set `CODEX_HOME` to a temp directory and write our own `config.toml` with `ignore_default_excludes = false` to enforce filtering regardless of what config exists in the user's `~/.codex/`.
+
+```typescript
+// set CODEX_HOME to override user's config
+setupProcessAgentEnv({ CODEX_HOME: codexDir });
+
+// write secure config to $CODEX_HOME/config.toml
+writeFileSync(join(codexDir, "config.toml"), `
+[shell_environment_policy]
+ignore_default_excludes = false
+`);
+```
+
+See [GitHub Issue #3064](https://github.com/openai/codex/issues/3064) and [config docs](https://github.com/openai/codex/blob/main/docs/config.md#shell_environment_policy).
+
+**Verified behavior** (tested via `pnpm play codex-env-test.ts`):
+- Default (no config): ✅ secrets filtered
+- `ignore_default_excludes = false`: ✅ secrets filtered  
+- `ignore_default_excludes = true`: ❌ secrets leak
+
+Example output when running `env | grep TEST` with our config:
+```
+TEST_SAFE_VAR=VISIBLE-SAFE-VALUE
+# FAKE_SECRET_KEY and TEST_API_TOKEN are NOT visible (filtered)
+```
 
 ### Summary by Agent
 
@@ -281,4 +303,4 @@ This is a known limitation. Codex may still use native shell if it doesn't follo
 | Cursor | Native shell **disabled** | Native shell allowed |
 | OpenCode | Native bash **disabled** | Native bash allowed |
 | Gemini | Native shell **disabled** (via excludeTools) | Native bash allowed |
-| Codex | Instructions only (**⚠️ not enforced**) | Native bash allowed |
+| Codex | Native shell allowed (CLI scrubs env internally) | Native bash allowed |

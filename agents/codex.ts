@@ -1,15 +1,55 @@
-import { spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import {
-  agent,
-  type ConfigureMcpServersParams,
-  installFromNpmTarball,
-  setupProcessAgentEnv,
-} from "./shared.ts";
+import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
+
+interface WriteCodexConfigParams {
+  tempHome: string;
+  mcpServers: Record<string, McpHttpServerConfig>;
+  isPublicRepo: boolean;
+}
+
+function writeCodexConfig({ tempHome, mcpServers, isPublicRepo }: WriteCodexConfigParams): string {
+  const codexDir = join(tempHome, ".codex");
+  mkdirSync(codexDir, { recursive: true });
+  const configPath = join(codexDir, "config.toml");
+
+  // build MCP servers section
+  const mcpServerSections: string[] = [];
+  for (const [name, config] of Object.entries(mcpServers)) {
+    if (config.type !== "http") continue;
+    log.info(`» Adding MCP server '${name}' at ${config.url}`);
+    mcpServerSections.push(`[mcp_servers.${name}]\nurl = "${config.url}"`);
+  }
+
+  // SECURITY: for public repos, enforce env filtering via shell_environment_policy
+  // this prevents vuln if user's ~/.codex/config.toml has ignore_default_excludes=true
+  // for private repos, no filtering - agents use native shell with full env access
+  const shellPolicy = isPublicRepo
+    ? `[shell_environment_policy]
+ignore_default_excludes = false`
+    : "";
+
+  writeFileSync(
+    configPath,
+    `# written by pullfrog
+${shellPolicy}
+
+${mcpServerSections.join("\n\n")}
+`.trim() + "\n"
+  );
+
+  if (isPublicRepo) {
+    log.info(`» Codex config written to ${configPath} (env filtering: enabled)`);
+  } else {
+    log.info(`» Codex config written to ${configPath} (private repo: no env filtering)`);
+  }
+
+  return codexDir;
+}
 
 export const codex = agent({
   name: "codex",
@@ -21,17 +61,23 @@ export const codex = agent({
     });
   },
   run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
-    // create config directory for codex before setting HOME
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
+
+    // create config directory for codex before setting HOME
     const configDir = join(tempHome, ".config", "codex");
     mkdirSync(configDir, { recursive: true });
+
+    const codexDir = writeCodexConfig({
+      tempHome,
+      mcpServers,
+      isPublicRepo: repo.isPublic,
+    });
 
     setupProcessAgentEnv({
       OPENAI_API_KEY: apiKey,
       HOME: tempHome,
+      CODEX_HOME: codexDir, // point Codex to our config directory
     });
-
-    configureCodexMcpServers({ mcpServers, cliPath });
 
     // Configure Codex
     const codexOptions: CodexOptions = {
@@ -41,16 +87,6 @@ export const codex = agent({
 
     if (payload.sandbox) {
       log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
-
-    // SECURITY NOTE: Codex SDK does not have an option to disable native shell commands.
-    // For public repos, we rely on instructions telling the agent to use MCP bash instead.
-    // The MCP bash tool filters sensitive environment variables.
-    // This is not as robust as Claude/Cursor/OpenCode which can explicitly disable native bash.
-    if (repo.isPublic) {
-      log.info(
-        "🔒 public repo: instructions direct to MCP bash (native shell NOT disabled in SDK)"
-      );
     }
 
     const codex = new Codex(codexOptions);
@@ -195,33 +231,3 @@ const messageHandlers: {
     log.error(`Error: ${event.message}`);
   },
 };
-
-/**
- * Configure MCP servers for Codex using the CLI.
- * For HTTP-based servers, use: codex mcp add <name> --url <url>
- */
-function configureCodexMcpServers({ mcpServers, cliPath }: ConfigureMcpServersParams): void {
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    if (serverConfig.type === "http") {
-      // HTTP-based MCP server - use --url flag
-      const addArgs = ["mcp", "add", serverName, "--url", serverConfig.url];
-
-      log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
-      const addResult = spawnSync("node", [cliPath, ...addArgs], {
-        stdio: "pipe",
-        encoding: "utf-8",
-      });
-
-      if (addResult.status !== 0) {
-        throw new Error(
-          `codex mcp add failed: ${addResult.stderr || addResult.stdout || "Unknown error"}`
-        );
-      }
-      log.info(`✓ MCP server '${serverName}' configured`);
-    } else {
-      throw new Error(
-        `Unsupported MCP server type for Codex: ${(serverConfig as any).type || "unknown"}`
-      );
-    }
-  }
-}

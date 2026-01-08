@@ -370,6 +370,7 @@ function resolveAgent({
   repoSettings: RepoSettings;
 }): Agent {
   const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
+  log.debug(`» determineAgent: agentOverride=${agentOverride}, payload.agent=${payload.agent}, repoSettings.defaultAgent=${repoSettings.defaultAgent}`);
   const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
   if (configuredAgentName) {
