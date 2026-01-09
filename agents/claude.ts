@@ -1,8 +1,17 @@
 import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Effort } from "../external.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
+
+// model configuration based on effort level
+// uses model family aliases that auto-resolve to latest version
+const claudeModels: Record<Effort, { model: string; thinking: boolean }> = {
+  nothink: { model: "claude-haiku-4-5", thinking: false },
+  think: { model: "claude-sonnet-4-5", thinking: true },
+  max: { model: "claude-opus-4-5", thinking: true },
+} as const;
 
 export const claude = agent({
   name: "claude",
@@ -14,12 +23,16 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
+
+    // get model configuration based on effort
+    const modelConfig = claudeModels[effort];
+    log.info(`Using model: ${modelConfig.model}, thinking: ${modelConfig.thinking}`);
 
     // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
@@ -46,15 +59,22 @@ export const claude = agent({
 
     // Pass secrets via SDK's env option only (not process.env)
     // This ensures secrets are only available to Claude Code subprocess, not user code
+    const queryOptions: Options = {
+      ...sandboxOptions,
+      mcpServers,
+      model: modelConfig.model,
+      pathToClaudeCodeExecutable: cliPath,
+      env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
+    };
+    // only set maxThinkingTokens when we want to disable thinking (0)
+    // omit the property to use default when thinking is enabled
+    if (!modelConfig.thinking) {
+      queryOptions.maxThinkingTokens = 0;
+    }
+
     const queryInstance = query({
       prompt,
-      options: {
-        ...sandboxOptions,
-        mcpServers,
-        // model: "claude-opus-4-5",
-        pathToClaudeCodeExecutable: cliPath,
-        env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
-      },
+      options: queryOptions,
     });
 
     // Stream the results

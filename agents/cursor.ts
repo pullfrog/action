@@ -91,7 +91,7 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers, repo }) => {
+  run: async ({ payload, apiKey, cliPath, mcpServers, repo, effort: _effort }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
     configureCursorSandbox({ sandbox: payload.sandbox ?? false, isPublicRepo: repo.isPublic });
 

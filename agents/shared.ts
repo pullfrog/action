@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import type { show } from "@ark/util";
-import { type AgentManifest, type AgentName, agentsManifest, type Payload } from "../external.ts";
+import {
+  type AgentManifest,
+  type AgentName,
+  agentsManifest,
+  type Effort,
+  type Payload,
+} from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { getGitHubInstallationToken } from "../utils/github.ts";
 
@@ -40,6 +46,7 @@ export interface AgentConfig {
   mcpServers: Record<string, McpHttpServerConfig>;
   cliPath: string;
   repo: RepoInfo;
+  effort: Effort;
 }
 
 /**

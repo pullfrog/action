@@ -11,6 +11,14 @@ import {
   installFromGithub,
 } from "./shared.ts";
 
+// model configuration based on effort level
+// uses model family aliases that auto-resolve to latest version
+const geminiModels = {
+  nothink: "gemini-2.5-pro",
+  think: "gemini-3-pro",
+  max: "gemini-3-pro",
+} as const;
+
 // gemini cli event types inferred from stream-json output (NDJSON format)
 interface GeminiInitEvent {
   type: "init";
@@ -156,12 +164,16 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath, repo }) => {
+  run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort }) => {
     configureGeminiMcpServers({ mcpServers, isPublicRepo: repo.isPublic });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
+
+    // get model based on effort level
+    const model = geminiModels[effort];
+    log.info(`Using model: ${model}`);
 
     const sessionPrompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(sessionPrompt));
@@ -172,6 +184,8 @@ export const gemini = agent({
     if (payload.sandbox) {
       // sandbox mode: read-only tools only
       args = [
+        "--model",
+        model,
         "--allowed-tools",
         "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
         "--allowed-mcp-server-names",
@@ -183,7 +197,7 @@ export const gemini = agent({
     } else {
       // normal mode: --yolo for auto-approval
       // for public repos, shell is excluded via settings.json excludeTools
-      args = ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+      args = ["--model", model, "--yolo", "--output-format=stream-json", "-p", sessionPrompt];
       if (repo.isPublic) {
         log.info("🔒 public repo: native shell disabled via excludeTools, using MCP bash");
       }

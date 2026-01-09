@@ -84,6 +84,7 @@ on:
       prompt:
         description: 'Agent prompt'
         type: string
+    secrets: inherit
 
 permissions:
   id-token: write
@@ -105,14 +106,14 @@ jobs:
       - name: Run agent
         uses: pullfrog/action@v0
         with:
-          prompt: ${{ github.event.inputs.prompt }}
-
+          prompt: ${{ inputs.prompt }}
+        env:
           # feel free to comment out any you won't use
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          google_api_key: ${{ secrets.GOOGLE_API_KEY }}
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           
 ```
 

@@ -20,22 +20,22 @@ export interface AgentManifest {
 export const agentsManifest = {
   claude: {
     displayName: "Claude Code",
-    apiKeyNames: ["anthropic_api_key"],
+    apiKeyNames: ["ANTHROPIC_API_KEY"],
     url: "https://claude.com/claude-code",
   },
   codex: {
     displayName: "Codex CLI",
-    apiKeyNames: ["openai_api_key"],
+    apiKeyNames: ["OPENAI_API_KEY"],
     url: "https://platform.openai.com/docs/guides/codex",
   },
   cursor: {
     displayName: "Cursor CLI",
-    apiKeyNames: ["cursor_api_key"],
+    apiKeyNames: ["CURSOR_API_KEY"],
     url: "https://cursor.com/",
   },
   gemini: {
     displayName: "Gemini CLI",
-    apiKeyNames: ["google_api_key", "gemini_api_key"],
+    apiKeyNames: ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
     url: "https://ai.google.dev/gemini-api/docs",
   },
   opencode: {
@@ -50,6 +50,10 @@ export type AgentName = keyof typeof agentsManifest;
 export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
+
+// effort level type - controls model selection and thinking level
+export const Effort = type.enumerated("nothink", "think", "max");
+export type Effort = typeof Effort.infer;
 
 // base interface for common payload event fields
 interface BasePayloadEvent {
@@ -278,6 +282,12 @@ export interface Payload extends DispatchOptions {
    * Execution mode configuration
    */
   modes: readonly Mode[];
+
+  /**
+   * Effort level for model selection (nothink, think, max)
+   * Defaults to "think" if not specified
+   */
+  readonly effort?: Effort;
 
   /**
    * Optional IDs of the issue, PR, or comment that the agent is working on
