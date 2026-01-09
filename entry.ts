@@ -5,9 +5,7 @@
  */
 
 import * as core from "@actions/core";
-import { flatMorph } from "@ark/util";
-import { agents } from "./agents/index.ts";
-import { type Inputs, main } from "./main.ts";
+import { Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
@@ -20,12 +18,10 @@ async function run(): Promise<void> {
   }
 
   try {
-    const inputs: Required<Inputs> = {
+    const inputs = Inputs.assert({
       prompt: core.getInput("prompt", { required: true }),
-      ...flatMorph(agents, (_, agent) =>
-        agent.apiKeyNames.map((inputKey) => [inputKey, core.getInput(inputKey)])
-      ),
-    };
+      effort: core.getInput("effort") || "think",
+    });
 
     const result = await main(inputs);
 

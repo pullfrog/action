@@ -2,9 +2,18 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
+import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
+
+// model configuration based on effort level
+// uses model family aliases that auto-resolve to latest version
+const codexModels: Record<Effort, string> = {
+  nothink: "gpt-4o-mini",
+  think: "gpt-5.2-instant",
+  max: "gpt-5.2-thinking",
+} as const;
 
 interface WriteCodexConfigParams {
   tempHome: string;
@@ -60,7 +69,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
 
     // create config directory for codex before setting HOME
@@ -79,6 +88,10 @@ export const codex = agent({
       CODEX_HOME: codexDir, // point Codex to our config directory
     });
 
+    // get model based on effort level
+    const model = codexModels[effort];
+    log.info(`Using model: ${model}`);
+
     // Configure Codex
     const codexOptions: CodexOptions = {
       apiKey,
@@ -93,11 +106,13 @@ export const codex = agent({
     const thread = codex.startThread(
       payload.sandbox
         ? {
+            model,
             approvalPolicy: "never",
             sandboxMode: "read-only",
             networkAccessEnabled: false,
           }
         : {
+            model,
             approvalPolicy: "never",
             // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
             sandboxMode: "danger-full-access",

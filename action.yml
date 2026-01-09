@@ -1,30 +1,18 @@
-name: "Pullfrog Claude Code Action"
-description: "Execute Claude Code with a prompt using Anthropic API"
+name: "Pullfrog Action"
+description: "Execute coding agents with a prompt"
 author: "Pullfrog"
 
 inputs:
   prompt:
-    description: "Prompt to send to Claude Code"
+    description: "Prompt to send to the agent"
     required: true
-    default: "Hello from Claude Code!"
-  anthropic_api_key:
-    description: "Anthropic API key for Claude Code authentication"
+  effort:
+    description: "Effort level: nothink (fast), think (default), max (most capable)"
     required: false
-  openai_api_key:
-    description: "OpenAI API key for Codex authentication"
-    required: false
-  google_api_key:
-    description: "Google API key for Jules authentication"
-    required: false
-  gemini_api_key:
-    description: "Gemini API key for Jules authentication"
-    required: false
-  cursor_api_key:
-    description: "Cursor API key for Cursor authentication"
-    required: false
+    default: "think"
 
 runs:
-  using: "node20"
+  using: "node24"
   main: "entry"
 
 branding:
