@@ -58,8 +58,9 @@ interface AddInstructionsParams {
 
 export const addInstructions = ({ payload, repo }: AddInstructionsParams) => {
   // for public repos, always use MCP bash for security (filters secrets)
-  // for private repos, agents can use their native bash
-  const useNativeBash = !repo.isPublic;
+  // for private repos, agents can use their native bash unless bash is explicitly disabled
+  const isBashDisabled = payload.permissions?.bash === false;
+  const useNativeBash = !repo.isPublic && !isBashDisabled;
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);

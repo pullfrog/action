@@ -1,0 +1,13 @@
+# rust build artifacts
+target/
+
+# napi-rs generated files
+*.node
+index.js
+index.d.ts
+
+# npm
+node_modules/
+
+# cargo lock (for libraries)
+Cargo.lock

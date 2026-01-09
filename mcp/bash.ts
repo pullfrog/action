@@ -64,10 +64,11 @@ async function killProcessGroup(proc: ChildProcess): Promise<void> {
 
 export function BashTool(ctx: ToolContext) {
   const isPublicRepo = !ctx.repo.private;
+  const isBashDisabled = ctx.payload.permissions?.bash === false;
 
   return tool({
     name: "bash",
-    description: `Execute shell commands securely.${isPublicRepo ? " Environment is filtered to remove API keys and secrets." : ""}
+    description: `Execute shell commands securely.${isPublicRepo ? " Environment is filtered to remove API keys and secrets." : ""}${isBashDisabled ? " NOTE: Bash is currently DISABLED in sandbox mode." : ""}
 
 Use this tool to:
 - Run shell commands (ls, cat, grep, find, etc.)
@@ -77,6 +78,16 @@ Use this tool to:
 - Run shell commands in a secure environment. Unlike the built-in bash tool, this tool filters sensitive environment variables from the subprocess's environment to avoid leaking secrets.`,
     parameters: BashParams,
     execute: execute(async (params) => {
+      // check if bash is disabled via permissions
+      if (isBashDisabled) {
+        return {
+          output:
+            "error: bash is disabled in sandbox mode. this tool cannot be used when permissions.bash is false.",
+          exit_code: 1,
+          timed_out: false,
+        };
+      }
+
       const timeout = Math.min(params.timeout ?? 120000, 600000);
       const cwd = params.working_directory ?? process.cwd();
       const proc = spawnSandboxed(params.command, {

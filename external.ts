@@ -241,12 +241,25 @@ export type PayloadEvent =
   | ImplementPlanEvent
   | UnknownEvent;
 
+/**
+ * granular permissions for agent sandbox control.
+ * defaults: all permissions allowed (readonly=false, network=true, bash=true).
+ */
+export interface Permissions {
+  /** restrict filesystem to read-only (default: false = writes allowed) */
+  readonly readonly?: boolean;
+  /** allow network access (default: true = network allowed) */
+  readonly network?: boolean;
+  /** allow bash tool usage (default: true = bash allowed) */
+  readonly bash?: boolean;
+}
+
 export interface DispatchOptions {
   /**
-   * Sandbox mode flag - when true, restricts agent to read-only operations
-   * (no Write, Web, or Bash access)
+   * granular permissions for sandboxing agent execution.
+   * when not specified, all permissions are allowed.
    */
-  readonly sandbox?: boolean;
+  readonly permissions?: Permissions;
 
   /**
    * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)

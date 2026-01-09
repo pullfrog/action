@@ -24,25 +24,15 @@ export const claude = agent({
     // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
     // for private repos, native Bash is allowed since secrets are less exposed.
-    const disallowedTools = repo.isPublic ? ["Bash"] : [];
-    const sandboxOptions: Options = payload.sandbox
-      ? {
-          permissionMode: "default",
-          disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
-          async canUseTool(toolName, input, _options) {
-            if (toolName.startsWith("mcp__gh_pullfrog__"))
-              return { behavior: "allow", updatedInput: input, updatedPermissions: [] };
-            return { behavior: "deny", message: "tool not allowed in sandbox mode" };
-          },
-        }
-      : {
-          permissionMode: "bypassPermissions" as const,
-          disallowedTools,
-        };
+    // note: filesystem (readonly) and network restrictions are handled by Landlock, not here.
+    const isBashDisabled = payload.permissions?.bash === false;
+    const disallowedTools: string[] = [];
+    if (repo.isPublic || isBashDisabled) disallowedTools.push("Bash");
 
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
+    const sandboxOptions: Options = {
+      permissionMode: "bypassPermissions" as const,
+      disallowedTools,
+    };
 
     // Pass secrets via SDK's env option only (not process.env)
     // This ensures secrets are only available to Claude Code subprocess, not user code

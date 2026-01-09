@@ -28,9 +28,12 @@ export const opencode = agent({
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
+    // note: filesystem (readonly) and network restrictions are handled by Landlock
+    const isBashDisabled = payload.permissions?.bash === false;
+
     configureOpenCode({
       mcpServers,
-      sandbox: payload.sandbox ?? false,
+      bashDisabled: isBashDisabled,
       isPublicRepo: repo.isPublic,
     });
 
@@ -39,10 +42,6 @@ export const opencode = agent({
 
     // message positional must come right after "run", before flags
     const args = ["run", prompt, "--format", "json"];
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
 
     // 6. set up environment
     setupProcessAgentEnv({ HOME: tempHome });
@@ -193,15 +192,16 @@ export const opencode = agent({
 
 interface ConfigureOpenCodeParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
-  sandbox: boolean;
+  bashDisabled: boolean;
   isPublicRepo: boolean;
 }
 
 /**
  * Configure OpenCode via opencode.json config file.
- * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
+ * Builds complete config with MCP servers and bash permissions.
+ * note: filesystem (readonly) and network restrictions are handled by Landlock, not here.
  */
-function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenCodeParams): void {
+function configureOpenCode({ mcpServers, bashDisabled, isPublicRepo }: ConfigureOpenCodeParams): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -227,23 +227,16 @@ function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenC
 
   // SECURITY: For PUBLIC repos, OpenCode spawns subprocesses with full process.env, leaking API keys.
   // disable native bash; agents use MCP bash tool which filters secrets.
-  // for private repos, native bash is allowed.
-  const bashPermission = isPublicRepo ? "deny" : "allow";
-  const permission = sandbox
-    ? {
-        edit: "deny",
-        bash: "deny",
-        webfetch: "deny",
-        doom_loop: "allow",
-        external_directory: "allow",
-      }
-    : {
-        edit: "allow",
-        bash: bashPermission,
-        webfetch: "allow",
-        doom_loop: "allow",
-        external_directory: "allow",
-      };
+  // for private repos, native bash is allowed unless explicitly disabled.
+  const bashPermission = isPublicRepo || bashDisabled ? "deny" : "allow";
+
+  const permission = {
+    edit: "allow",
+    bash: bashPermission,
+    webfetch: "allow",
+    doom_loop: "allow",
+    external_directory: "allow",
+  };
 
   // build complete config in one object
   const config = {
@@ -261,7 +254,7 @@ function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenC
     throw error;
   }
 
-  log.info(`» OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
+  log.info(`» OpenCode config written to ${configPath} (bashDisabled: ${bashDisabled}, isPublicRepo: ${isPublicRepo})`);
   log.debug(`OpenCode config contents:\n${configJson}`);
 }
 

@@ -23,6 +23,7 @@ import {
   parseRepoContext,
   setupGitHubInstallationToken,
 } from "./utils/github.ts";
+import { applySandboxIfNeeded } from "./sandbox/index.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
@@ -196,6 +197,17 @@ export async function main(inputs: Inputs): Promise<MainResult> {
       await reportProgress(ctx, { body: noThumbsMessage });
       return { success: true };
     }
+
+    // apply landlock sandbox before running agent (if permissions require it)
+    const permissions = resolvedPayload.permissions;
+    if (permissions?.readonly !== undefined || permissions?.network !== undefined) {
+      await applySandboxIfNeeded({
+        readonly: permissions.readonly,
+        network: permissions.network,
+        workingDir: process.cwd(),
+      });
+    }
+    timer.checkpoint("sandbox");
 
     const result = await runAgent(ctx);
     const mainResult = await handleAgentResult(result);

@@ -1,0 +1,23 @@
+{
+  "name": "@pullfrog/sandbox",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "pullfrog-sandbox",
+    "triples": {
+      "defaults": false,
+      "additional": [
+        "x86_64-unknown-linux-gnu"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "napi build --release --platform",
+    "build-debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0-alpha.66"
+  }
+}

@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:landlock": "docker run --rm --cap-add SYS_ADMIN --security-opt seccomp:unconfined -v \"$(pwd):/app/action\" -w /app/action node:24 sh -c 'rm -rf .landlock-test-repo && node test-landlock.ts'",
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "play": "node play.ts",

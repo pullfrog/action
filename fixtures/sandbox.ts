@@ -2,7 +2,10 @@ import type { Payload } from "../external.ts";
 
 /**
  * test fixture: simulates an @pullfrog mention by a non-collaborator on a public repo.
- * sandbox mode is enabled, so web access and file writes should be blocked.
+ * sandbox mode is enabled with granular permissions:
+ * - readonly: true (filesystem is read-only)
+ * - network: false (network access is blocked)
+ * - bash: false (bash tool is disabled)
  *
  * run with: AGENT_OVERRIDE=claude pnpm play sandbox.ts
  */
@@ -23,5 +26,9 @@ All three of these actions should fail because you are running in sandbox mode w
     issue_number: 1,
   },
   modes: [],
-  sandbox: true,
+  permissions: {
+    readonly: true,
+    network: false,
+    bash: false,
+  },
 } satisfies Payload;
