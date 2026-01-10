@@ -23,7 +23,7 @@ import { Timer } from "./utils/timer.ts";
 
 export const Inputs = type({
   prompt: "string",
-  effort: Effort,
+  "effort?": Effort,
 });
 
 export type Inputs = typeof Inputs.infer;
