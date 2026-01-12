@@ -16,9 +16,9 @@ Claude Code uses model selection based on effort level.
 
 | Effort | Model | Description |
 |--------|-------|-------------|
-| `nothink` | `claude-haiku-4-5-20250929` | Fast, efficient (Haiku) |
-| `think` | `claude-sonnet-4-5-20250929` | Balanced (Sonnet) |
-| `max` | `claude-opus-4-5-20250929` | Maximum capability (Opus) |
+| `nothink` | `haiku` | Fast, efficient |
+| `think` | `opusplan` | Opus for planning, Sonnet for execution |
+| `max` | `opus` | Full Opus |
 
 > **Future direction:** Anthropic's beta `effort` parameter (`low`/`medium`/`high`) could replace model selection, using Opus 4.5 for all tasks with effort controlling token spend. See [Anthropic Effort Docs](https://platform.claude.com/docs/en/build-with-claude/effort).
 

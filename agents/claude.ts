@@ -8,9 +8,9 @@ import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 // Model selection based on effort level
 // Note: nothink uses Haiku for speed, think uses Sonnet for balance, max uses Opus for capability
 const claudeEffortModels: Record<Effort, string> = {
-  nothink: "claude-haiku-4-5-20250929",
-  think: "claude-sonnet-4-5-20250929",
-  max: "claude-opus-4-5-20250929",
+  nothink: "haiku",
+  think: "opusplan",
+  max: "opus",
 };
 
 // FUTURE: Consider using Anthropic's "effort" parameter (beta) with Opus 4.5 for all tasks.
