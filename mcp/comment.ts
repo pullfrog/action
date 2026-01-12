@@ -1,3 +1,4 @@
+import * as core from "@actions/core";
 import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
@@ -234,6 +235,11 @@ export async function reportProgress(
 
     progressCommentWasUpdated = true;
 
+    // update job summary with the same content as the progress comment
+    if (process.env.GITHUB_ACTIONS) {
+      await core.summary.addRaw(bodyWithFooter).write({ overwrite: true });
+    }
+
     return {
       commentId: result.data.id,
       url: result.data.html_url,
@@ -281,12 +287,22 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
+    // update job summary with the same content as the progress comment
+    if (process.env.GITHUB_ACTIONS) {
+      await core.summary.addRaw(bodyWithPlanLink).write({ overwrite: true });
+    }
+
     return {
       commentId: updateResult.data.id,
       url: updateResult.data.html_url,
       body: updateResult.data.body || "",
       action: "created",
     };
+  }
+
+  // update job summary with the same content as the progress comment
+  if (process.env.GITHUB_ACTIONS) {
+    await core.summary.addRaw(initialBody).write({ overwrite: true });
   }
 
   return {
