@@ -3,10 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fromHere } from "@ark/fs";
-import { flatMorph } from "@ark/util";
 import arg from "arg";
 import { config } from "dotenv";
-import { agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
 import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
@@ -25,26 +23,9 @@ export async function run(prompt: string): Promise<AgentResult> {
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    // check if prompt is a pullfrog payload and extract agent
-    // note: agent from payload will be used by determineAgent with highest precedence
-    // we don't need to extract it here since main() will parse the payload
-    const inputs = {
+    const inputs: Inputs = {
       prompt,
-      ...flatMorph(agents, (_, agent) => {
-        // for OpenCode, scan all API_KEY environment variables
-        if (agent.name === "opencode") {
-          const opencodeKeys: Array<[string, string | undefined]> = [];
-          for (const [key, value] of Object.entries(process.env)) {
-            if (value && typeof value === "string" && key.includes("API_KEY")) {
-              opencodeKeys.push([key.toLowerCase(), value]);
-            }
-          }
-          return opencodeKeys;
-        }
-        // for other agents, use apiKeyNames
-        return agent.apiKeyNames.map((inputKey) => [inputKey, process.env[inputKey.toUpperCase()]]);
-      }),
-    } as Required<Inputs>;
+    };
 
     const result = await main(inputs);
 
@@ -205,6 +186,30 @@ Examples:
 
         if (typeof module.default === "string") {
           prompt = module.default;
+        } else if (Array.isArray(module.default)) {
+          // Array of Payloads - run each in sequence
+          const payloads = module.default;
+          log.info(`Running ${payloads.length} payloads in sequence...`);
+
+          let allSuccess = true;
+          for (let i = 0; i < payloads.length; i++) {
+            const payload = payloads[i];
+            const label = payload.effort
+              ? `[${i + 1}/${payloads.length}] effort=${payload.effort}`
+              : `[${i + 1}/${payloads.length}]`;
+            log.info(`\n${"=".repeat(60)}`);
+            log.info(`${label}`);
+            log.info(`${"=".repeat(60)}\n`);
+
+            const payloadPrompt = JSON.stringify(payload, null, 2);
+            const result = await run(payloadPrompt);
+            if (!result.success) {
+              allSuccess = false;
+              log.error(`Payload ${i + 1} failed`);
+            }
+          }
+
+          process.exit(allSuccess ? 0 : 1);
         } else if (typeof module.default === "object") {
           // Payload objects (with ~pullfrog) should be stringified
           prompt = JSON.stringify(module.default, null, 2);

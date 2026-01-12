@@ -1,10 +1,32 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
+import {
+  Codex,
+  type CodexOptions,
+  type ModelReasoningEffort,
+  type ThreadEvent,
+  type ThreadOptions,
+} from "@openai/codex-sdk";
+import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
+
+// model configuration based on effort level
+const codexModel: Record<Effort, string> = {
+  nothink: "gpt-5.1-codex-mini",
+  think: "gpt-5.1-codex",
+  max: "gpt-5.1-codex-max",
+} as const;
+
+// reasoning effort configuration based on effort level
+// uses modelReasoningEffort parameter from ThreadOptions
+const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
+  nothink: "low",
+  think: undefined, // use default
+  max: "high",
+};
 
 interface WriteCodexConfigParams {
   tempHome: string;
@@ -60,7 +82,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
 
     // create config directory for codex before setting HOME
@@ -79,6 +101,14 @@ export const codex = agent({
       CODEX_HOME: codexDir, // point Codex to our config directory
     });
 
+    // get model and reasoning effort based on effort level
+    const model = codexModel[effort];
+    const modelReasoningEffort = codexReasoningEffort[effort];
+    log.info(`Using model: ${model}`);
+    if (modelReasoningEffort) {
+      log.info(`Using modelReasoningEffort: ${modelReasoningEffort}`);
+    }
+
     // Configure Codex
     const codexOptions: CodexOptions = {
       apiKey,
@@ -90,20 +120,28 @@ export const codex = agent({
     }
 
     const codex = new Codex(codexOptions);
-    const thread = codex.startThread(
-      payload.sandbox
-        ? {
-            approvalPolicy: "never",
-            sandboxMode: "read-only",
-            networkAccessEnabled: false,
-          }
-        : {
-            approvalPolicy: "never",
-            // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
-            sandboxMode: "danger-full-access",
-            networkAccessEnabled: true,
-          }
-    );
+
+    // Build thread options with model and optional model_reasoning_effort
+    const baseThreadOptions = payload.sandbox
+      ? {
+          model,
+          approvalPolicy: "never" as const,
+          sandboxMode: "read-only" as const,
+          networkAccessEnabled: false,
+        }
+      : {
+          model,
+          approvalPolicy: "never" as const,
+          // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
+          sandboxMode: "danger-full-access" as const,
+          networkAccessEnabled: true,
+        };
+
+    const threadOptions: ThreadOptions = modelReasoningEffort
+      ? { ...baseThreadOptions, modelReasoningEffort }
+      : baseThreadOptions;
+
+    const thread = codex.startThread(threadOptions);
 
     try {
       const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));

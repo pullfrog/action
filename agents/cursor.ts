@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import {
@@ -10,6 +11,14 @@ import {
   createAgentEnv,
   installFromCurl,
 } from "./shared.ts";
+
+// effort configuration for Cursor
+// only "max" overrides the model; nothink/think use default ("auto")
+const cursorEffortModels: Record<Effort, string | null> = {
+  nothink: null, // use default (auto)
+  think: null, // use default (auto)
+  max: "opus-4.5-thinking",
+} as const;
 
 // cursor cli event types inferred from stream-json output
 interface CursorSystemEvent {
@@ -91,9 +100,35 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers, repo }) => {
+  run: async ({ payload, apiKey, cliPath, mcpServers, repo, effort }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
     configureCursorSandbox({ sandbox: payload.sandbox ?? false, isPublicRepo: repo.isPublic });
+
+    // determine model based on effort level
+    // respect project's .cursor/cli.json if it specifies a model
+    const projectCliConfigPath = join(process.cwd(), ".cursor", "cli.json");
+    let modelOverride: string | null = null;
+
+    if (existsSync(projectCliConfigPath)) {
+      try {
+        const projectConfig = JSON.parse(readFileSync(projectCliConfigPath, "utf-8"));
+        if (projectConfig.model) {
+          log.info(`Using model from project .cursor/cli.json: ${projectConfig.model}`);
+        } else {
+          modelOverride = cursorEffortModels[effort];
+        }
+      } catch {
+        modelOverride = cursorEffortModels[effort];
+      }
+    } else {
+      modelOverride = cursorEffortModels[effort];
+    }
+
+    if (modelOverride) {
+      log.info(`Using model: ${modelOverride} (effort: ${effort})`);
+    } else if (!existsSync(projectCliConfigPath)) {
+      log.info(`Using default model (effort: ${effort})`);
+    }
 
     // track logged model_call_ids to avoid duplicates
     // cursor emits each assistant message twice: once without model_call_id, then again with it
@@ -171,16 +206,16 @@ export const cursor = agent({
 
       // configure sandbox mode if enabled
       // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings
+      const baseArgs = ["--print", fullPrompt, "--output-format", "stream-json", "--approve-mcps"];
+
+      // add model flag if we have an override
+      if (modelOverride) {
+        baseArgs.push("--model", modelOverride);
+      }
+
       const cursorArgs = payload.sandbox
-        ? [
-            "--print",
-            fullPrompt,
-            "--output-format",
-            "stream-json",
-            "--approve-mcps",
-            // --force removed in sandbox mode to enforce safety checks
-          ]
-        : ["--print", fullPrompt, "--output-format", "stream-json", "--approve-mcps", "--force"];
+        ? baseArgs // --force removed in sandbox mode to enforce safety checks
+        : [...baseArgs, "--force"];
 
       if (payload.sandbox) {
         log.info("🔒 sandbox mode enabled: restricting to read-only operations");

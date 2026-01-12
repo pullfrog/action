@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
@@ -10,6 +11,15 @@ import {
   createAgentEnv,
   installFromGithub,
 } from "./shared.ts";
+
+// effort configuration: model + thinking level
+// thinkingLevel is set via settings.json modelConfig.generateContentConfig.thinkingConfig
+// see: https://ai.google.dev/gemini-api/docs/thinking#thinking-levels
+const geminiEffortConfig: Record<Effort, { model: string; thinkingLevel: string }> = {
+  nothink: { model: "gemini-2.5-flash", thinkingLevel: "LOW" },
+  think: { model: "gemini-2.5-flash", thinkingLevel: "HIGH" },
+  max: { model: "gemini-2.5-pro", thinkingLevel: "HIGH" },
+} as const;
 
 // gemini cli event types inferred from stream-json output (NDJSON format)
 interface GeminiInitEvent {
@@ -156,8 +166,12 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath, repo }) => {
-    configureGeminiMcpServers({ mcpServers, isPublicRepo: repo.isPublic });
+  run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort }) => {
+    // get model and thinking level based on effort
+    const { model, thinkingLevel } = geminiEffortConfig[effort];
+    log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
+
+    configureGeminiSettings({ mcpServers, isPublicRepo: repo.isPublic, thinkingLevel });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
@@ -172,6 +186,8 @@ export const gemini = agent({
     if (payload.sandbox) {
       // sandbox mode: read-only tools only
       args = [
+        "--model",
+        model,
         "--allowed-tools",
         "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
         "--allowed-mcp-server-names",
@@ -183,7 +199,7 @@ export const gemini = agent({
     } else {
       // normal mode: --yolo for auto-approval
       // for public repos, shell is excluded via settings.json excludeTools
-      args = ["--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+      args = ["--model", model, "--yolo", "--output-format=stream-json", "-p", sessionPrompt];
       if (repo.isPublic) {
         log.info("🔒 public repo: native shell disabled via excludeTools, using MCP bash");
       }
@@ -276,16 +292,22 @@ export const gemini = agent({
 type ConfigureGeminiParams = {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
   isPublicRepo: boolean;
+  thinkingLevel: string;
 };
 
 /**
- * Configure MCP servers for Gemini by writing to settings.json.
- * Gemini CLI uses `httpUrl` for HTTP/streamable transport, `url` for SSE transport.
- * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
+ * Configure Gemini CLI settings by writing to settings.json.
+ * - MCP servers: uses `httpUrl` for HTTP/streamable transport
+ * - thinkingLevel: configured via modelConfig.generateContentConfig.thinkingConfig
+ * - For public repos, excludeTools disables native shell
  *
- * For public repos, also configures excludeTools to disable native shell.
+ * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
-function configureGeminiMcpServers({ mcpServers, isPublicRepo }: ConfigureGeminiParams): void {
+function configureGeminiSettings({
+  mcpServers,
+  isPublicRepo,
+  thinkingLevel,
+}: ConfigureGeminiParams): void {
   const realHome = homedir();
   const geminiConfigDir = join(realHome, ".gemini");
   const settingsPath = join(geminiConfigDir, "settings.json");
@@ -329,17 +351,26 @@ function configureGeminiMcpServers({ mcpServers, isPublicRepo }: ConfigureGemini
     log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
   }
 
-  // merge with existing settings, overwriting mcpServers
-  // for public repos, exclude native shell tool to prevent secret leakage via env
+  // merge with existing settings, overwriting mcpServers and modelConfig
   const newSettings: Record<string, unknown> = {
     ...existingSettings,
     mcpServers: geminiMcpServers,
+    // configure thinking level via modelConfig
+    // see: https://ai.google.dev/api/generate-content (ThinkingConfig)
+    modelConfig: {
+      generateContentConfig: {
+        thinkingConfig: {
+          thinkingLevel,
+        },
+      },
+    },
   };
 
+  // for public repos, exclude native shell tool to prevent secret leakage via env
   if (isPublicRepo) {
     newSettings.excludeTools = ["run_shell_command"];
   }
 
   writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
-  log.info(`» MCP config written to ${settingsPath}`);
+  log.info(`» Gemini settings written to ${settingsPath}`);
 }

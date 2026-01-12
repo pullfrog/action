@@ -22,7 +22,15 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({ payload, apiKey: _apiKey, apiKeys, mcpServers, cliPath, repo }) => {
+  run: async ({
+    payload,
+    apiKey: _apiKey,
+    apiKeys,
+    mcpServers,
+    cliPath,
+    repo,
+    effort: _effort,
+  }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
@@ -60,10 +68,9 @@ export const opencode = agent({
 
     // add API keys from apiKeys object
     for (const [key, value] of Object.entries(apiKeys || {})) {
-      const upperKey = key.toUpperCase();
-      env[upperKey] = value;
+      env[key.toUpperCase()] = value;
       // also set GOOGLE_GENERATIVE_AI_API_KEY for Google provider compatibility
-      if (upperKey === "GEMINI_API_KEY") {
+      if (key === "GEMINI_API_KEY") {
         env.GOOGLE_GENERATIVE_AI_API_KEY = value;
       }
     }

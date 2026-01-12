@@ -5,7 +5,12 @@ import { agentsManifest } from "../external.ts";
 import type { ToolContext } from "../main.ts";
 import { fetchWorkflowRunInfo } from "../utils/api.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
-import { createOctokit, getGitHubInstallationToken, parseRepoContext, type OctokitWithPlugins } from "../utils/github.ts";
+import {
+  createOctokit,
+  getGitHubInstallationToken,
+  type OctokitWithPlugins,
+  parseRepoContext,
+} from "../utils/github.ts";
 import { execute, tool } from "./shared.ts";
 
 /**
@@ -82,7 +87,11 @@ function buildImplementPlanLink(
   return `[Implement plan ➔](${apiUrl}/trigger/${owner}/${repo}/${issueNumber}?action=implement&comment_id=${commentId})`;
 }
 
-async function addFooter(body: string, payload: Payload, octokit?: OctokitWithPlugins): Promise<string> {
+async function addFooter(
+  body: string,
+  payload: Payload,
+  octokit?: OctokitWithPlugins
+): Promise<string> {
   const bodyWithoutFooter = stripExistingFooter(body);
   const footer = await buildCommentFooter({ payload, octokit });
   return `${bodyWithoutFooter}${footer}`;
@@ -494,6 +503,6 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
         body: result.data.body,
         in_reply_to_id: result.data.in_reply_to_id,
       };
-    }),
+    }, "reply_to_review_comment"),
   });
 }

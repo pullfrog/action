@@ -93,95 +93,95 @@ export function GetReviewCommentsTool(ctx: ToolContext) {
       "Get all review comments and their replies for a specific pull request review. Returns line-by-line comments that were left on specific code locations, including any threaded replies.",
     parameters: GetReviewComments,
     execute: execute(async ({ pull_number, review_id }) => {
-      // fetch all review threads using graphql
-      const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
-        owner: ctx.owner,
-        repo: ctx.name,
-        pullNumber: pull_number,
-      });
+        // fetch all review threads using graphql
+        const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
+          owner: ctx.owner,
+          repo: ctx.name,
+          pullNumber: pull_number,
+        });
 
-      const pullRequest = response.repository?.pullRequest;
-      if (!pullRequest) {
-        return {
-          review_id,
-          pull_number,
-          comments: [],
-          count: 0,
-        };
-      }
-
-      const threadNodes = pullRequest.reviewThreads?.nodes;
-      if (!threadNodes) {
-        return {
-          review_id,
-          pull_number,
-          comments: [],
-          count: 0,
-        };
-      }
-
-      const allComments: {
-        id: number;
-        body: string;
-        path: string;
-        line: number | null;
-        side: "LEFT" | "RIGHT";
-        start_line: number | null;
-        start_side: "LEFT" | "RIGHT" | null;
-        user: string | null;
-        created_at: string;
-        updated_at: string;
-        html_url: string;
-        in_reply_to_id: number | null;
-        pull_request_review_id: number | null;
-      }[] = [];
-
-      // iterate through all threads (filter out nulls)
-      for (const thread of threadNodes) {
-        if (!thread?.comments?.nodes) continue;
-
-        // filter out null comments
-        const threadComments = thread.comments.nodes.filter(
-          (c): c is GraphQLReviewComment => c !== null
-        );
-        if (threadComments.length === 0) continue;
-
-        // find the root comment (the one with replyTo == null) to determine thread ownership
-        const rootComment = threadComments.find((c) => c.replyTo === null);
-        if (!rootComment) continue;
-
-        // check if this thread belongs to the target review using the root comment
-        const threadBelongsToReview = rootComment.pullRequestReview?.databaseId === review_id;
-        if (!threadBelongsToReview) continue;
-
-        // include all comments from this thread (original + replies)
-        // side info comes from thread level, not comment level
-        for (const comment of threadComments) {
-          allComments.push({
-            id: comment.databaseId,
-            body: comment.body,
-            path: comment.path,
-            line: comment.line,
-            start_line: comment.startLine,
-            side: thread.diffSide,
-            start_side: thread.startDiffSide,
-            user: comment.author?.login ?? null,
-            created_at: comment.createdAt,
-            updated_at: comment.updatedAt,
-            html_url: comment.url,
-            in_reply_to_id: comment.replyTo?.databaseId ?? null,
-            pull_request_review_id: comment.pullRequestReview?.databaseId ?? null,
-          });
+        const pullRequest = response.repository?.pullRequest;
+        if (!pullRequest) {
+          return {
+            review_id,
+            pull_number,
+            comments: [],
+            count: 0,
+          };
         }
-      }
 
-      return {
-        review_id,
-        pull_number,
-        comments: allComments,
-        count: allComments.length,
-      };
-    }),
+        const threadNodes = pullRequest.reviewThreads?.nodes;
+        if (!threadNodes) {
+          return {
+            review_id,
+            pull_number,
+            comments: [],
+            count: 0,
+          };
+        }
+
+        const allComments: {
+          id: number;
+          body: string;
+          path: string;
+          line: number | null;
+          side: "LEFT" | "RIGHT";
+          start_line: number | null;
+          start_side: "LEFT" | "RIGHT" | null;
+          user: string | null;
+          created_at: string;
+          updated_at: string;
+          html_url: string;
+          in_reply_to_id: number | null;
+          pull_request_review_id: number | null;
+        }[] = [];
+
+        // iterate through all threads (filter out nulls)
+        for (const thread of threadNodes) {
+          if (!thread?.comments?.nodes) continue;
+
+          // filter out null comments
+          const threadComments = thread.comments.nodes.filter(
+            (c): c is GraphQLReviewComment => c !== null
+          );
+          if (threadComments.length === 0) continue;
+
+          // find the root comment (the one with replyTo == null) to determine thread ownership
+          const rootComment = threadComments.find((c) => c.replyTo === null);
+          if (!rootComment) continue;
+
+          // check if this thread belongs to the target review using the root comment
+          const threadBelongsToReview = rootComment.pullRequestReview?.databaseId === review_id;
+          if (!threadBelongsToReview) continue;
+
+          // include all comments from this thread (original + replies)
+          // side info comes from thread level, not comment level
+          for (const comment of threadComments) {
+            allComments.push({
+              id: comment.databaseId,
+              body: comment.body,
+              path: comment.path,
+              line: comment.line,
+              start_line: comment.startLine,
+              side: thread.diffSide,
+              start_side: thread.startDiffSide,
+              user: comment.author?.login ?? null,
+              created_at: comment.createdAt,
+              updated_at: comment.updatedAt,
+              html_url: comment.url,
+              in_reply_to_id: comment.replyTo?.databaseId ?? null,
+              pull_request_review_id: comment.pullRequestReview?.databaseId ?? null,
+            });
+          }
+        }
+
+        return {
+          review_id,
+          pull_number,
+          comments: allComments,
+          count: allComments.length,
+        };
+      }),
   });
 }
 

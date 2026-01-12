@@ -1,8 +1,23 @@
 import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Effort } from "../external.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
+
+// Model selection based on effort level
+// Note: nothink uses Haiku for speed, think uses Sonnet for balance, max uses Opus for capability
+const claudeEffortModels: Record<Effort, string> = {
+  nothink: "haiku",
+  think: "opusplan",
+  max: "opus",
+};
+
+// FUTURE: Consider using Anthropic's "effort" parameter (beta) with Opus 4.5 for all tasks.
+// This would allow a single model with effort levels ("low", "medium", "high") controlling
+// token spend across responses, tool calls, and thinking. Requires beta header "effort-2025-11-24".
+// See: https://platform.claude.com/docs/en/build-with-claude/effort
+// This approach could replace model selection if effort proves effective for controlling capability.
 
 export const claude = agent({
   name: "claude",
@@ -14,12 +29,16 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
+
+    // select model based on effort level
+    const model = claudeEffortModels[effort];
+    log.info(`Using model: ${model} (effort: ${effort})`);
 
     // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
@@ -46,15 +65,17 @@ export const claude = agent({
 
     // Pass secrets via SDK's env option only (not process.env)
     // This ensures secrets are only available to Claude Code subprocess, not user code
+    const queryOptions: Options = {
+      ...sandboxOptions,
+      mcpServers,
+      model,
+      pathToClaudeCodeExecutable: cliPath,
+      env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
+    };
+
     const queryInstance = query({
       prompt,
-      options: {
-        ...sandboxOptions,
-        mcpServers,
-        // model: "claude-opus-4-5",
-        pathToClaudeCodeExecutable: cliPath,
-        env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
-      },
+      options: queryOptions,
     });
 
     // Stream the results

@@ -7,8 +7,7 @@ import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import type { AgentName, Payload } from "./external.ts";
-import { agentsManifest } from "./external.ts";
+import { type AgentName, agentsManifest, Effort, type Payload } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
@@ -18,29 +17,13 @@ import type { PrepResult } from "./prep/index.ts";
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
-import {
-  createOctokit,
-  parseRepoContext,
-  setupGitHubInstallationToken,
-} from "./utils/github.ts";
+import { createOctokit, parseRepoContext, setupGitHubInstallationToken } from "./utils/github.ts";
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
-// runtime validation using agents (needed for ArkType)
-// Note: The AgentName type is defined in external.ts, this is the runtime validator
-
-export const AgentInputKey = type.enumerated(
-  ...Object.values(agents).flatMap((agent) => agent.apiKeyNames)
-);
-export type AgentInputKey = typeof AgentInputKey.infer;
-
-const keyInputDefs = flatMorph(agents, (_, agent) =>
-  agent.apiKeyNames.map((inputKey) => [inputKey, "string | undefined?"] as const)
-);
-
 export const Inputs = type({
   prompt: "string",
-  ...keyInputDefs,
+  "effort?": Effort,
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -84,7 +67,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 
     // phase 3: resolve agent (needs repo settings)
     const agent = resolveAgent({
-      inputs,
       payload,
       repoSettings: githubSetup.repoSettings,
     });
@@ -93,7 +75,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     // phase 4: validate API key (sync, needs agent) - fail fast before long-running operations
     const apiKeySetup = validateApiKey({
       agent,
-      inputs,
       owner: githubSetup.owner,
       name: githubSetup.name,
     });
@@ -225,24 +206,19 @@ export async function main(inputs: Inputs): Promise<MainResult> {
 }
 
 /**
- * Get agents that have matching API keys in the inputs
+ * Check if an agent has API keys available (from process.env)
  */
-/**
- * Check if an agent has API keys available (inputs or process.env for opencode)
- */
-function agentHasApiKeys(agent: Agent, inputs: Inputs): boolean {
+function agentHasApiKeys(agent: Agent): boolean {
   if (agent.name === "opencode") {
-    // check inputs first, then process.env
-    const hasInputKey = Object.keys(inputs).some((key) => key.includes("api_key"));
-    if (hasInputKey) return true;
+    // opencode accepts any API_KEY from environment
     return Object.keys(process.env).some((key) => key.includes("API_KEY") && process.env[key]);
   }
-  const inputsRecord = inputs as Record<string, string | undefined>;
-  return agent.apiKeyNames.some((inputKey) => inputsRecord[inputKey]);
+  // check if any of the agent's expected keys are in environment
+  return agent.apiKeyNames.some((envKey) => !!process.env[envKey]);
 }
 
-function getAvailableAgents(inputs: Inputs): Agent[] {
-  return Object.values(agents).filter((agent) => agentHasApiKeys(agent, inputs));
+function getAvailableAgents(): Agent[] {
+  return Object.values(agents).filter((agent) => agentHasApiKeys(agent));
 }
 
 /**
@@ -275,7 +251,7 @@ function buildMissingApiKeyError(params: { agent: Agent; owner: string; name: st
   } else {
     const inputKeys =
       params.agent.apiKeyNames.length > 0 ? params.agent.apiKeyNames : getAllPossibleKeyNames();
-    const secretNames = inputKeys.map((key) => `\`${key.toUpperCase()}\``);
+    const secretNames = inputKeys.map((key) => `\`${key}\``);
     secretNameList = inputKeys.length === 1 ? secretNames[0] : `one of ${secretNames.join(" or ")}`;
   }
 
@@ -361,16 +337,16 @@ async function initializeGitHub(token: string): Promise<GitHubSetup> {
 }
 
 function resolveAgent({
-  inputs,
   payload,
   repoSettings,
 }: {
-  inputs: Inputs;
   payload: Payload;
   repoSettings: RepoSettings;
 }): Agent {
   const agentOverride = process.env.AGENT_OVERRIDE as AgentName | undefined;
-  log.debug(`» determineAgent: agentOverride=${agentOverride}, payload.agent=${payload.agent}, repoSettings.defaultAgent=${repoSettings.defaultAgent}`);
+  log.debug(
+    `» determineAgent: agentOverride=${agentOverride}, payload.agent=${payload.agent}, repoSettings.defaultAgent=${repoSettings.defaultAgent}`
+  );
   const configuredAgentName = agentOverride || payload.agent || repoSettings.defaultAgent || null;
 
   if (configuredAgentName) {
@@ -388,13 +364,13 @@ function resolveAgent({
     }
 
     // for repo-level defaults, check if agent has matching keys before selecting
-    if (agentHasApiKeys(agent, inputs)) {
+    if (agentHasApiKeys(agent)) {
       log.info(`Selected configured agent: ${agent.name}`);
       return agent;
     }
 
     // fall through to auto-selection
-    const availableAgents = getAvailableAgents(inputs);
+    const availableAgents = getAvailableAgents();
     log.warning(
       `Repo default agent ${agent.name} has no matching API keys. Available: ${
         availableAgents.map((a) => a.name).join(", ") || "none"
@@ -402,7 +378,7 @@ function resolveAgent({
     );
   }
 
-  const availableAgents = getAvailableAgents(inputs);
+  const availableAgents = getAvailableAgents();
   if (availableAgents.length === 0) {
     throw new Error("no agents available - missing API keys");
   }
@@ -425,8 +401,13 @@ function parsePayload(inputs: Inputs): Payload {
     if (!("~pullfrog" in parsedPrompt)) {
       throw new Error();
     }
-    return parsedPrompt as Payload;
+    // internal invocation: use effort from payload, fallback to input, default to "think"
+    return {
+      ...parsedPrompt,
+      effort: parsedPrompt.effort ?? inputs.effort ?? "think",
+    } as Payload;
   } catch {
+    // external invocation: use effort from input
     return {
       "~pullfrog": true,
       agent: null,
@@ -435,6 +416,7 @@ function parsePayload(inputs: Inputs): Payload {
         trigger: "unknown",
       },
       modes,
+      effort: inputs.effort ?? "think",
     };
   }
 }
@@ -447,22 +429,22 @@ async function installAgentCli(params: { agent: Agent; token: string }): Promise
   return params.agent.install();
 }
 
-function collectApiKeys(agent: Agent, inputs: Inputs): Record<string, string> {
+function collectApiKeys(agent: Agent): Record<string, string> {
   const apiKeys: Record<string, string> = {};
-  const inputsRecord = inputs as Record<string, string | undefined>;
 
-  for (const inputKey of agent.apiKeyNames) {
-    const value = inputsRecord[inputKey];
+  // read API keys from environment variables
+  for (const envKey of agent.apiKeyNames) {
+    const value = process.env[envKey];
     if (value) {
-      apiKeys[inputKey] = value;
+      apiKeys[envKey] = value;
     }
   }
 
-  // for OpenCode: also check process.env for any API_KEY variables
+  // for OpenCode: check process.env for any API_KEY variables
   if (agent.name === "opencode" && Object.keys(apiKeys).length === 0) {
     for (const [key, value] of Object.entries(process.env)) {
       if (value && typeof value === "string" && key.includes("API_KEY")) {
-        apiKeys[key.toLowerCase()] = value;
+        apiKeys[key] = value;
       }
     }
   }
@@ -470,13 +452,8 @@ function collectApiKeys(agent: Agent, inputs: Inputs): Record<string, string> {
   return apiKeys;
 }
 
-function validateApiKey(params: {
-  agent: Agent;
-  inputs: Inputs;
-  owner: string;
-  name: string;
-}): ApiKeySetup {
-  const apiKeys = collectApiKeys(params.agent, params.inputs);
+function validateApiKey(params: { agent: Agent; owner: string; name: string }): ApiKeySetup {
+  const apiKeys = collectApiKeys(params.agent);
 
   if (Object.keys(apiKeys).length === 0) {
     return {
@@ -497,7 +474,8 @@ function validateApiKey(params: {
 }
 
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
-  log.info(`Running ${ctx.agent.name}...`);
+  const effort = ctx.payload.effort ?? "think";
+  log.info(`Running ${ctx.agent.name} with effort=${effort}...`);
   // strip context from event
   const { context: _context, ...eventWithoutContext } = ctx.payload.event;
   // format: prompt + two newlines + TOON encoded event
@@ -516,6 +494,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       defaultBranch: ctx.repo.default_branch,
       isPublic: !ctx.repo.private,
     },
+    effort,
   });
 }
 
