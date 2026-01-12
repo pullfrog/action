@@ -15,6 +15,8 @@ import { execute, tool } from "./shared.ts";
  */
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
 
+const isGitHubActions = !!process.env.GITHUB_ACTIONS;
+
 interface BuildCommentFooterParams {
   payload: Payload;
   octokit?: OctokitWithPlugins | undefined;
@@ -190,8 +192,8 @@ export const ReportProgress = type({
 });
 
 
-/** Updates job summary with the given text. */
-const updateSummary = (text: string) => core.summary.addRaw(text).write({ overwrite: true });
+/** Updates job summary with the given text if running in GitHub Actions. */
+const updateSummary = (text: string) => isGitHubActions && core.summary.addRaw(text).write({ overwrite: true });
 
 /**
  * Standalone function to report progress to GitHub comment.
@@ -214,7 +216,6 @@ export async function reportProgress(
   const issueNumber =
     ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   const isPlanMode = ctx.toolState.selectedMode === "Plan";
-  const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 
   // if we already have a progress comment, update it
   if (existingCommentId) {
@@ -240,7 +241,7 @@ export async function reportProgress(
 
     progressCommentWasUpdated = true;
 
-    if (isGitHubActions) await updateSummary(bodyWithFooter);
+    await updateSummary(bodyWithFooter);
 
     return {
       commentId: result.data.id,
@@ -289,7 +290,7 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
-    if (isGitHubActions) await updateSummary(bodyWithPlanLink);
+    await updateSummary(bodyWithPlanLink);
 
     return {
       commentId: updateResult.data.id,
@@ -299,7 +300,7 @@ export async function reportProgress(
     };
   }
 
-  if (isGitHubActions) await updateSummary(initialBody);
+  await updateSummary(initialBody);
 
   return {
     commentId: result.data.id,
