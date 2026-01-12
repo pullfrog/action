@@ -210,6 +210,7 @@ export async function reportProgress(
   const issueNumber =
     ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   const isPlanMode = ctx.toolState.selectedMode === "Plan";
+  const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 
   // if we already have a progress comment, update it
   if (existingCommentId) {
@@ -236,9 +237,7 @@ export async function reportProgress(
     progressCommentWasUpdated = true;
 
     // update job summary with the same content as the progress comment
-    if (process.env.GITHUB_ACTIONS) {
-      await core.summary.addRaw(bodyWithFooter).write({ overwrite: true });
-    }
+    if (isGitHubActions) await core.summary.addRaw(bodyWithFooter).write({ overwrite: true });
 
     return {
       commentId: result.data.id,
@@ -288,9 +287,7 @@ export async function reportProgress(
     });
 
     // update job summary with the same content as the progress comment
-    if (process.env.GITHUB_ACTIONS) {
-      await core.summary.addRaw(bodyWithPlanLink).write({ overwrite: true });
-    }
+    if (isGitHubActions) await core.summary.addRaw(bodyWithPlanLink).write({ overwrite: true });
 
     return {
       commentId: updateResult.data.id,
@@ -301,9 +298,7 @@ export async function reportProgress(
   }
 
   // update job summary with the same content as the progress comment
-  if (process.env.GITHUB_ACTIONS) {
-    await core.summary.addRaw(initialBody).write({ overwrite: true });
-  }
+  if (isGitHubActions) await core.summary.addRaw(initialBody).write({ overwrite: true });
 
   return {
     commentId: result.data.id,
