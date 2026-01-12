@@ -1,19 +1,32 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import { Codex, type CodexOptions, type ThreadEvent } from "@openai/codex-sdk";
+import {
+  Codex,
+  type CodexOptions,
+  type ModelReasoningEffort,
+  type ThreadEvent,
+  type ThreadOptions,
+} from "@openai/codex-sdk";
 import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
 
+// model configuration based on effort level
+const codexModel: Record<Effort, string> = {
+  nothink: "gpt-5.1-codex-mini",
+  think: "gpt-5.1-codex",
+  max: "gpt-5.1-codex-max",
+} as const;
+
 // reasoning effort configuration based on effort level
-// uses model_reasoning_effort parameter for o1 models
-const codexReasoningEffort: Record<Effort, string | undefined> = {
+// uses modelReasoningEffort parameter from ThreadOptions
+const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
   nothink: "low",
   think: undefined, // use default
-  max: "xhigh",
-} as const;
+  max: "high",
+};
 
 interface WriteCodexConfigParams {
   tempHome: string;
@@ -88,12 +101,12 @@ export const codex = agent({
       CODEX_HOME: codexDir, // point Codex to our config directory
     });
 
-    // get reasoning effort based on effort level
+    // get model and reasoning effort based on effort level
+    const model = codexModel[effort];
     const modelReasoningEffort = codexReasoningEffort[effort];
+    log.info(`Using model: ${model}`);
     if (modelReasoningEffort) {
-      log.info(`Using model_reasoning_effort: ${modelReasoningEffort}`);
-    } else {
-      log.info(`Using default reasoning effort`);
+      log.info(`Using modelReasoningEffort: ${modelReasoningEffort}`);
     }
 
     // Configure Codex
@@ -108,22 +121,24 @@ export const codex = agent({
 
     const codex = new Codex(codexOptions);
 
-    // Build thread options with optional model_reasoning_effort
+    // Build thread options with model and optional model_reasoning_effort
     const baseThreadOptions = payload.sandbox
       ? {
+          model,
           approvalPolicy: "never" as const,
           sandboxMode: "read-only" as const,
           networkAccessEnabled: false,
         }
       : {
+          model,
           approvalPolicy: "never" as const,
           // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
           sandboxMode: "danger-full-access" as const,
           networkAccessEnabled: true,
         };
 
-    const threadOptions = modelReasoningEffort
-      ? { ...baseThreadOptions, model_reasoning_effort: modelReasoningEffort }
+    const threadOptions: ThreadOptions = modelReasoningEffort
+      ? { ...baseThreadOptions, modelReasoningEffort }
       : baseThreadOptions;
 
     const thread = codex.startThread(threadOptions);

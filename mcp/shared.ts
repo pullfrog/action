@@ -2,6 +2,7 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { encode as toonEncode } from "@toon-format/toon";
 import type { FastMCP, Tool } from "fastmcp";
 import type { ToolContext } from "../main.ts";
+import { formatJsonValue, log } from "../utils/cli.ts";
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 
@@ -36,13 +37,22 @@ export const handleToolError = (error: unknown): ToolResult => {
 /**
  * Helper to wrap a tool execute function with error handling.
  * Captures ctx in closure so tools don't need to handle try/catch.
+ * @param fn - the function to execute
+ * @param toolName - optional tool name for error logging
  */
-export const execute = <T>(fn: (params: T) => Promise<Record<string, any> | string>) => {
+export const execute = <T>(
+  fn: (params: T) => Promise<Record<string, any> | string>,
+  toolName?: string
+) => {
   return async (params: T): Promise<ToolResult> => {
     try {
       const result = await fn(params);
       return handleToolSuccess(result);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const prefix = toolName ? `[${toolName}]` : "tool";
+      log.error(`${prefix} error: ${errorMessage}`);
+      log.debug(`${prefix} params: ${formatJsonValue(params)}`);
       return handleToolError(error);
     }
   };

@@ -5,13 +5,19 @@ import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 
-// effort levels for Claude Code
-// Claude Code automatically selects the best model based on effort
-const claudeEffortLevels: Record<Effort, "low" | "medium" | "high"> = {
-  nothink: "low",
-  think: "medium",
-  max: "high",
-} as const;
+// Model selection based on effort level
+// Note: nothink uses Haiku for speed, think uses Sonnet for balance, max uses Opus for capability
+const claudeEffortModels: Record<Effort, string> = {
+  nothink: "claude-haiku-4-5-20250929",
+  think: "claude-sonnet-4-5-20250929",
+  max: "claude-opus-4-5-20250929",
+};
+
+// FUTURE: Consider using Anthropic's "effort" parameter (beta) with Opus 4.5 for all tasks.
+// This would allow a single model with effort levels ("low", "medium", "high") controlling
+// token spend across responses, tool calls, and thinking. Requires beta header "effort-2025-11-24".
+// See: https://platform.claude.com/docs/en/build-with-claude/effort
+// This approach could replace model selection if effort proves effective for controlling capability.
 
 export const claude = agent({
   name: "claude",
@@ -30,9 +36,9 @@ export const claude = agent({
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // get effort level - Claude Code automatically selects the best model
-    const effortLevel = claudeEffortLevels[effort];
-    log.info(`Using effort: ${effortLevel}`);
+    // select model based on effort level
+    const model = claudeEffortModels[effort];
+    log.info(`Using model: ${model} (effort: ${effort})`);
 
     // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
@@ -62,7 +68,7 @@ export const claude = agent({
     const queryOptions: Options = {
       ...sandboxOptions,
       mcpServers,
-      effort: effortLevel,
+      model,
       pathToClaudeCodeExecutable: cliPath,
       env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
     };

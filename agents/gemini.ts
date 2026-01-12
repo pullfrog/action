@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
@@ -11,12 +12,13 @@ import {
   installFromGithub,
 } from "./shared.ts";
 
-// model configuration based on effort level
-// auto for default, flash for fast/low-cost, pro for max capability
-const geminiModels = {
-  nothink: "gemini-2.5-flash",
-  think: "gemini-2.5-pro", // auto selection
-  max: "gemini-2.5-pro",
+// effort configuration: model + thinking level
+// thinkingLevel is set via settings.json modelConfig.generateContentConfig.thinkingConfig
+// see: https://ai.google.dev/gemini-api/docs/thinking#thinking-levels
+const geminiEffortConfig: Record<Effort, { model: string; thinkingLevel: string }> = {
+  nothink: { model: "gemini-2.5-flash", thinkingLevel: "LOW" },
+  think: { model: "gemini-2.5-flash", thinkingLevel: "HIGH" },
+  max: { model: "gemini-2.5-pro", thinkingLevel: "HIGH" },
 } as const;
 
 // gemini cli event types inferred from stream-json output (NDJSON format)
@@ -165,15 +167,15 @@ export const gemini = agent({
     });
   },
   run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort }) => {
-    configureGeminiMcpServers({ mcpServers, isPublicRepo: repo.isPublic });
+    // get model and thinking level based on effort
+    const { model, thinkingLevel } = geminiEffortConfig[effort];
+    log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
+
+    configureGeminiSettings({ mcpServers, isPublicRepo: repo.isPublic, thinkingLevel });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
-
-    // get model based on effort level
-    const model = geminiModels[effort];
-    log.info(`Using model: ${model}`);
 
     const sessionPrompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(sessionPrompt));
@@ -290,16 +292,22 @@ export const gemini = agent({
 type ConfigureGeminiParams = {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
   isPublicRepo: boolean;
+  thinkingLevel: string;
 };
 
 /**
- * Configure MCP servers for Gemini by writing to settings.json.
- * Gemini CLI uses `httpUrl` for HTTP/streamable transport, `url` for SSE transport.
- * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
+ * Configure Gemini CLI settings by writing to settings.json.
+ * - MCP servers: uses `httpUrl` for HTTP/streamable transport
+ * - thinkingLevel: configured via modelConfig.generateContentConfig.thinkingConfig
+ * - For public repos, excludeTools disables native shell
  *
- * For public repos, also configures excludeTools to disable native shell.
+ * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
-function configureGeminiMcpServers({ mcpServers, isPublicRepo }: ConfigureGeminiParams): void {
+function configureGeminiSettings({
+  mcpServers,
+  isPublicRepo,
+  thinkingLevel,
+}: ConfigureGeminiParams): void {
   const realHome = homedir();
   const geminiConfigDir = join(realHome, ".gemini");
   const settingsPath = join(geminiConfigDir, "settings.json");
@@ -343,17 +351,26 @@ function configureGeminiMcpServers({ mcpServers, isPublicRepo }: ConfigureGemini
     log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
   }
 
-  // merge with existing settings, overwriting mcpServers
-  // for public repos, exclude native shell tool to prevent secret leakage via env
+  // merge with existing settings, overwriting mcpServers and modelConfig
   const newSettings: Record<string, unknown> = {
     ...existingSettings,
     mcpServers: geminiMcpServers,
+    // configure thinking level via modelConfig
+    // see: https://ai.google.dev/api/generate-content (ThinkingConfig)
+    modelConfig: {
+      generateContentConfig: {
+        thinkingConfig: {
+          thinkingLevel,
+        },
+      },
+    },
   };
 
+  // for public repos, exclude native shell tool to prevent secret leakage via env
   if (isPublicRepo) {
     newSettings.excludeTools = ["run_shell_command"];
   }
 
   writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
-  log.info(`» MCP config written to ${settingsPath}`);
+  log.info(`» Gemini settings written to ${settingsPath}`);
 }

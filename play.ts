@@ -25,7 +25,6 @@ export async function run(prompt: string): Promise<AgentResult> {
 
     const inputs: Inputs = {
       prompt,
-      effort: "nothink",
     };
 
     const result = await main(inputs);
@@ -187,6 +186,30 @@ Examples:
 
         if (typeof module.default === "string") {
           prompt = module.default;
+        } else if (Array.isArray(module.default)) {
+          // Array of Payloads - run each in sequence
+          const payloads = module.default;
+          log.info(`Running ${payloads.length} payloads in sequence...`);
+
+          let allSuccess = true;
+          for (let i = 0; i < payloads.length; i++) {
+            const payload = payloads[i];
+            const label = payload.effort
+              ? `[${i + 1}/${payloads.length}] effort=${payload.effort}`
+              : `[${i + 1}/${payloads.length}]`;
+            log.info(`\n${"=".repeat(60)}`);
+            log.info(`${label}`);
+            log.info(`${"=".repeat(60)}\n`);
+
+            const payloadPrompt = JSON.stringify(payload, null, 2);
+            const result = await run(payloadPrompt);
+            if (!result.success) {
+              allSuccess = false;
+              log.error(`Payload ${i + 1} failed`);
+            }
+          }
+
+          process.exit(allSuccess ? 0 : 1);
         } else if (typeof module.default === "object") {
           // Payload objects (with ~pullfrog) should be stringified
           prompt = JSON.stringify(module.default, null, 2);
