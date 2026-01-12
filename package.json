@@ -13,7 +13,7 @@
     "main.d.ts"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "play": "node play.ts",
@@ -47,7 +47,8 @@
     "arg": "^5.0.2",
     "esbuild": "^0.25.9",
     "husky": "^9.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "repository": {
     "type": "git",

@@ -5,6 +5,7 @@
     "target": "ESNext",
     "moduleResolution": "NodeNext",
     "lib": ["ESNext"],
+    "types": ["vitest/globals"],
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
