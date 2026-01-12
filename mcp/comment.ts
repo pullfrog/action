@@ -1,3 +1,4 @@
+import * as core from "@actions/core";
 import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
@@ -13,6 +14,8 @@ import { execute, tool } from "./shared.ts";
  * and hasn't been updated with progress or error messages.
  */
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
+
+const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 
 interface BuildCommentFooterParams {
   payload: Payload;
@@ -188,6 +191,10 @@ export const ReportProgress = type({
   body: type.string.describe("the progress update content to share"),
 });
 
+
+/** Updates job summary with the given text if running in GitHub Actions. */
+const updateSummary = (text: string) => isGitHubActions && core.summary.addRaw(text).write({ overwrite: true });
+
 /**
  * Standalone function to report progress to GitHub comment.
  * Can be called directly without going through the MCP tool interface.
@@ -233,6 +240,8 @@ export async function reportProgress(
     });
 
     progressCommentWasUpdated = true;
+
+    await updateSummary(bodyWithFooter);
 
     return {
       commentId: result.data.id,
@@ -281,6 +290,8 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
+    await updateSummary(bodyWithPlanLink);
+
     return {
       commentId: updateResult.data.id,
       url: updateResult.data.html_url,
@@ -288,6 +299,8 @@ export async function reportProgress(
       action: "created",
     };
   }
+
+  await updateSummary(initialBody);
 
   return {
     commentId: result.data.id,
