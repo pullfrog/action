@@ -68,7 +68,7 @@ export const opencode = agent({
 
     // add API keys from apiKeys object
     for (const [key, value] of Object.entries(apiKeys || {})) {
-      env[key] = value;
+      env[key.toUpperCase()] = value;
       // also set GOOGLE_GENERATIVE_AI_API_KEY for Google provider compatibility
       if (key === "GEMINI_API_KEY") {
         env.GOOGLE_GENERATIVE_AI_API_KEY = value;

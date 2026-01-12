@@ -7,12 +7,12 @@ import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
 
-// model configuration based on effort level
-// uses model family aliases that auto-resolve to latest version
-const codexModels: Record<Effort, string> = {
-  nothink: "gpt-4o-mini",
-  think: "gpt-5.2-instant",
-  max: "gpt-5.2-thinking",
+// reasoning effort configuration based on effort level
+// uses model_reasoning_effort parameter for o1 models
+const codexReasoningEffort: Record<Effort, string | undefined> = {
+  nothink: "low",
+  think: undefined, // use default
+  max: "xhigh",
 } as const;
 
 interface WriteCodexConfigParams {
@@ -88,9 +88,13 @@ export const codex = agent({
       CODEX_HOME: codexDir, // point Codex to our config directory
     });
 
-    // get model based on effort level
-    const model = codexModels[effort];
-    log.info(`Using model: ${model}`);
+    // get reasoning effort based on effort level
+    const modelReasoningEffort = codexReasoningEffort[effort];
+    if (modelReasoningEffort) {
+      log.info(`Using model_reasoning_effort: ${modelReasoningEffort}`);
+    } else {
+      log.info(`Using default reasoning effort`);
+    }
 
     // Configure Codex
     const codexOptions: CodexOptions = {
@@ -103,22 +107,26 @@ export const codex = agent({
     }
 
     const codex = new Codex(codexOptions);
-    const thread = codex.startThread(
-      payload.sandbox
-        ? {
-            model,
-            approvalPolicy: "never",
-            sandboxMode: "read-only",
-            networkAccessEnabled: false,
-          }
-        : {
-            model,
-            approvalPolicy: "never",
-            // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
-            sandboxMode: "danger-full-access",
-            networkAccessEnabled: true,
-          }
-    );
+
+    // Build thread options with optional model_reasoning_effort
+    const baseThreadOptions = payload.sandbox
+      ? {
+          approvalPolicy: "never" as const,
+          sandboxMode: "read-only" as const,
+          networkAccessEnabled: false,
+        }
+      : {
+          approvalPolicy: "never" as const,
+          // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
+          sandboxMode: "danger-full-access" as const,
+          networkAccessEnabled: true,
+        };
+
+    const threadOptions = modelReasoningEffort
+      ? { ...baseThreadOptions, model_reasoning_effort: modelReasoningEffort }
+      : baseThreadOptions;
+
+    const thread = codex.startThread(threadOptions);
 
     try {
       const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));

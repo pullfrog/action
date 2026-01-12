@@ -5,12 +5,12 @@ import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 
-// model configuration based on effort level
-// uses model family aliases that auto-resolve to latest version
-const claudeModels: Record<Effort, { model: string; thinking: boolean }> = {
-  nothink: { model: "claude-haiku-4-5", thinking: false },
-  think: { model: "claude-sonnet-4-5", thinking: true },
-  max: { model: "claude-opus-4-5", thinking: true },
+// effort levels for Claude Code
+// Claude Code automatically selects the best model based on effort
+const claudeEffortLevels: Record<Effort, "low" | "medium" | "high"> = {
+  nothink: "low",
+  think: "medium",
+  max: "high",
 } as const;
 
 export const claude = agent({
@@ -30,9 +30,9 @@ export const claude = agent({
     const prompt = addInstructions({ payload, repo });
     log.group("Full prompt", () => log.info(prompt));
 
-    // get model configuration based on effort
-    const modelConfig = claudeModels[effort];
-    log.info(`Using model: ${modelConfig.model}, thinking: ${modelConfig.thinking}`);
+    // get effort level - Claude Code automatically selects the best model
+    const effortLevel = claudeEffortLevels[effort];
+    log.info(`Using effort: ${effortLevel}`);
 
     // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
     // disable native Bash; agents use MCP bash tool which filters secrets.
@@ -62,15 +62,10 @@ export const claude = agent({
     const queryOptions: Options = {
       ...sandboxOptions,
       mcpServers,
-      model: modelConfig.model,
+      effort: effortLevel,
       pathToClaudeCodeExecutable: cliPath,
       env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
     };
-    // only set maxThinkingTokens when we want to disable thinking (0)
-    // omit the property to use default when thinking is enabled
-    if (!modelConfig.thinking) {
-      queryOptions.maxThinkingTokens = 0;
-    }
 
     const queryInstance = query({
       prompt,

@@ -12,11 +12,11 @@ import {
 } from "./shared.ts";
 
 // model configuration based on effort level
-// uses model family aliases that auto-resolve to latest version
+// auto for default, flash for fast/low-cost, pro for max capability
 const geminiModels = {
-  nothink: "gemini-2.5-pro",
-  think: "gemini-3-pro",
-  max: "gemini-3-pro",
+  nothink: "gemini-2.5-flash",
+  think: "gemini-2.5-pro", // auto selection
+  max: "gemini-2.5-pro",
 } as const;
 
 // gemini cli event types inferred from stream-json output (NDJSON format)

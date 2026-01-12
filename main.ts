@@ -401,10 +401,10 @@ function parsePayload(inputs: Inputs): Payload {
     if (!("~pullfrog" in parsedPrompt)) {
       throw new Error();
     }
-    // internal invocation: use effort from payload, fallback to input
+    // internal invocation: use effort from payload, fallback to input, default to "think"
     return {
       ...parsedPrompt,
-      effort: parsedPrompt.effort ?? inputs.effort,
+      effort: parsedPrompt.effort ?? inputs.effort ?? "think",
     } as Payload;
   } catch {
     // external invocation: use effort from input
