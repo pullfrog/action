@@ -178,7 +178,10 @@ async function summaryTable(
   if (title) {
     core.info(`\n${title}`);
   }
-  const tableText = formattedRows.map((row) => row.map((cell) => cell.data).join(" | ")).join("\n");
+  const tableData = formattedRows.map((row) => row.map((cell) => cell.data));
+  const tableText = isGitHubActions
+    ? tableData.map((row) => row.join(" | ")).join("\n")
+    : table(tableData);
   core.info(`\n${tableText}\n`);
 }
 
