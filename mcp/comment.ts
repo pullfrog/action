@@ -189,6 +189,10 @@ export const ReportProgress = type({
   body: type.string.describe("the progress update content to share"),
 });
 
+
+/** Updates job summary with the given text. */
+const updateSummary = (text: string) => core.summary.addRaw(text).write({ overwrite: true });
+
 /**
  * Standalone function to report progress to GitHub comment.
  * Can be called directly without going through the MCP tool interface.
@@ -236,8 +240,7 @@ export async function reportProgress(
 
     progressCommentWasUpdated = true;
 
-    // update job summary with the same content as the progress comment
-    if (isGitHubActions) await core.summary.addRaw(bodyWithFooter).write({ overwrite: true });
+    if (isGitHubActions) await updateSummary(bodyWithFooter);
 
     return {
       commentId: result.data.id,
@@ -286,8 +289,7 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
-    // update job summary with the same content as the progress comment
-    if (isGitHubActions) await core.summary.addRaw(bodyWithPlanLink).write({ overwrite: true });
+    if (isGitHubActions) await updateSummary(bodyWithPlanLink);
 
     return {
       commentId: updateResult.data.id,
@@ -297,8 +299,7 @@ export async function reportProgress(
     };
   }
 
-  // update job summary with the same content as the progress comment
-  if (isGitHubActions) await core.summary.addRaw(initialBody).write({ overwrite: true });
+  if (isGitHubActions) await updateSummary(initialBody);
 
   return {
     commentId: result.data.id,
