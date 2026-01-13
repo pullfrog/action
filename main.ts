@@ -476,7 +476,7 @@ function validateApiKey(params: { agent: Agent; owner: string; name: string }): 
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   const effort = ctx.payload.effort ?? "think";
   log.info(`Running ${ctx.agent.name} with effort=${effort}...`);
-  // strip context from event
+  // strip context from event - it's already available via MCP tools
   const { context: _context, ...eventWithoutContext } = ctx.payload.event;
   // format: prompt + two newlines + TOON encoded event
   const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
