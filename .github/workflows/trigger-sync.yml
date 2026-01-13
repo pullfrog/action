@@ -22,15 +22,15 @@ jobs:
         with:
           repos: pullfrog
 
-      - uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ steps.token.outputs.token }}
-          repository: pullfrog/pullfrog
-          event-type: action-repo-updated
-          client-payload: |
-            {
+      - name: Dispatch "action-repo-updated" event
+        run: |
+          gh api repos/pullfrog/pullfrog/dispatches \
+            -f event_type="action-repo-updated" \
+            -f client_payload='{
               "before": "${{ github.event.before }}",
               "after": "${{ github.event.after }}",
               "compare_url": "${{ github.event.compare }}",
               "pusher": "${{ github.actor }}"
-            }
+            }'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
