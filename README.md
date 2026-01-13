@@ -1,5 +1,4 @@
-<p align="center">
-  
+<p align="center">  
   <h1 align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/frog-white-200px.png">

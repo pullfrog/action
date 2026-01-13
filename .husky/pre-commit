@@ -4,10 +4,3 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
     pnpm lock
     git add pnpm-lock.yaml
 fi
-
-# Check if entry needs rebuilding (entry.ts, esbuild.config.js, or any .ts files)
-if git diff --cached --name-only | grep -qE "^(entry\.ts|esbuild\.config\.js|.*\.ts)$"; then
-    echo "🔨 Building action..."
-    pnpm build
-    git add entry
-fi

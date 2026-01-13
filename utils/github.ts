@@ -54,12 +54,17 @@ function isOIDCAvailable(): boolean {
   );
 }
 
-async function acquireTokenViaOIDC(): Promise<string> {
+async function acquireTokenViaOIDC(opts?: { repos?: string[] }): Promise<string> {
   log.info("» generating OIDC token...");
 
   const oidcToken = await core.getIDToken("pullfrog-api");
 
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
+  const params = new URLSearchParams();
+  if (opts?.repos?.length) {
+    params.set("repos", opts.repos.join(","));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   log.info("» exchanging OIDC token for installation token...");
 
@@ -68,7 +73,7 @@ async function acquireTokenViaOIDC(): Promise<string> {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token`, {
+    const tokenResponse = await fetch(`${apiUrl}/api/github/installation-token${queryString}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${oidcToken}`,
@@ -84,7 +89,11 @@ async function acquireTokenViaOIDC(): Promise<string> {
     }
 
     const tokenData = (await tokenResponse.json()) as InstallationToken;
-    log.info(`» installation token obtained for ${tokenData.repository || "all repositories"}`);
+    const owner = tokenData.repository?.split("/")[0];
+    const repoList = opts?.repos?.length
+      ? [tokenData.repository, ...opts.repos.map((r) => `${owner}/${r}`)].join(", ")
+      : tokenData.repository;
+    log.info(`» installation token obtained for ${repoList}`);
 
     return tokenData.token;
   } catch (error) {
@@ -238,9 +247,9 @@ async function acquireTokenViaGitHubApp(): Promise<string> {
   return token;
 }
 
-async function acquireNewToken(): Promise<string> {
+export async function acquireNewToken(opts?: { repos?: string[] }): Promise<string> {
   if (isOIDCAvailable()) {
-    return await retry(() => acquireTokenViaOIDC(), { label: "token exchange" });
+    return await retry(() => acquireTokenViaOIDC(opts), { label: "token exchange" });
   } else {
     return await acquireTokenViaGitHubApp();
   }
@@ -277,7 +286,7 @@ export function getGitHubInstallationToken(): string {
   return githubInstallationToken;
 }
 
-async function revokeGitHubInstallationToken(token: string): Promise<void> {
+export async function revokeGitHubInstallationToken(token: string): Promise<void> {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
 
   try {

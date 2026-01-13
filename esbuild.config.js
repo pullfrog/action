@@ -67,4 +67,12 @@ await build({
   plugins: [stripShebangPlugin],
 });
 
+// Build the get-installation-token action
+await build({
+  ...sharedConfig,
+  entryPoints: ["./get-installation-token/entry.ts"],
+  outfile: "./get-installation-token/entry",
+  plugins: [stripShebangPlugin],
+});
+
 console.log("✅ Build completed successfully!");

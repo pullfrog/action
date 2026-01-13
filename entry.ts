@@ -9,12 +9,12 @@ import { Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
-  // Change to GITHUB_WORKSPACE if set (this is where actions/checkout puts the repo)
+  // Change to cwd input or GITHUB_WORKSPACE (where actions/checkout puts the repo)
   // JavaScript actions run from the action's directory, not the checked out repo
-  if (process.env.GITHUB_WORKSPACE && process.cwd() !== process.env.GITHUB_WORKSPACE) {
-    log.debug(`Changing to GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE}`);
-    process.chdir(process.env.GITHUB_WORKSPACE);
-    log.debug(`New working directory: ${process.cwd()}`);
+  const cwd = core.getInput("cwd") || process.env.GITHUB_WORKSPACE;
+  if (cwd && process.cwd() !== cwd) {
+    log.debug(`changing to working directory: ${cwd}`);
+    process.chdir(cwd);
   }
 
   try {

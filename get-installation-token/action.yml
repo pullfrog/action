@@ -1,0 +1,21 @@
+name: "Get Installation Token"
+description: "Get a GitHub App installation token for the current repository"
+author: "Pullfrog"
+
+inputs:
+  repos:
+    description: "Comma-separated list of additional repo names to grant access to (e.g., 'repo1,repo2'). Current repo is always included."
+    required: false
+
+outputs:
+  token:
+    description: "GitHub App installation token"
+
+runs:
+  using: "node24"
+  main: "entry"
+  post: "entry"
+
+branding:
+  icon: "key"
+  color: "green"

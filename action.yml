@@ -10,6 +10,9 @@ inputs:
     description: "Effort level: nothink (fast), think (default), max (most capable)"
     required: false
     default: "think"
+  cwd:
+    description: "Working directory for the agent (defaults to GITHUB_WORKSPACE)"
+    required: false
 
 runs:
   using: "node24"
