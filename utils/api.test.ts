@@ -10,15 +10,15 @@ import type { RepoContext } from './github.ts';
 
 describe('api', () => {
   const originalEnv = process.env;
+  const fetchSpy = vi.spyOn(global, 'fetch');
 
   beforeEach(() => {
     process.env = { ...originalEnv };
     vi.useFakeTimers();
-    vi.spyOn(global, 'fetch');
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     vi.useRealTimers();
     process.env = originalEnv;
   });
@@ -30,7 +30,7 @@ describe('api', () => {
         issueNumber: 42,
       };
 
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => mockWorkflowRunInfo,
       } as Response);
@@ -38,7 +38,7 @@ describe('api', () => {
       const result = await fetchWorkflowRunInfo('run-123');
 
       expect(result).toEqual(mockWorkflowRunInfo);
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         'https://pullfrog.com/api/workflow-run/run-123',
         {
           method: 'GET',
@@ -51,7 +51,7 @@ describe('api', () => {
     });
 
     it('should return null values when response is not ok', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: false,
         status: 404,
       } as Response);
@@ -62,13 +62,11 @@ describe('api', () => {
         progressCommentId: null,
         issueNumber: null,
       });
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should return null values when fetch throws', async () => {
-      const mockFetch = vi
-        .spyOn(global, 'fetch')
-        .mockRejectedValue(new Error('Network error'));
+      fetchSpy.mockRejectedValue(new Error('Network error'));
 
       const result = await fetchWorkflowRunInfo('run-123');
 
@@ -76,26 +74,26 @@ describe('api', () => {
         progressCommentId: null,
         issueNumber: null,
       });
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should use custom API_URL from environment', async () => {
       process.env.API_URL = 'https://custom-api.com';
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => ({ progressCommentId: null, issueNumber: null }),
       } as Response);
 
       await fetchWorkflowRunInfo('run-123');
 
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         'https://custom-api.com/api/workflow-run/run-123',
         expect.any(Object)
       );
     });
 
     it('should handle timeout', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockImplementation(() => {
+      fetchSpy.mockImplementation(() => {
         // Simulate a fetch that gets aborted due to timeout
         return Promise.reject(new DOMException('aborted', 'AbortError'));
       });
@@ -109,12 +107,12 @@ describe('api', () => {
         progressCommentId: null,
         issueNumber: null,
       });
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should clear timeout on successful response', async () => {
       const mockClearTimeout = vi.spyOn(global, 'clearTimeout');
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => ({ progressCommentId: null, issueNumber: null }),
       } as Response);
@@ -126,9 +124,7 @@ describe('api', () => {
 
     it('should clear timeout on error', async () => {
       const mockClearTimeout = vi.spyOn(global, 'clearTimeout');
-      const mockFetch = vi
-        .spyOn(global, 'fetch')
-        .mockRejectedValue(new Error('Network error'));
+      fetchSpy.mockRejectedValue(new Error('Network error'));
 
       await fetchWorkflowRunInfo('run-123');
 
@@ -151,7 +147,7 @@ describe('api', () => {
         name: 'test-repo',
       };
 
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => mockSettings,
       } as Response);
@@ -162,7 +158,7 @@ describe('api', () => {
       });
 
       expect(result).toEqual(mockSettings);
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         'https://pullfrog.com/api/repo/test-owner/test-repo/settings',
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -195,7 +191,7 @@ describe('api', () => {
         ],
       };
 
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => mockSettings,
       } as Response);
@@ -203,7 +199,7 @@ describe('api', () => {
       const result = await getRepoSettings('test-token', repoContext);
 
       expect(result).toEqual(mockSettings);
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         'https://pullfrog.com/api/repo/test-owner/test-repo/settings',
         {
           method: 'GET',
@@ -217,7 +213,7 @@ describe('api', () => {
     });
 
     it('should return default settings when response is not ok', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: false,
         status: 404,
       } as Response);
@@ -225,11 +221,11 @@ describe('api', () => {
       const result = await getRepoSettings('test-token', repoContext);
 
       expect(result).toEqual(DEFAULT_REPO_SETTINGS);
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should return default settings when response is null', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => null,
       } as Response);
@@ -237,37 +233,35 @@ describe('api', () => {
       const result = await getRepoSettings('test-token', repoContext);
 
       expect(result).toEqual(DEFAULT_REPO_SETTINGS);
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should return default settings when fetch throws', async () => {
-      const mockFetch = vi
-        .spyOn(global, 'fetch')
-        .mockRejectedValue(new Error('Network error'));
+      fetchSpy.mockRejectedValue(new Error('Network error'));
 
       const result = await getRepoSettings('test-token', repoContext);
 
       expect(result).toEqual(DEFAULT_REPO_SETTINGS);
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should use custom API_URL from environment', async () => {
       process.env.API_URL = 'https://custom-api.com';
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => DEFAULT_REPO_SETTINGS,
       } as Response);
 
       await getRepoSettings('test-token', repoContext);
 
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         'https://custom-api.com/api/repo/test-owner/test-repo/settings',
         expect.any(Object)
       );
     });
 
     it('should handle timeout', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockImplementation(() => {
+      fetchSpy.mockImplementation(() => {
         // Simulate a fetch that gets aborted due to timeout
         return Promise.reject(new DOMException('aborted', 'AbortError'));
       });
@@ -278,12 +272,12 @@ describe('api', () => {
       const result = await promise;
 
       expect(result).toEqual(DEFAULT_REPO_SETTINGS);
-      expect(mockFetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
     it('should clear timeout on successful response', async () => {
       const mockClearTimeout = vi.spyOn(global, 'clearTimeout');
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => DEFAULT_REPO_SETTINGS,
       } as Response);
@@ -295,9 +289,7 @@ describe('api', () => {
 
     it('should clear timeout on error', async () => {
       const mockClearTimeout = vi.spyOn(global, 'clearTimeout');
-      const mockFetch = vi
-        .spyOn(global, 'fetch')
-        .mockRejectedValue(new Error('Network error'));
+      fetchSpy.mockRejectedValue(new Error('Network error'));
 
       await getRepoSettings('test-token', repoContext);
 
@@ -305,14 +297,14 @@ describe('api', () => {
     });
 
     it('should include Authorization header with token', async () => {
-      const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValue({
+      fetchSpy.mockResolvedValue({
         ok: true,
         json: async () => DEFAULT_REPO_SETTINGS,
       } as Response);
 
       await getRepoSettings('my-secret-token', repoContext);
 
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({

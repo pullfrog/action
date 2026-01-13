@@ -23,16 +23,20 @@ vi.mock('../external.ts', () => ({
 
 describe('secrets', () => {
   const originalEnv = process.env;
+  const getGitHubInstallationTokenSpy = vi.spyOn(
+    github,
+    'getGitHubInstallationToken'
+  )
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    vi.spyOn(github, 'getGitHubInstallationToken').mockImplementation(() => {
+    getGitHubInstallationTokenSpy.mockImplementation(() => {
       throw new Error('Token not set');
     });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     process.env = originalEnv;
   });
 
@@ -108,7 +112,7 @@ describe('secrets', () => {
 
     it('should redact GitHub installation token', () => {
       const token = 'github-token-123';
-      vi.spyOn(github, 'getGitHubInstallationToken').mockReturnValue(token);
+      getGitHubInstallationTokenSpy.mockReturnValue(token);
       const content = 'Token is github-token-123';
 
       const result = redactSecrets(content);
@@ -160,7 +164,7 @@ describe('secrets', () => {
     });
 
     it('should ignore errors when getGitHubInstallationToken throws', () => {
-      vi.spyOn(github, 'getGitHubInstallationToken').mockImplementation(() => {
+      getGitHubInstallationTokenSpy.mockImplementation(() => {
         throw new Error('Token not available');
       });
       const content = 'This is a normal message';
@@ -231,7 +235,7 @@ describe('secrets', () => {
 
     it('should detect GitHub installation token', () => {
       const token = 'github-token-123';
-      vi.spyOn(github, 'getGitHubInstallationToken').mockReturnValue(token);
+      getGitHubInstallationTokenSpy.mockReturnValue(token);
       const content = 'Token is github-token-123';
 
       expect(containsSecrets(content)).toBe(true);
@@ -239,7 +243,7 @@ describe('secrets', () => {
 
     it('should not detect GitHub installation token when not in content', () => {
       const token = 'github-token-123';
-      vi.spyOn(github, 'getGitHubInstallationToken').mockReturnValue(token);
+      getGitHubInstallationTokenSpy.mockReturnValue(token);
       const content = 'This is a normal message';
 
       expect(containsSecrets(content)).toBe(false);
@@ -281,7 +285,7 @@ describe('secrets', () => {
     });
 
     it('should ignore errors when getGitHubInstallationToken throws', () => {
-      vi.spyOn(github, 'getGitHubInstallationToken').mockImplementation(() => {
+      getGitHubInstallationTokenSpy.mockImplementation(() => {
         throw new Error('Token not available');
       });
       const content = 'This is a normal message';

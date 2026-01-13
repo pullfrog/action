@@ -2,13 +2,14 @@ import { retry, type RetryOptions } from './retry.ts';
 import * as cli from './cli.ts';
 
 describe('retry', () => {
+  const logWarningSpy = vi.spyOn(cli.log, 'warning').mockImplementation(() => {}); // mute
+
   beforeEach(() => {
-    vi.spyOn(cli.log, 'warning').mockImplementation(() => {}); // mute
     vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     vi.useRealTimers();
   });
 

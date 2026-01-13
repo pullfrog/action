@@ -2,14 +2,15 @@ import { Timer } from './timer.ts';
 import * as cli from './cli.ts';
 
 describe('Timer', () => {
+  vi.spyOn(cli.log, 'debug');
+
   beforeEach(() => {
-    vi.spyOn(cli.log, 'debug');
     // Mock Date.now to have predictable timestamps
     vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     vi.useRealTimers();
   });
 
