@@ -15,11 +15,14 @@ async function main(): Promise<void> {
   core.saveState(STATE_IS_POST, "true");
 
   const reposInput = core.getInput("repos");
-  const repos = reposInput
-    ? reposInput.split(",").map((r) => r.trim()).filter(Boolean)
-    : undefined;
+  const additionalRepos = reposInput
+    ? reposInput
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean)
+    : [];
 
-  const token = await acquireInstallationToken({ repos });
+  const token = await acquireInstallationToken({ repos: additionalRepos });
 
   // mask the token in logs
   core.setSecret(token);
@@ -30,10 +33,10 @@ async function main(): Promise<void> {
   // set as output
   core.setOutput("token", token);
 
-  const scope = repos?.length
-    ? `current repo + ${repos.join(", ")}`
+  const scope = additionalRepos.length
+    ? `current repo + ${additionalRepos.join(", ")}`
     : "current repo only";
-  core.info(`installation token acquired successfully (${scope})`);
+  core.info(`» installation token acquired (${scope})`);
 }
 
 async function post(): Promise<void> {
@@ -45,7 +48,7 @@ async function post(): Promise<void> {
   }
 
   await revokeInstallationToken(token);
-  core.info("installation token revoked successfully");
+  core.info("» installation token revoked");
 }
 
 async function run(): Promise<void> {

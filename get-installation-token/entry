@@ -25989,13 +25989,13 @@ var STATE_IS_POST = "isPost";
 async function main() {
   core3.saveState(STATE_IS_POST, "true");
   const reposInput = core3.getInput("repos");
-  const repos = reposInput ? reposInput.split(",").map((r) => r.trim()).filter(Boolean) : void 0;
-  const token = await acquireInstallationToken({ repos });
+  const additionalRepos = reposInput ? reposInput.split(",").map((r) => r.trim()).filter(Boolean) : [];
+  const token = await acquireInstallationToken({ repos: additionalRepos });
   core3.setSecret(token);
   core3.saveState(STATE_TOKEN, token);
   core3.setOutput("token", token);
-  const scope = repos?.length ? `current repo + ${repos.join(", ")}` : "current repo only";
-  core3.info(`installation token acquired successfully (${scope})`);
+  const scope = additionalRepos.length ? `current repo + ${additionalRepos.join(", ")}` : "current repo only";
+  core3.info(`\xBB installation token acquired (${scope})`);
 }
 async function post() {
   const token = core3.getState(STATE_TOKEN);
@@ -26004,7 +26004,7 @@ async function post() {
     return;
   }
   await revokeInstallationToken(token);
-  core3.info("installation token revoked successfully");
+  core3.info("\xBB installation token revoked");
 }
 async function run() {
   try {
