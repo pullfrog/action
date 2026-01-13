@@ -1,8 +1,8 @@
-<!-- <p align="center">  
+<p align="center">  
   <h1 align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/frog-white-200px.png">
-      <img src="https://pullfrog.com/frog-green-200px.png" width="26px" align="center" alt="Green Pullfrog logo" />
+      <img src="https://pullfrog.com/frog-green-200px.png" width="25px" align="center" alt="Green Pullfrog logo" />
     </picture><br />
     Pullfrog
   </h1>
@@ -11,7 +11,7 @@
   </p>
 </p>
 
-<br/> -->
+<br/>
 
 > **🚀 Pullfrog is in beta!** We're onboarding users in waves. [Get on the waitlist →](https://pullfrog.com/join-waitlist)
 

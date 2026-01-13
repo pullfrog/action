@@ -1,0 +1,24 @@
+name: Trigger sync
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    # skip if pushed by our bot (breaks the loop)
+    if: github.actor != 'pullfrog[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MONOREPO_PAT }}
+          repository: pullfrog/pullfrog
+          event-type: action-repo-updated
+          client-payload: |
+            {
+              "before": "${{ github.event.before }}",
+              "after": "${{ github.event.after }}",
+              "compare_url": "${{ github.event.compare }}",
+              "pusher": "${{ github.actor }}"
+            }
