@@ -2,7 +2,7 @@
   <h1 align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/frog-white-200px.png">
-      <img src="https://pullfrog.com/frog-green-200px.png" width="22px" align="center" alt="Pullfrog logo" />
+      <img src="https://pullfrog.com/frog-green-200px.png" width="26px" align="center" alt="Pullfrog logo" />
     </picture><br />
     Pullfrog
   </h1>
