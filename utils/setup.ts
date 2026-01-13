@@ -29,20 +29,41 @@ export function setupTestRepo(options: SetupOptions): void {
 /**
  * Setup git configuration to avoid identity errors
  * Uses --local flag to scope config to the current repo only
+ * Only sets defaults if not already configured (respects workflow config)
  */
 export function setupGitConfig(): void {
   const repoDir = process.cwd();
   log.info("» setting up git configuration...");
   try {
-    // Use --local to scope config to this repo only, preventing leakage to user's global config
-    execSync('git config --local user.email "team@pullfrog.com"', {
-      cwd: repoDir,
-      stdio: "pipe",
-    });
-    execSync('git config --local user.name "pullfrog"', {
-      cwd: repoDir,
-      stdio: "pipe",
-    });
+    // check current config - only set defaults if not configured or using generic bot
+    let currentEmail = "";
+    try {
+      currentEmail = execSync("git config user.email", {
+        cwd: repoDir,
+        stdio: "pipe",
+        encoding: "utf-8",
+      }).trim();
+    } catch {
+      // not configured
+    }
+
+    const shouldSetDefaults =
+      !currentEmail || currentEmail === "github-actions[bot]@users.noreply.github.com";
+
+    if (shouldSetDefaults) {
+      execSync('git config --local user.email "team@pullfrog.com"', {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+      execSync('git config --local user.name "pullfrog"', {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+      log.debug("» git user configured (using defaults)");
+    } else {
+      log.debug(`» git user already configured (${currentEmail}), skipping`);
+    }
+
     // disable credential helper to prevent macOS keychain prompts when using x-access-token
     // only needed locally - GitHub Actions doesn't have this issue
     if (!process.env.GITHUB_ACTIONS) {
@@ -51,7 +72,6 @@ export function setupGitConfig(): void {
         stdio: "pipe",
       });
     }
-    log.debug("» git configuration set successfully (scoped to repo)");
   } catch (error) {
     // If git config fails, log warning but don't fail the action
     // This can happen if we're not in a git repo or git isn't available

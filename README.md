@@ -19,7 +19,7 @@
 
 ## What is Pullfrog?
 
-Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
+Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions.
 
 - **Tag `@pullfrog`** — Tag `@pullfrog` in a comment anywhere in your repo. It will pull in any relevant context using the action's internal MCP server and perform the appropriate task.
 - **Prompt from the web** — Trigger arbitrary tasks from the Pullfrog dashboard
