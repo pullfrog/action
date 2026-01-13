@@ -1,43 +1,35 @@
+# PULLFROG ACTION — DO NOT EDIT EXCEPT WHERE INDICATED
 name: Pullfrog
 on:
   workflow_dispatch:
     inputs:
       prompt:
         type: string
-        description: 'Agent prompt'
+        description: Agent prompt
   workflow_call:
     inputs:
       prompt:
-        description: 'Agent prompt'
+        description: Agent prompt
         type: string
+    secrets: inherit
 
 permissions:
   id-token: write
-  contents: read
 
 jobs:
-  pullfrog:
+  agent:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      # optionally, setup your repo here
-      # the agent can figure this out itself, but pre-setup is more efficient
-      # - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
 
       - name: Run agent
         uses: pullfrog/action@main
-        env: 
-          log_level: ${{ vars.LOG_LEVEL }}
-          # feel free to comment out any you won't use
+        with:
+          prompt: ${{ inputs.prompt }}
+        env:
+          # Feel free to comment out any you won't use
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-        with:
-          prompt: ${{ github.event.inputs.prompt }}
-          
