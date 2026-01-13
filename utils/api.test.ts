@@ -23,6 +23,18 @@ describe('api', () => {
     process.env = originalEnv;
   });
 
+  describe('DEFAULT_REPO_SETTINGS', () => {
+    it('should have the correct default values', () => {
+      expect(DEFAULT_REPO_SETTINGS).toEqual({
+        defaultAgent: null,
+        webAccessLevel: 'full_access',
+        webAccessAllowTrusted: false,
+        webAccessDomains: '',
+        modes: [],
+      });
+    });
+  });  
+
   describe('fetchWorkflowRunInfo', () => {
     it('should fetch workflow run info successfully', async () => {
       const mockWorkflowRunInfo: WorkflowRunInfo = {
