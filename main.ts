@@ -97,7 +97,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
         toolState,
       }),
     ]);
-
     timer.checkpoint("agentSetup+gitAuth");
 
     // phase 6: compute modes
