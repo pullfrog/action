@@ -5,13 +5,21 @@
  */
 
 import * as core from "@actions/core";
+import { resolve, isAbsolute } from "path";
 import { Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 
 async function run(): Promise<void> {
   // Change to cwd input or GITHUB_WORKSPACE (where actions/checkout puts the repo)
   // JavaScript actions run from the action's directory, not the checked out repo
-  const cwd = core.getInput("cwd") || process.env.GITHUB_WORKSPACE;
+  const cwdInput = core.getInput("cwd");
+  let cwd = cwdInput || process.env.GITHUB_WORKSPACE;
+
+  // resolve relative paths against GITHUB_WORKSPACE
+  if (cwdInput && !isAbsolute(cwdInput) && process.env.GITHUB_WORKSPACE) {
+    cwd = resolve(process.env.GITHUB_WORKSPACE, cwdInput);
+  }
+
   if (cwd && process.cwd() !== cwd) {
     log.debug(`changing to working directory: ${cwd}`);
     process.chdir(cwd);
