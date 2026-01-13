@@ -21,6 +21,15 @@
 
 Pullfrog is a GitHub bot that brings the full power of your favorite coding agents into GitHub. It's open source and powered by GitHub Actions. 
 
+<!-- 
+<a href="https://github.com/apps/pullfrog/installations/new">
+  <img src="https://pullfrog.com/add-to-github.png" alt="Add to GitHub" width="150px" />
+</a>
+
+<br />
+
+Once added, you can start triggering agent runs. -->
+
 - **Tag `@pullfrog`** — Tag `@pullfrog` in a comment anywhere in your repo. It will pull in any relevant context using the action's internal MCP server and perform the appropriate task.
 - **Prompt from the web** — Trigger arbitrary tasks from the Pullfrog dashboard
 - **Automated triggers** — Configure Pullfrog to trigger agent runs in response to specific events. Each of these triggers can be associated with custom prompt instructions. 
@@ -31,7 +40,7 @@ Pullfrog is a GitHub bot that brings the full power of your favorite coding agen
   - PR review requested
   - and more...
 
-Pullfrog is the bridge between your preferred coding agents and GitHub. Use it for:
+Pullfrog is the bridge between GitHub and your preferred coding agents and GitHub. Use it for:
  
 - **🤖 Coding tasks** — Tell `@pullfrog` to implement something and it'll spin up a PR. If CI fails, it'll read the logs and attempt a fix automatically. It'll automatically address any PR reviews too.
 - **🔍 PR review** — Coding agents are great at reviewing PRs. Using the "PR created" trigger, you can configure Pullfrog to auto-review new PRs.
