@@ -32,13 +32,12 @@ jobs:
         uses: pullfrog/action@main
         env: 
           log_level: ${{ vars.LOG_LEVEL }}
-        with:
-          prompt: ${{ github.event.inputs.prompt }}
-
           # feel free to comment out any you won't use
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        with:
+          prompt: ${{ github.event.inputs.prompt }}
           
