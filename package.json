@@ -45,7 +45,7 @@
   "devDependencies": {
     "@types/node": "^24.7.2",
     "arg": "^5.0.2",
-    "esbuild": "^0.27.2",
+    "esbuild": "^0.25.9",
     "husky": "^9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"

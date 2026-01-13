@@ -12,7 +12,7 @@ import { setupTestRepo } from "./utils/setup.ts";
 
 // load action's .env file in case it exists for local dev
 config();
-// .env file should always be at repo root for pullfrog/pullfrog repo with action submodule
+// also load .env from repo root (for monorepo structure)
 config({ path: join(process.cwd(), "..", ".env") });
 
 export async function run(prompt: string): Promise<AgentResult> {
