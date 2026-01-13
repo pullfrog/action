@@ -4,15 +4,27 @@ on:
   push:
     branches: [main]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   trigger:
     # skip if pushed by our bot (breaks the loop)
     if: github.actor != 'pullfrog[bot]'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Get installation token
+        id: token
+        uses: ./get-installation-token
+        with:
+          repos: pullfrog
+
       - uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.MONOREPO_PAT }}
+          token: ${{ steps.token.outputs.token }}
           repository: pullfrog/pullfrog
           event-type: action-repo-updated
           client-payload: |
