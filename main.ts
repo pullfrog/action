@@ -49,6 +49,7 @@ type ApiKeySetup =
 
 export async function main(inputs: Inputs): Promise<MainResult> {
   const timer = new Timer();
+  // `await using` ensures the token is automatically revoked when the function exits
   await using tokenRef = await setupGitHubInstallationToken();
   let payload: Payload | undefined;
 
