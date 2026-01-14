@@ -8,15 +8,15 @@ import type { Effort, Payload } from "../external.ts";
  *   AGENT_OVERRIDE=cursor pnpm play cursor-effort.ts
  *
  * Effort levels:
- *   - "nothink": auto (default model)
- *   - "think": auto (default model)
+ *   - "mini": auto (default model)
+ *   - "auto": auto (default model)
  *   - "max": opus-4.5-thinking
  *
  * Note: If project has .cursor/cli.json with "model" specified,
  * that takes precedence over effort-based model selection.
  */
 
-const efforts: Effort[] = ["nothink", "think", "max"];
+const efforts: Effort[] = ["mini", "auto", "max"];
 
 export default efforts.map((effort) => ({
   "~pullfrog": true,

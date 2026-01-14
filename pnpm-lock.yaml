@@ -15,8 +15,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.1.77
-        version: 0.1.77(zod@4.3.5)
+        specifier: 0.2.7
+        version: 0.2.7(zod@4.3.5)
       '@ark/fs':
         specifier: 0.53.0
         version: 0.53.0
@@ -33,8 +33,8 @@ importers:
         specifier: ^7.6.1
         version: 7.6.1
       '@openai/codex-sdk':
-        specifier: 0.58.0
-        version: 0.58.0
+        specifier: 0.80.0
+        version: 0.80.0
       '@opencode-ai/sdk':
         specifier: ^1.0.143
         version: 1.0.143
@@ -99,11 +99,11 @@ packages:
   '@actions/io@1.1.3':
     resolution: {integrity: sha512-wi9JjgKLYS7U/z8PPbco+PvTb/nRWjeoFlJ1Qer83k/3C5PHQi28hiVdeE2kHXmIL99mQFawx8qt/JPjZilJ8Q==}
 
-  '@anthropic-ai/claude-agent-sdk@0.1.77':
-    resolution: {integrity: sha512-ZEjWQtkoB2MEY6K16DWMmF+8OhywAynH0m08V265cerbZ8xPD/2Ng2jPzbbO40mPeFSsMDJboShL+a3aObP0Jg==}
+  '@anthropic-ai/claude-agent-sdk@0.2.7':
+    resolution: {integrity: sha512-I1/zcnLah74kZeRkj/1QnDaC6ItJ2m/Bftlm25uoaRkZx7i7SkcpqM9jGE/r2A8PMxnw5WpabP60Xgj99CrTuw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
+      zod: ^4.0.0
 
   '@ark/fs@0.53.0':
     resolution: {integrity: sha512-XL0EbBAZgyy+j9aPhftYaBsbKAW5PTNSKCN6oLRRdrHuHPSAZgR6765/z0YZGhPxHEUNmq0vBoSk8yOLk91dNQ==}
@@ -653,8 +653,8 @@ packages:
   '@octokit/webhooks-types@7.6.1':
     resolution: {integrity: sha512-S8u2cJzklBC0FgTwWVLaM8tMrDuDMVE4xiTK4EYXM9GntyvrdbSoxqDQa+Fh57CCNApyIpyeqPhhFEmHPfrXgw==}
 
-  '@openai/codex-sdk@0.58.0':
-    resolution: {integrity: sha512-Z5vK294gUS9cn7bpU/lJtgzqJy1UqIGee7WMP+1Z4a6AxDcTxFCLZI4YkH9praJfrgoj5bFeu+3V9HIoBBTzcw==}
+  '@openai/codex-sdk@0.80.0':
+    resolution: {integrity: sha512-4+/bZOSjJAPsuM6yceQoVbNUK7UTS03QMKxCrFClObxD1j6n5oh7OSJniyff2MmF0DI7yHnf9omzfFL7RoLWnQ==}
     engines: {node: '>=18'}
 
   '@opencode-ai/sdk@1.0.143':
@@ -1697,7 +1697,7 @@ snapshots:
 
   '@actions/io@1.1.3': {}
 
-  '@anthropic-ai/claude-agent-sdk@0.1.77(zod@4.3.5)':
+  '@anthropic-ai/claude-agent-sdk@0.2.7(zod@4.3.5)':
     dependencies:
       zod: 4.3.5
     optionalDependencies:
@@ -2101,7 +2101,7 @@ snapshots:
 
   '@octokit/webhooks-types@7.6.1': {}
 
-  '@openai/codex-sdk@0.58.0': {}
+  '@openai/codex-sdk@0.80.0': {}
 
   '@opencode-ai/sdk@1.0.143': {}
 

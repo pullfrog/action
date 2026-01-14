@@ -15,10 +15,15 @@ import {
 // effort configuration: model + thinking level
 // thinkingLevel is set via settings.json modelConfig.generateContentConfig.thinkingConfig
 // see: https://ai.google.dev/gemini-api/docs/thinking#thinking-levels
+// latest models:
 const geminiEffortConfig: Record<Effort, { model: string; thinkingLevel: string }> = {
-  nothink: { model: "gemini-2.5-flash", thinkingLevel: "LOW" },
-  think: { model: "gemini-2.5-flash", thinkingLevel: "HIGH" },
-  max: { model: "gemini-2.5-pro", thinkingLevel: "HIGH" },
+  // https://ai.google.dev/gemini-api/docs/models
+  // the docs mention needing to enable preview features for these models but if you
+  // pass the model directly it works if we ever did need to do something like this,
+  // we could write to .gemini/settings.json
+  mini: { model: "gemini-3-flash-preview", thinkingLevel: "LOW" },
+  auto: { model: "gemini-3-flash-preview", thinkingLevel: "HIGH" },
+  max: { model: "gemini-3-pro-preview", thinkingLevel: "HIGH" },
 } as const;
 
 // gemini cli event types inferred from stream-json output (NDJSON format)

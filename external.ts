@@ -52,7 +52,8 @@ export const AgentName = type.enumerated(...Object.keys(agentsManifest));
 export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][number];
 
 // effort level type - controls model selection and thinking level
-export const Effort = type.enumerated("nothink", "think", "max");
+// mini = fast/minimal, auto = balanced/default, max = maximum capability
+export const Effort = type.enumerated("mini", "auto", "max");
 export type Effort = typeof Effort.infer;
 
 // base interface for common payload event fields
@@ -284,8 +285,8 @@ export interface Payload extends DispatchOptions {
   modes: readonly Mode[];
 
   /**
-   * Effort level for model selection (nothink, think, max)
-   * Defaults to "think" if not specified
+   * Effort level for model selection (mini, auto, max)
+   * Defaults to "auto" if not specified
    */
   readonly effort?: Effort;
 

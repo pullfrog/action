@@ -6,10 +6,10 @@ import { addInstructions } from "./instructions.ts";
 import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 
 // Model selection based on effort level
-// Note: nothink uses Haiku for speed, think uses Sonnet for balance, max uses Opus for capability
+// Note: mini uses Haiku for speed, auto uses opusplan for balance, max uses Opus for capability
 const claudeEffortModels: Record<Effort, string> = {
-  nothink: "haiku",
-  think: "opusplan",
+  mini: "haiku",
+  auto: "opusplan",
   max: "opus",
 };
 

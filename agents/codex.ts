@@ -15,16 +15,18 @@ import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts"
 
 // model configuration based on effort level
 const codexModel: Record<Effort, string> = {
-  nothink: "gpt-5.1-codex-mini",
-  think: "gpt-5.1-codex",
+  mini: "gpt-5.1-codex-mini",
+  // https://developers.openai.com/codex/models/
+  // gpt-5.2-codex is not yet available via api key (even through codex cli)
+  auto: "gpt-5.1-codex",
   max: "gpt-5.1-codex-max",
 } as const;
 
 // reasoning effort configuration based on effort level
 // uses modelReasoningEffort parameter from ThreadOptions
 const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
-  nothink: "low",
-  think: undefined, // use default
+  mini: "low",
+  auto: undefined, // use default
   max: "high",
 };
 

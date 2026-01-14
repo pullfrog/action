@@ -13,10 +13,10 @@ import {
 } from "./shared.ts";
 
 // effort configuration for Cursor
-// only "max" overrides the model; nothink/think use default ("auto")
+// only "max" overrides the model; mini/auto use default ("auto")
 const cursorEffortModels: Record<Effort, string | null> = {
-  nothink: null, // use default (auto)
-  think: null, // use default (auto)
+  mini: null, // use default (auto)
+  auto: null, // use default (auto)
   max: "opus-4.5-thinking",
 } as const;
 

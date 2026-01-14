@@ -430,7 +430,7 @@ function parsePayload(inputs: Inputs): Payload {
       prompt: inputs.prompt,
       event: inputs.event as Payload["event"],
       modes: inputs.modes ?? modes,
-      effort: inputs.effort ?? "think",
+      effort: inputs.effort ?? "auto",
       sandbox: inputs.sandbox,
       disableProgressComment: inputs.disableProgressComment,
       comment_id: inputs.comment_id,
@@ -445,10 +445,10 @@ function parsePayload(inputs: Inputs): Payload {
     if (!("~pullfrog" in parsedPrompt)) {
       throw new Error();
     }
-    // internal invocation: use effort from payload, fallback to input, default to "think"
+    // internal invocation: use effort from payload, fallback to input, default to "auto"
     return {
       ...parsedPrompt,
-      effort: parsedPrompt.effort ?? inputs.effort ?? "think",
+      effort: parsedPrompt.effort ?? inputs.effort ?? "auto",
     } as Payload;
   } catch {
     // external invocation: use effort from input
@@ -460,7 +460,7 @@ function parsePayload(inputs: Inputs): Payload {
         trigger: "unknown",
       },
       modes: inputs.modes ?? modes,
-      effort: inputs.effort ?? "think",
+      effort: inputs.effort ?? "auto",
       sandbox: inputs.sandbox,
     } as Payload;
   }
@@ -519,7 +519,7 @@ function validateApiKey(params: { agent: Agent; owner: string; name: string }): 
 }
 
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
-  const effort = ctx.payload.effort ?? "think";
+  const effort = ctx.payload.effort ?? "auto";
   log.info(`Running ${ctx.agent.name} with effort=${effort}...`);
   // strip context from event - it's already available via MCP tools
   const { context: _context, ...eventWithoutContext } = ctx.payload.event;

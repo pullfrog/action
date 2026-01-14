@@ -11,7 +11,7 @@ async function run(): Promise<void> {
   try {
     const inputs = Inputs.assert({
       prompt: core.getInput("prompt", { required: true }),
-      effort: core.getInput("effort") || "think",
+      effort: core.getInput("effort") || "auto",
       agent: core.getInput("agent") || null,
       sandbox: core.getInput("sandbox") === "true" ? true : undefined,
       cwd: core.getInput("cwd") || null,

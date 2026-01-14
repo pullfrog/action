@@ -8,12 +8,12 @@ import type { Effort, Payload } from "../external.ts";
  *   AGENT_OVERRIDE=gemini pnpm play gemini-effort.ts
  *
  * Effort levels:
- *   - "nothink": gemini-2.5-flash + LOW thinking
- *   - "think": gemini-2.5-flash + HIGH thinking
+ *   - "mini": gemini-2.5-flash + LOW thinking
+ *   - "auto": gemini-2.5-flash + HIGH thinking
  *   - "max": gemini-2.5-pro + HIGH thinking
  */
 
-const efforts: Effort[] = ["nothink", "think", "max"];
+const efforts: Effort[] = ["mini", "auto", "max"];
 
 export default efforts.map((effort) => ({
   "~pullfrog": true,
