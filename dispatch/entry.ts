@@ -38,7 +38,7 @@ async function run(): Promise<void> {
       comment_id: payloadObj.comment_id,
       issue_id: payloadObj.issue_id,
       pr_id: payloadObj.pr_id,
-      cwd: core.getInput("cwd") || undefined,
+      cwd: core.getInput("cwd") || null,
     });
 
     const result = await main(inputs);

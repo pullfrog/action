@@ -14,7 +14,7 @@ async function run(): Promise<void> {
       effort: core.getInput("effort") || "think",
       agent: core.getInput("agent") || null,
       sandbox: core.getInput("sandbox") === "true" ? true : undefined,
-      cwd: core.getInput("cwd") || undefined,
+      cwd: core.getInput("cwd") || null,
     });
 
     const result = await main(inputs);

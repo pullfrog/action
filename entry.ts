@@ -12,7 +12,7 @@ async function run(): Promise<void> {
     const inputs = Inputs.assert({
       prompt: core.getInput("prompt", { required: true }),
       effort: core.getInput("effort") || "think",
-      cwd: core.getInput("cwd") || undefined,
+      cwd: core.getInput("cwd") || null,
     });
 
     const result = await main(inputs);

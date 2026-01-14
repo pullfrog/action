@@ -33,7 +33,7 @@ export const Inputs = type({
   "comment_id?": "number|null",
   "issue_id?": "number|null",
   "pr_id?": "number|null",
-  "cwd?": "string",
+  "cwd?": "string|null",
 });
 
 export type Inputs = typeof Inputs.infer;
