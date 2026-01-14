@@ -75,4 +75,20 @@ await build({
   plugins: [stripShebangPlugin],
 });
 
+// Build the run sub-action
+await build({
+  ...sharedConfig,
+  entryPoints: ["./run/entry.ts"],
+  outfile: "./run/entry",
+  plugins: [stripShebangPlugin],
+});
+
+// Build the dispatch sub-action
+await build({
+  ...sharedConfig,
+  entryPoints: ["./dispatch/entry.ts"],
+  outfile: "./dispatch/entry",
+  plugins: [stripShebangPlugin],
+});
+
 console.log("✅ Build completed successfully!");

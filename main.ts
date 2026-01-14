@@ -1,17 +1,17 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { flatMorph } from "@ark/util";
 import type { Octokit } from "@octokit/rest";
 import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
 import type { AgentResult } from "./agents/shared.ts";
-import { type AgentName, agentsManifest, Effort, type Payload } from "./external.ts";
+import { AgentName, agentsManifest, Effort, type Payload } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
 import { startMcpHttpServer } from "./mcp/server.ts";
-import { getModes, type Mode, modes } from "./modes.ts";
+import { getModes, type Mode, ModeSchema, modes } from "./modes.ts";
 import packageJson from "./package.json" with { type: "json" };
 import type { PrepResult } from "./prep/index.ts";
 import { fetchRepoSettings, fetchWorkflowRunInfo, type RepoSettings } from "./utils/api.ts";
@@ -21,9 +21,19 @@ import { createOctokit, parseRepoContext, setupGitHubInstallationToken } from ".
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
+// inputs schema - mirrors Payload fields without the discriminated union for event
 export const Inputs = type({
   prompt: "string",
   "effort?": Effort,
+  "agent?": AgentName.or("null"),
+  "event?": "object",
+  "modes?": ModeSchema.array(),
+  "sandbox?": "boolean",
+  "disableProgressComment?": "true",
+  "comment_id?": "number|null",
+  "issue_id?": "number|null",
+  "pr_id?": "number|null",
+  "cwd?": "string",
 });
 
 export type Inputs = typeof Inputs.infer;
@@ -48,6 +58,17 @@ type ApiKeySetup =
   | { success: false; error: string };
 
 export async function main(inputs: Inputs): Promise<MainResult> {
+  // change to cwd input or GITHUB_WORKSPACE (where actions/checkout puts the repo)
+  // JavaScript actions run from the action's directory, not the checked out repo
+  let cwd = inputs.cwd || process.env.GITHUB_WORKSPACE;
+  if (inputs.cwd && !isAbsolute(inputs.cwd) && process.env.GITHUB_WORKSPACE) {
+    cwd = resolve(process.env.GITHUB_WORKSPACE, inputs.cwd);
+  }
+  if (cwd && process.cwd() !== cwd) {
+    log.debug(`changing to working directory: ${cwd}`);
+    process.chdir(cwd);
+  }
+
   const timer = new Timer();
   // `await using` ensures the token is automatically revoked when the function exits
   await using tokenRef = await setupGitHubInstallationToken();
@@ -316,7 +337,7 @@ export interface ToolState {
  * Initialize GitHub connection: token, octokit, repo data, settings
  */
 async function initializeGitHub(token: string): Promise<GitHubSetup> {
-  log.info(`🐸 Running pullfrog/action@${packageJson.version}...`);
+  log.info(`🐸 Running pullfrog/pullfrog@${packageJson.version}...`);
 
   const { owner, name } = parseRepoContext();
 
@@ -397,6 +418,28 @@ async function createTempDirectory(): Promise<string> {
 }
 
 function parsePayload(inputs: Inputs): Payload {
+  // helper to convert "null" string to null, with proper type narrowing
+  const agent =
+    inputs.agent === undefined || inputs.agent === "null" ? null : (inputs.agent as AgentName);
+
+  // dispatch action provides structured inputs directly (event, modes, etc.)
+  if (inputs.event) {
+    return {
+      "~pullfrog": true,
+      agent,
+      prompt: inputs.prompt,
+      event: inputs.event as Payload["event"],
+      modes: inputs.modes ?? modes,
+      effort: inputs.effort ?? "think",
+      sandbox: inputs.sandbox,
+      disableProgressComment: inputs.disableProgressComment,
+      comment_id: inputs.comment_id,
+      issue_id: inputs.issue_id,
+      pr_id: inputs.pr_id,
+    } as Payload;
+  }
+
+  // run action: try to parse prompt as JSON (legacy internal invocation)
   try {
     const parsedPrompt = JSON.parse(inputs.prompt);
     if (!("~pullfrog" in parsedPrompt)) {
@@ -411,14 +454,15 @@ function parsePayload(inputs: Inputs): Payload {
     // external invocation: use effort from input
     return {
       "~pullfrog": true,
-      agent: null,
+      agent,
       prompt: inputs.prompt,
       event: {
         trigger: "unknown",
       },
-      modes,
+      modes: inputs.modes ?? modes,
       effort: inputs.effort ?? "think",
-    };
+      sandbox: inputs.sandbox,
+    } as Payload;
   }
 }
 

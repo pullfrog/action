@@ -80,18 +80,18 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           release_name: "${{ steps.version.outputs.tag }}"
           body: |
-            ## 📦 @pullfrog/action ${{ steps.version.outputs.version }}
+            ## 📦 @pullfrog/pullfrog ${{ steps.version.outputs.version }}
 
             ### Usage in GitHub Actions
 
             ```yaml
-            - uses: pullfrog/action@${{ steps.version.outputs.major_tag }}
+            - uses: pullfrog/pullfrog@${{ steps.version.outputs.major_tag }}
             ```
 
             ### Installation via npm
 
             ```bash
-            npm install @pullfrog/action@${{ steps.version.outputs.version }}
+            npm install @pullfrog/pullfrog@${{ steps.version.outputs.version }}
             ```
           draft: false
           prerelease: false
@@ -118,5 +118,5 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📦 Published to" >> $GITHUB_STEP_SUMMARY
             echo "- GitHub Release: [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
-            echo "- npm Registry: [@pullfrog/action@${{ steps.version.outputs.version }}](https://www.npmjs.com/package/@pullfrog/action/v/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+            echo "- npm Registry: [@pullfrog/pullfrog@${{ steps.version.outputs.version }}](https://www.npmjs.com/package/@pullfrog/pullfrog/v/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
           fi

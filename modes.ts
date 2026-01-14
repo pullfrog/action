@@ -1,3 +1,4 @@
+import { type } from "arktype";
 import { ghPullfrogMcpName } from "./external.ts";
 
 export interface Mode {
@@ -5,6 +6,13 @@ export interface Mode {
   description: string;
   prompt: string;
 }
+
+// arktype schema for Mode validation
+export const ModeSchema = type({
+  name: "string",
+  description: "string",
+  prompt: "string",
+});
 
 export interface GetModesParams {
   disableProgressComment: true | undefined;

@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run agent
-        uses: pullfrog/action@main
+        uses: pullfrog/pullfrog@main
         with:
           prompt: ${{ inputs.prompt }}
         env:

@@ -52,7 +52,7 @@ Install the Pullfrog GitHub App on your personal or organization account. During
 <details>
 <summary><strong>Manual setup instructions</strong></summary>
 
-You can also use the `pullfrog/action` Action without a GitHub App installation. This is more time-consuming to set up, and it places limitations on the actions your Agent will be capable of performing.
+You can also use the `pullfrog/pullfrog` Action without a GitHub App installation. This is more time-consuming to set up, and it places limitations on the actions your Agent will be capable of performing.
 
 To manually set up the Pullfrog action, you need to set up two workflow files in your repository: `pullfrog.yml` (the execution logic) and `triggers.yml` (the event triggers).
 
@@ -94,7 +94,7 @@ jobs:
       # - uses: actions/setup-node@v6
       
       - name: Run agent
-        uses: pullfrog/action@v0
+        uses: pullfrog/pullfrog@v0
         with:
           prompt: ${{ inputs.prompt }}
         env:

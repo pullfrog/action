@@ -1,0 +1,35 @@
+
+
+# pullfrog/pullfrog/run
+# pullfrog/pullfrog (alias)
+
+# pullfrog/pullfrog/dispatch <- accepts json 
+name: "Pullfrog Action (Run)"
+description: "Execute coding agents with itemized inputs"
+author: "Pullfrog"
+
+inputs:
+  prompt:
+    description: "Prompt to send to the agent"
+    required: true
+  effort:
+    description: "Effort level: nothink (fast), think (default), max (most capable)"
+    required: false
+    default: "think"
+  agent:
+    description: "Agent to use: claude, codex, gemini, cursor, opencode"
+    required: false
+  cwd:
+    description: "Working directory for the agent (defaults to GITHUB_WORKSPACE)"
+    required: false
+  sandbox:
+    description: "Sandbox mode: restricts agent to read-only operations"
+    required: false
+
+runs:
+  using: "node24"
+  main: "entry"
+
+branding:
+  icon: "code"
+  color: "green"

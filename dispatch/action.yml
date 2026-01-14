@@ -1,0 +1,19 @@
+name: "Pullfrog Action (Dispatch)"
+description: "Execute coding agents with JSON payload input"
+author: "Pullfrog"
+
+inputs:
+  payload:
+    description: "JSON payload containing prompt, event, and other configuration"
+    required: true
+  cwd:
+    description: "Working directory for the agent (defaults to GITHUB_WORKSPACE)"
+    required: false
+
+runs:
+  using: "node24"
+  main: "entry"
+
+branding:
+  icon: "code"
+  color: "green"

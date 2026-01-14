@@ -24,7 +24,7 @@ jobs:
 
       - name: Dispatch "action-repo-updated" event
         run: |
-          gh api repos/pullfrog/pullfrog/dispatches \
+          gh api repos/pullfrog/app/dispatches \
             -f event_type="action-repo-updated" \
             -f client_payload='{
               "before": "${{ github.event.before }}",

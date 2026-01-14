@@ -1,5 +1,5 @@
 {
-  "name": "@pullfrog/action",
+  "name": "@pullfrog/pullfrog",
   "version": "0.0.157",
   "type": "module",
   "files": [
@@ -52,15 +52,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pullfrog/action.git"
+    "url": "git+https://github.com/pullfrog/pullfrog.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/pullfrog/action/issues"
+    "url": "https://github.com/pullfrog/pullfrog/issues"
   },
-  "homepage": "https://github.com/pullfrog/action#readme",
+  "homepage": "https://github.com/pullfrog/pullfrog#readme",
   "zshy": {
     "exports": "./index.ts"
   },
