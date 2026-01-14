@@ -89,7 +89,7 @@ ${dependencyInstallationGuidance}
 
 4. Make the necessary code changes to address the feedback. Work through each review comment systematically.
 
-5. **CRITICAL: Reply to EACH review comment individually.** After fixing each comment, use ${ghPullfrogMcpName}/reply_to_review_comment to reply directly to that comment thread. Keep replies extremely brief (1 sentence max, e.g., "Fixed by renaming to X" or "Added null check").
+5. **CRITICAL: Reply to EACH review comment individually.** After fixing each comment, use ${ghPullfrogMcpName}/reply_to_review_comment to reply directly to that comment thread. Keep replies extremely brief (1 sentence max, e.g., "Fixed by renaming to X" or "Added null check"). If suggesting a small, specific, self-contained code change, use GitHub's suggestion format with \`\`\`suggestion blocks.
 
 6. Test your changes to ensure they work correctly.
 
@@ -119,7 +119,15 @@ ${
    - Can you imagine a better approach? If so, explain. Make sure it's strictly better, not just different.
    - Are there bugs, edge cases, security issues, or usability issues? Use your imagination.
 
-3. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column).
+3. **DRAFT** - For each inline comment, find the line in the diff. Each code line shows: \`| OLD | NEW | TYPE | CODE\`. Use the NEW line number (second column). When suggesting specific code changes, use GitHub's suggestion format with \`\`\`suggestion blocks to enable one-click apply. Example:
+   you could simplify this
+   \`\`\`suggestion
+   const result = data.map(x => x.value);
+   \`\`\`
+   or you could use reduce instead
+   \`\`\`suggestion
+   const result = data.reduce((acc, x) => [...acc, x.value], []);
+   \`\`\`
 
 4. **FILTER COMMENTS** - Do not nitpick! Do not leave compliments that are not actionable. Do not critique the code hygiene or anything stylistic.
 

@@ -29,7 +29,7 @@ export const CreatePullRequestReview = type({
       )
       .optional(),
     body: type.string.describe(
-      "The comment text for this specific line. For issues appearing multiple times, comment on the first occurrence and reference others."
+      "The comment text for this specific line. For issues appearing multiple times, comment on the first occurrence and reference others. When providing code suggestions, use GitHub's suggestion format with ```suggestion blocks to enable one-click apply. Only include explanatory text if the suggested code requires clarification."
     ),
     start_line: type.number
       .describe("Start line for multi-line comments (optional, for commenting on ranges)")
@@ -48,7 +48,8 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
     description:
       "Submit a review for an existing pull request. " +
       "IMPORTANT: 95%+ of feedback should be in 'comments' array with file paths and line numbers. " +
-      "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts.",
+      "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts. " +
+      "When suggesting code changes in comments, use GitHub's suggestion format (```suggestion blocks) to enable one-click apply.",
     parameters: CreatePullRequestReview,
     execute: execute(async ({ pull_number, body, commit_id, comments = [] }) => {
       // set PR context
