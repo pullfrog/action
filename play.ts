@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, extname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { fromHere } from "@ark/fs";
 import arg from "arg";
 import { config } from "dotenv";
@@ -10,14 +10,17 @@ import { type Inputs, main } from "./main.ts";
 import { log } from "./utils/cli.ts";
 import { setupTestRepo } from "./utils/setup.ts";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // load action's .env file in case it exists for local dev
 config();
 // also load .env from repo root (for monorepo structure)
-config({ path: join(process.cwd(), "..", ".env") });
+config({ path: join(__dirname, "..", ".env") });
 
 export async function run(prompt: string): Promise<AgentResult> {
   try {
-    const tempDir = join(process.cwd(), ".temp");
+    const tempDir = join(__dirname, ".temp");
     setupTestRepo({ tempDir });
 
     const originalCwd = process.cwd();
@@ -86,32 +89,36 @@ Examples:
   if (!useLocal) {
     log.info("» running in Docker container...");
 
-    const passArgs = process.argv.slice(2);
-    const nodeCmd = `node play.ts ${passArgs.join(" ")}`;
+    const passArgs = process.argv
+      .slice(2)
+      // shell-escape each argument to handle special characters in JSON payloads
+      .map((arg) => `'${arg.replace(/'/g, "'\\''")}'`)
+      .join(" ");
+    const nodeCmd = `node play.ts ${passArgs}`;
 
     // pass all env vars to docker
     const envFlags = Object.entries(process.env).flatMap(([key, value]) =>
       value !== undefined ? ["-e", `${key}=${value}`] : []
     );
 
-    // SSH for git - mount individual SSH files to avoid permission issues
+    // SSH for git - use SSH agent forwarding (no passphrase prompts)
     const sshFlags: string[] = [];
     const home = process.env.HOME;
     if (home) {
       const sshDir = join(home, ".ssh");
-      // mount SSH keys (try common key names)
-      for (const keyName of ["id_rsa", "id_ed25519", "id_ecdsa"]) {
-        const keyPath = join(sshDir, keyName);
-        if (existsSync(keyPath)) {
-          sshFlags.push("-v", `${keyPath}:/root/.ssh/${keyName}:ro`);
-        }
-      }
-      // mount known_hosts
+      // mount known_hosts for host key verification
       const knownHostsPath = join(sshDir, "known_hosts");
       if (existsSync(knownHostsPath)) {
         sshFlags.push("-v", `${knownHostsPath}:/root/.ssh/known_hosts:ro`);
       }
     }
+    // forward SSH agent from Docker Desktop on macOS
+    sshFlags.push(
+      "-v",
+      "/run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock",
+      "-e",
+      "SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock"
+    );
 
     const ttyFlags = process.stdin.isTTY ? ["-it"] : [];
 
@@ -122,13 +129,15 @@ Examples:
         "--rm",
         ...ttyFlags,
         "-v",
-        `${process.cwd()}:/app/action:cached`,
+        `${__dirname}:/app/action:cached`,
         "-v",
         "pullfrog-action-node-modules:/app/action/node_modules",
         "-w",
         "/app/action",
         ...envFlags,
         ...sshFlags,
+        "-e",
+        "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
         "--cap-add",
         "SYS_ADMIN",
         "--security-opt",
@@ -138,7 +147,7 @@ Examples:
         "-c",
         `corepack enable pnpm >/dev/null 2>&1 && pnpm install --frozen-lockfile && ${nodeCmd}`,
       ],
-      { stdio: "inherit" }
+      { stdio: "inherit", cwd: __dirname }
     );
 
     process.exit(result.status ?? 1);
