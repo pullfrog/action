@@ -51,11 +51,11 @@ export function setupGitConfig(): void {
       !currentEmail || currentEmail === "github-actions[bot]@users.noreply.github.com";
 
     if (shouldSetDefaults) {
-      execSync('git config --local user.email "team@pullfrog.com"', {
+      execSync('git config --local user.email "226033991+pullfrog[bot]@users.noreply.github.com"', {
         cwd: repoDir,
         stdio: "pipe",
       });
-      execSync('git config --local user.name "pullfrog"', {
+      execSync('git config --local user.name "pullfrog[bot]"', {
         cwd: repoDir,
         stdio: "pipe",
       });
