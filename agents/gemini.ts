@@ -154,7 +154,7 @@ const messageHandlers = {
           String(stats.duration_ms || 0),
         ],
       ];
-      await log.summaryTable(rows);
+      log.table(rows);
     } else if (event.status === "error") {
       log.error(`Gemini CLI failed: ${JSON.stringify(event)}`);
     }

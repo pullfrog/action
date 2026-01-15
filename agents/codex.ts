@@ -194,7 +194,7 @@ const messageHandlers: {
     // No logging needed
   },
   "turn.completed": async (event) => {
-    await log.summaryTable([
+    log.table([
       [
         { data: "Input Tokens", header: true },
         { data: "Cached Input Tokens", header: true },

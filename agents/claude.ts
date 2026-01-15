@@ -170,7 +170,7 @@ const messageHandlers: SDKMessageHandlers = {
       const outputTokens = usage?.output_tokens || 0;
       const totalInput = inputTokens + cacheRead + cacheWrite;
 
-      await log.summaryTable([
+      log.table([
         [
           { data: "Cost", header: true },
           { data: "Input", header: true },

@@ -167,7 +167,7 @@ export const opencode = agent({
     // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
     if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {
       const totalTokens = accumulatedTokens.input + accumulatedTokens.output;
-      await log.summaryTable([
+      log.table([
         [
           { data: "Input Tokens", header: true },
           { data: "Output Tokens", header: true },
@@ -571,7 +571,7 @@ const messageHandlers = {
       );
 
       if ((inputTokens > 0 || outputTokens > 0) && !tokensLogged) {
-        await log.summaryTable([
+        log.table([
           [
             { data: "Input Tokens", header: true },
             { data: "Output Tokens", header: true },

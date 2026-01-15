@@ -211,7 +211,6 @@ export async function main(inputs: Inputs): Promise<MainResult> {
     } catch {
       // error reporting failed, but don't let it mask the original error
     }
-    await log.writeSummary();
     return {
       success: false,
       error: errorMessage,
@@ -553,7 +552,6 @@ async function handleAgentResult(result: AgentResult): Promise<MainResult> {
   }
 
   log.success("Task complete.");
-  await log.writeSummary();
 
   return {
     success: true,

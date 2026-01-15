@@ -1,10 +1,10 @@
-import * as core from "@actions/core";
 import { type } from "arktype";
 import type { Payload } from "../external.ts";
 import { agentsManifest } from "../external.ts";
 import type { ToolContext } from "../main.ts";
 import { fetchWorkflowRunInfo } from "../utils/api.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
+import { writeSummary } from "../utils/cli.ts";
 import {
   createOctokit,
   getGitHubInstallationToken,
@@ -19,8 +19,6 @@ import { execute, tool } from "./shared.ts";
  * and hasn't been updated with progress or error messages.
  */
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
-
-const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 
 interface BuildCommentFooterParams {
   payload: Payload;
@@ -178,34 +176,29 @@ function getProgressCommentIdFromEnv(): number | null {
   return null;
 }
 
-// module-level variable to track the progress comment ID
-// initialized lazily on first use to allow env var to be set after module load
-let progressCommentId: number | null = null;
-let progressCommentIdInitialized = false;
-
-// track whether the progress comment was updated during execution
-let progressCommentWasUpdated = false;
+// progress comment state - initialized lazily on first use to allow env var to be set after module load
+const progressComment = {
+  id: null as number | null,
+  idInitialized: false,
+  wasUpdated: false,
+};
 
 function getProgressCommentId(): number | null {
-  if (!progressCommentIdInitialized) {
-    progressCommentId = getProgressCommentIdFromEnv();
-    progressCommentIdInitialized = true;
+  if (!progressComment.idInitialized) {
+    progressComment.id = getProgressCommentIdFromEnv();
+    progressComment.idInitialized = true;
   }
-  return progressCommentId;
+  return progressComment.id;
 }
 
 function setProgressCommentId(id: number): void {
-  progressCommentId = id;
-  progressCommentIdInitialized = true;
+  progressComment.id = id;
+  progressComment.idInitialized = true;
 }
 
 export const ReportProgress = type({
   body: type.string.describe("the progress update content to share"),
 });
-
-
-/** Updates job summary with the given text if running in GitHub Actions. */
-const updateSummary = (text: string) => isGitHubActions && core.summary.addRaw(text).write({ overwrite: true });
 
 /**
  * Standalone function to report progress to GitHub comment.
@@ -251,9 +244,9 @@ export async function reportProgress(
       body: bodyWithFooter,
     });
 
-    progressCommentWasUpdated = true;
+    progressComment.wasUpdated = true;
 
-    await updateSummary(bodyWithFooter);
+    writeSummary(bodyWithFooter);
 
     return {
       commentId: result.data.id,
@@ -282,7 +275,7 @@ export async function reportProgress(
 
   // store the comment ID for future updates
   setProgressCommentId(result.data.id);
-  progressCommentWasUpdated = true;
+  progressComment.wasUpdated = true;
 
   // if Plan mode, update the comment to add the "Implement plan" link
   if (isPlanMode) {
@@ -302,7 +295,7 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
-    await updateSummary(bodyWithPlanLink);
+    writeSummary(bodyWithPlanLink);
 
     return {
       commentId: updateResult.data.id,
@@ -312,7 +305,7 @@ export async function reportProgress(
     };
   }
 
-  await updateSummary(initialBody);
+  writeSummary(initialBody);
 
   return {
     commentId: result.data.id,
@@ -353,7 +346,7 @@ export function ReportProgressTool(ctx: ToolContext) {
  * Check if the progress comment was updated during execution
  */
 export function wasProgressCommentUpdated(): boolean {
-  return progressCommentWasUpdated;
+  return progressComment.wasUpdated;
 }
 
 /**
@@ -382,9 +375,9 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
   }
 
   // reset state but mark as "updated" so ensureProgressCommentUpdated doesn't try to handle it
-  progressCommentId = null;
-  progressCommentIdInitialized = true; // keep initialized so we don't re-fetch from env
-  progressCommentWasUpdated = true; // mark as handled so ensureProgressCommentUpdated skips
+  progressComment.id = null;
+  progressComment.idInitialized = true; // keep initialized so we don't re-fetch from env
+  progressComment.wasUpdated = true; // mark as handled so ensureProgressCommentUpdated skips
 
   return true;
 }
@@ -399,7 +392,7 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
  */
 export async function ensureProgressCommentUpdated(payload?: Payload): Promise<void> {
   // skip if comment was already updated during execution
-  if (progressCommentWasUpdated) {
+  if (progressComment.wasUpdated) {
     return;
   }
 
@@ -497,7 +490,7 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
       });
 
       // mark progress as updated so ensureProgressCommentUpdated doesn't think the run failed
-      progressCommentWasUpdated = true;
+      progressComment.wasUpdated = true;
 
       return {
         success: true,

@@ -6,8 +6,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as core from "@actions/core";
 import { table } from "table";
+import { wasSummaryOverwritten } from "../mcp/comment.js";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
+
 const isDebugEnabled = () =>
   process.env.LOG_LEVEL === "debug" ||
   process.env.ACTIONS_STEP_DEBUG === "true" ||
@@ -126,7 +128,6 @@ function boxString(
 
 /**
  * Print a formatted box with text
- * Works well in both local and GitHub Actions environments
  */
 function box(
   text: string,
@@ -137,64 +138,25 @@ function box(
 ): void {
   const boxContent = boxString(text, options);
   core.info(boxContent);
-  if (isGitHubActions) {
-    // Add as markdown code block for summary (no headers)
-    core.summary.addRaw(`\`\`\`\n${text}\n\`\`\`\n`);
-  }
 }
 
 /**
- * Add a table to GitHub Actions job summary (rich formatting)
- * Also logs to console. Only use this once at the end of execution.
+ * Overwrite the job summary with the given text.
  */
-async function summaryTable(
-  rows: Array<Array<{ data: string; header?: boolean } | string>>,
-  options?: {
-    title?: string;
-  }
-): Promise<void> {
-  const { title } = options || {};
-
-  // Convert rows to format expected by Job Summaries API
-  const formattedRows = rows.map((row) =>
-    row.map((cell) => {
-      if (typeof cell === "string") {
-        return { data: cell };
-      }
-      return cell;
-    })
-  );
-
-  if (isGitHubActions) {
-    const summary = core.summary;
-    if (title) {
-      summary.addRaw(`**${title}**\n\n`);
-    }
-    summary.addTable(formattedRows);
-    // Note: Don't write immediately, let it accumulate with other summary content
-  }
-
-  // Also log to console for visibility
-  if (title) {
-    core.info(`\n${title}`);
-  }
-  const tableData = formattedRows.map((row) => row.map((cell) => cell.data));
-  const tableText = isGitHubActions
-    ? tableData.map((row) => row.join(" | ")).join("\n")
-    : table(tableData);
-  core.info(`\n${tableText}\n`);
+export function writeSummary(text: string): void {
+  if (!isGitHubActions) return;
+  core.summary.addRaw(text).write({ overwrite: true });
 }
 
 /**
  * Print a formatted table using the table package
- * Also logs to console and GitHub Actions summary
  */
-async function printTable(
+function printTable(
   rows: Array<Array<{ data: string; header?: boolean } | string>>,
   options?: {
     title?: string;
   }
-): Promise<void> {
+): void {
   const { title } = options || {};
 
   // Convert rows to string arrays for the table package
@@ -213,13 +175,6 @@ async function printTable(
     core.info(`\n${title}`);
   }
   core.info(`\n${formatted}\n`);
-
-  if (isGitHubActions) {
-    if (title) {
-      core.summary.addRaw(`**${title}**\n\n`);
-    }
-    core.summary.addRaw(`\`\`\`\n${formatted}\n\`\`\`\n`);
-  }
 }
 
 /**
@@ -228,121 +183,58 @@ async function printTable(
 function separator(length: number = 50): void {
   const separatorText = "─".repeat(length);
   core.info(separatorText);
-  if (isGitHubActions) {
-    core.summary.addRaw(`---\n`);
-  }
 }
 
 /**
  * Main logging utility object - import this once and access all utilities
  */
 export const log = {
-  /**
-   * Print info message
-   */
+  /** Print info message */
   info: (message: string): void => {
     core.info(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`${message}\n`);
-    }
   },
 
-  /**
-   * Print warning message
-   */
+  /** Print warning message */
   warning: (message: string): void => {
     core.warning(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`⚠️ ${message}\n`);
-    }
   },
 
-  /**
-   * Print error message
-   */
+  /** Print error message */
   error: (message: string): void => {
     core.error(message);
-    if (isGitHubActions) {
-      core.summary.addRaw(`❌ ${message}\n`);
-    }
   },
 
-  /**
-   * Print success message
-   */
+  /** Print success message */
   success: (message: string): void => {
-    const successMessage = `✅ ${message}`;
-    core.info(successMessage);
-    if (isGitHubActions) {
-      core.summary.addRaw(`${successMessage}\n`);
-    }
+    core.info(`✅ ${message}`);
   },
 
-  /**
-   * Print debug message (only if LOG_LEVEL=debug)
-   */
+  /** Print debug message (only if LOG_LEVEL=debug) */
   debug: (message: string | unknown): void => {
     if (isDebugEnabled()) {
-      if (isGitHubActions) {
-        // using this instead of core.debug
-        // because core.debug only logs when ACTIONS_STEP_DEBUG is set to true
-        // we are using LOG_LEVEL
-        core.info(`[DEBUG] ${message}`);
-      } else {
-        core.info(`[DEBUG] ${message}`);
-      }
+      core.info(`[DEBUG] ${message}`);
     }
   },
 
-  /**
-   * Print a formatted box with text
-   */
+  /** Print a formatted box with text */
   box,
 
-  /**
-   * Add a table to GitHub Actions job summary (rich formatting)
-   * Only use this once at the end of execution
-   */
-  summaryTable,
-
-  /**
-   * Print a formatted table using the table package
-   */
+  /** Print a formatted table using the table package */
   table: printTable,
 
-  /**
-   * Print a separator line
-   */
+  /** Print a separator line */
   separator,
 
-  /**
-   * Write all accumulated summary content to the job summary
-   * Call this at the end of execution to finalize the summary
-   */
-  writeSummary: async (): Promise<void> => {
-    if (isGitHubActions) {
-      await core.summary.write();
-    }
-  },
-
-  /**
-   * Start a collapsed group (GitHub Actions) or regular group (local)
-   */
+  /** Start a collapsed group (GitHub Actions) or regular group (local) */
   startGroup,
 
-  /**
-   * End a collapsed group
-   */
+  /** End a collapsed group */
   endGroup,
 
-  /**
-   * Run a callback within a collapsed group
-   */
+  /** Run a callback within a collapsed group */
   group,
 
-  /**
-   * Log tool call information to console with formatted output
-   */
+  /** Log tool call information to console with formatted output */
   toolCall: ({ toolName, input }: { toolName: string; input: unknown }): void => {
     const inputFormatted = formatJsonValue(input);
     const timestamp = isDebugEnabled() ? ` [${new Date().toISOString()}]` : "";
