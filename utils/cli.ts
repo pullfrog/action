@@ -6,7 +6,6 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as core from "@actions/core";
 import { table } from "table";
-import { wasSummaryOverwritten } from "../mcp/comment.js";
 
 const isGitHubActions = !!process.env.GITHUB_ACTIONS;
 
