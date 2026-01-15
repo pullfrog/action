@@ -5,13 +5,7 @@ import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
-import {
-  agent,
-  type ConfigureMcpServersParams,
-  createAgentEnv,
-  installFromGithub,
-  type ToolPermissions,
-} from "./shared.ts";
+import { type AgentConfig, agent, createAgentEnv, installFromGithub } from "./shared.ts";
 
 // effort configuration: model + thinking level
 // thinkingLevel is set via settings.json modelConfig.generateContentConfig.thinkingConfig
@@ -172,18 +166,14 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort, tools }) => {
-    // get model and thinking level based on effort
-    const { model, thinkingLevel } = geminiEffortConfig[effort];
-    log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
+  run: async (ctx) => {
+    const model = configureGeminiSettings(ctx);
 
-    configureGeminiSettings({ mcpServers, tools, thinkingLevel });
-
-    if (!apiKey) {
+    if (!ctx.apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions({ payload, repo, tools });
+    const sessionPrompt = addInstructions(ctx);
     log.group("Full prompt", () => log.info(sessionPrompt));
 
     // build CLI args - --yolo for auto-approval
@@ -196,8 +186,8 @@ export const gemini = agent({
     try {
       const result = await spawn({
         cmd: "node",
-        args: [cliPath, ...args],
-        env: createAgentEnv({ GEMINI_API_KEY: apiKey }),
+        args: [ctx.cliPath, ...args],
+        env: createAgentEnv({ GEMINI_API_KEY: ctx.apiKey }),
         onStdout: async (chunk) => {
           const text = chunk.toString();
           finalOutput += text;
@@ -270,25 +260,16 @@ export const gemini = agent({
   },
 });
 
-interface ConfigureGeminiParams {
-  mcpServers: ConfigureMcpServersParams["mcpServers"];
-  tools: ToolPermissions;
-  thinkingLevel: string;
-}
-
 /**
  * Configure Gemini CLI settings by writing to settings.json.
- * - MCP servers: uses `httpUrl` for HTTP/streamable transport
- * - thinkingLevel: configured via modelConfig.generateContentConfig.thinkingConfig
- * - tools.exclude: disables native tools based on ToolPermissions (v0.3.0+ format)
+ * Returns the model to use for CLI args.
  *
  * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
-function configureGeminiSettings({
-  mcpServers,
-  tools,
-  thinkingLevel,
-}: ConfigureGeminiParams): void {
+function configureGeminiSettings(ctx: AgentConfig): string {
+  const { model, thinkingLevel } = geminiEffortConfig[ctx.effort];
+  log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
+
   const realHome = homedir();
   const geminiConfigDir = join(realHome, ".gemini");
   const settingsPath = join(geminiConfigDir, "settings.json");
@@ -319,7 +300,7 @@ function configureGeminiSettings({
     excludeTools?: string[];
   }
   const geminiMcpServers: Record<string, GeminiMcpServerConfig> = {};
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
     if (serverConfig.type !== "http") {
       throw new Error(
         `Unsupported MCP server type for Gemini: ${(serverConfig as { type?: string }).type || "unknown"}`
@@ -334,10 +315,10 @@ function configureGeminiSettings({
 
   // build tools.exclude based on permissions (v0.3.0+ nested format)
   const exclude: string[] = [];
-  if (tools.bash !== "enabled") exclude.push("run_shell_command");
-  if (tools.write === "disabled") exclude.push("write_file");
-  if (tools.web === "disabled") exclude.push("web_fetch");
-  if (tools.search === "disabled") exclude.push("google_web_search");
+  if (ctx.tools.bash !== "enabled") exclude.push("run_shell_command");
+  if (ctx.tools.write === "disabled") exclude.push("write_file");
+  if (ctx.tools.web === "disabled") exclude.push("web_fetch");
+  if (ctx.tools.search === "disabled") exclude.push("google_web_search");
 
   // merge with existing settings, overwriting mcpServers and modelConfig
   const newSettings: Record<string, unknown> = {
@@ -361,4 +342,6 @@ function configureGeminiSettings({
   if (exclude.length > 0) {
     log.info(`🔒 excluded tools: ${exclude.join(", ")}`);
   }
+
+  return model;
 }

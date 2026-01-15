@@ -67,14 +67,6 @@ export interface AgentConfig {
 }
 
 /**
- * Parameters for configuring MCP servers
- */
-export interface ConfigureMcpServersParams {
-  mcpServers: Record<string, McpHttpServerConfig>;
-  cliPath: string;
-}
-
-/**
  * Add agent-specific vars to a whitelisted environment object for agent subprocesses.
  *
  * @param agentSpecificVars - Object containing agent-specific environment variables to include

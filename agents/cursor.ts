@@ -5,13 +5,7 @@ import { join } from "node:path";
 import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import {
-  agent,
-  type ConfigureMcpServersParams,
-  createAgentEnv,
-  installFromCurl,
-  type ToolPermissions,
-} from "./shared.ts";
+import { type AgentConfig, agent, createAgentEnv, installFromCurl } from "./shared.ts";
 
 // effort configuration for Cursor
 // only "max" overrides the model; mini/auto use default ("auto")
@@ -101,9 +95,9 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers, repo, effort, tools }) => {
-    configureCursorMcpServers({ mcpServers, cliPath });
-    configureCursorTools({ tools });
+  run: async (ctx) => {
+    configureCursorMcpServers(ctx);
+    configureCursorTools(ctx);
 
     // determine model based on effort level
     // respect project's .cursor/cli.json if it specifies a model
@@ -116,19 +110,19 @@ export const cursor = agent({
         if (projectConfig.model) {
           log.info(`Using model from project .cursor/cli.json: ${projectConfig.model}`);
         } else {
-          modelOverride = cursorEffortModels[effort];
+          modelOverride = cursorEffortModels[ctx.effort];
         }
       } catch {
-        modelOverride = cursorEffortModels[effort];
+        modelOverride = cursorEffortModels[ctx.effort];
       }
     } else {
-      modelOverride = cursorEffortModels[effort];
+      modelOverride = cursorEffortModels[ctx.effort];
     }
 
     if (modelOverride) {
-      log.info(`Using model: ${modelOverride} (effort: ${effort})`);
+      log.info(`Using model: ${modelOverride} (effort: ${ctx.effort})`);
     } else if (!existsSync(projectCliConfigPath)) {
-      log.info(`Using default model (effort: ${effort})`);
+      log.info(`Using default model (effort: ${ctx.effort})`);
     }
 
     // track logged model_call_ids to avoid duplicates
@@ -202,7 +196,7 @@ export const cursor = agent({
     };
 
     try {
-      const fullPrompt = addInstructions({ payload, repo, tools });
+      const fullPrompt = addInstructions(ctx);
       log.group("Full prompt", () => log.info(fullPrompt));
 
       // build CLI args
@@ -221,10 +215,10 @@ export const cursor = agent({
       const startTime = Date.now();
 
       return new Promise((resolve) => {
-        const child = spawn(cliPath, cursorArgs, {
+        const child = spawn(ctx.cliPath, cursorArgs, {
           cwd: process.cwd(),
           env: createAgentEnv({
-            CURSOR_API_KEY: apiKey,
+            CURSOR_API_KEY: ctx.apiKey,
           }),
           stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
         });
@@ -317,7 +311,7 @@ export const cursor = agent({
 // There was an issue on macOS when you set HOME to a temp directory
 // it was unable to find the macOS keychain and would fail
 // temp solution is to stick with the actual $HOME
-function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
+function configureCursorMcpServers(ctx: AgentConfig): void {
   const realHome = homedir();
   const cursorConfigDir = join(realHome, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");
@@ -325,7 +319,7 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
 
   // Convert to Cursor's expected format (HTTP config)
   const cursorMcpServers: Record<string, { type: string; url: string }> = {};
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
     if (serverConfig.type !== "http") {
       throw new Error(
         `Unsupported MCP server type for Cursor: ${(serverConfig as any).type || "unknown"}`
@@ -342,8 +336,15 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
   log.info(`» MCP config written to ${mcpConfigPath}`);
 }
 
-interface ConfigureCursorToolsParams {
-  tools: ToolPermissions;
+interface CursorCliConfig {
+  permissions: {
+    allow: string[];
+    deny: string[];
+  };
+  sandbox?: {
+    mode: "enabled" | "disabled";
+    networkAccess?: "allowlist" | "full";
+  };
 }
 
 /**
@@ -352,7 +353,7 @@ interface ConfigureCursorToolsParams {
  * Config path: $XDG_CONFIG_HOME/cursor/ (not ~/.cursor/) because createAgentEnv
  * sets XDG_CONFIG_HOME=$HOME/.config.
  */
-function configureCursorTools({ tools }: ConfigureCursorToolsParams): void {
+function configureCursorTools(ctx: AgentConfig): void {
   const realHome = homedir();
   const cursorConfigDir = join(realHome, ".config", "cursor");
   const cliConfigPath = join(cursorConfigDir, "cli-config.json");
@@ -360,23 +361,21 @@ function configureCursorTools({ tools }: ConfigureCursorToolsParams): void {
 
   // build deny list based on tool permissions
   const deny: string[] = [];
-  if (tools.search === "disabled") deny.push("WebSearch");
-  if (tools.write === "disabled") deny.push("Write(**)");
+  if (ctx.tools.search === "disabled") deny.push("WebSearch");
+  if (ctx.tools.write === "disabled") deny.push("Write(**)");
   // both "disabled" and "restricted" block native shell
-  if (tools.bash !== "enabled") deny.push("Shell(*)");
+  if (ctx.tools.bash !== "enabled") deny.push("Shell(*)");
 
-  // web: "disabled" requires sandbox with network blocking
-  // sandbox.networkAccess: "allowlist" blocks network in shell subprocesses via seatbelt
-  const needsSandbox = tools.web === "disabled";
-
-  const config: Record<string, unknown> = {
+  const config: CursorCliConfig = {
     permissions: {
-      allow: tools.write === "disabled" ? ["Read(**)"] : ["Read(**)", "Write(**)"],
+      allow: ctx.tools.write === "disabled" ? ["Read(**)"] : ["Read(**)", "Write(**)"],
       deny,
     },
   };
 
-  if (needsSandbox) {
+  // web: "disabled" requires sandbox with network blocking
+  // sandbox.networkAccess: "allowlist" blocks network in shell subprocesses via seatbelt
+  if (ctx.tools.web === "disabled") {
     config.sandbox = {
       mode: "enabled",
       networkAccess: "allowlist",
@@ -384,8 +383,5 @@ function configureCursorTools({ tools }: ConfigureCursorToolsParams): void {
   }
 
   writeFileSync(cliConfigPath, JSON.stringify(config, null, 2), "utf-8");
-  log.info(`» CLI config written to ${cliConfigPath}`);
-  log.info(
-    `🔧 Cursor permissions: allow=${(config.permissions as { allow: string[] }).allow.join(",")}, deny=${deny.join(",") || "(none)"}, sandbox=${needsSandbox ? "enabled" : "disabled"}`
-  );
+  log.info(`» CLI config written to ${cliConfigPath}`, JSON.stringify(config, null, 2));
 }

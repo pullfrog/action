@@ -3,14 +3,7 @@ import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
-import type { ToolPermissions } from "./shared.ts";
-
-interface RepoInfo {
-  owner: string;
-  name: string;
-  defaultBranch: string;
-  isPublic: boolean;
-}
+import type { RepoInfo, ToolPermissions } from "./shared.ts";
 
 /**
  * Build runtime context string with git status, repo data, and GitHub Actions variables
@@ -52,7 +45,7 @@ function buildRuntimeContext(repo: RepoInfo): string {
   return lines.join("\n");
 }
 
-interface AddInstructionsParams {
+interface AddInstructionsCtx {
   payload: Payload;
   repo: RepoInfo;
   tools: ToolPermissions;
@@ -76,19 +69,19 @@ function getShellInstructions(bash: ToolPermissions["bash"]): string {
   }
 }
 
-export const addInstructions = ({ payload, repo, tools }: AddInstructionsParams) => {
+export const addInstructions = (ctx: AddInstructionsCtx) => {
   let encodedEvent = "";
 
-  const eventKeys = Object.keys(payload.event);
+  const eventKeys = Object.keys(ctx.payload.event);
   if (eventKeys.length === 1 && eventKeys[0] === "trigger") {
     // no meaningful event data to encode
   } else {
     // extract only essential fields to reduce token usage
-    // const essentialEvent = payload.event;
-    encodedEvent = toonEncode(payload.event);
+    // const essentialEvent = ctx.payload.event;
+    encodedEvent = toonEncode(ctx.payload.event);
   }
 
-  const runtimeContext = buildRuntimeContext(repo);
+  const runtimeContext = buildRuntimeContext(ctx.repo);
 
   return (
     `
@@ -159,7 +152,7 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 
 **Efficiency**: Trust the tools - do not repeatedly verify file contents or git status after operations. If a tool reports success, proceed to the next step. Only verify if you encounter an actual error.
 
-${getShellInstructions(tools.bash)}
+${getShellInstructions(ctx.tools.bash)}
 
 **Command execution**: Never use \`sleep\` to wait for commands to complete. Commands run synchronously - when the bash tool returns, the command has finished.
 
@@ -180,7 +173,7 @@ ${getShellInstructions(tools.bash)}
 
 ### Available modes
 
-${[...getModes({ disableProgressComment: payload.disableProgressComment }), ...payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...getModes({ disableProgressComment: ctx.payload.disableProgressComment }), ...ctx.payload.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ### Following the mode instructions
 
@@ -190,7 +183,7 @@ Eagerly inspect the MCP tools available to you via the \`${ghPullfrogMcpName}\` 
 
 ************* USER PROMPT *************
 
-${payload.prompt
+${ctx.payload.prompt
   .split("\n")
   .map((line) => `> ${line}`)
   .join("\n")}

@@ -1,6 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { McpHttpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import {
   Codex,
   type CodexOptions,
@@ -13,9 +12,9 @@ import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
 import {
   agent,
+  type AgentConfig,
   installFromNpmTarball,
   setupProcessAgentEnv,
-  type ToolPermissions,
 } from "./shared.ts";
 
 // model configuration based on effort level
@@ -35,20 +34,15 @@ const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
   max: "high",
 };
 
-interface WriteCodexConfigParams {
-  tempHome: string;
-  mcpServers: Record<string, McpHttpServerConfig>;
-  tools: ToolPermissions;
-}
-
-function writeCodexConfig({ tempHome, mcpServers, tools }: WriteCodexConfigParams): string {
+function writeCodexConfig(ctx: AgentConfig): string {
+  const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const codexDir = join(tempHome, ".codex");
   mkdirSync(codexDir, { recursive: true });
   const configPath = join(codexDir, "config.toml");
 
   // build MCP servers section
   const mcpServerSections: string[] = [];
-  for (const [name, config] of Object.entries(mcpServers)) {
+  for (const [name, config] of Object.entries(ctx.mcpServers)) {
     if (config.type !== "http") continue;
     log.info(`» adding MCP server '${name}' at ${config.url}`);
     mcpServerSections.push(`[mcp_servers.${name}]\nurl = "${config.url}"`);
@@ -58,7 +52,7 @@ function writeCodexConfig({ tempHome, mcpServers, tools }: WriteCodexConfigParam
   // disable native shell if bash is "disabled" or "restricted"
   // when "restricted", agent uses MCP bash tool which filters secrets
   const features: string[] = [];
-  if (tools.bash !== "enabled") {
+  if (ctx.tools.bash !== "enabled") {
     features.push("shell_command_tool = false");
     features.push("unified_exec = false");
   }
@@ -74,7 +68,7 @@ ${mcpServerSections.join("\n\n")}
   );
 
   log.info(
-    `» Codex config written to ${configPath} (shell: ${tools.bash === "enabled" ? "enabled" : "disabled"})`
+    `» Codex config written to ${configPath} (shell: ${ctx.tools.bash === "enabled" ? "enabled" : "disabled"})`
   );
 
   return codexDir;
@@ -89,28 +83,24 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort, tools }) => {
+  run: async (ctx) => {
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
 
     // create config directory for codex before setting HOME
     const configDir = join(tempHome, ".config", "codex");
     mkdirSync(configDir, { recursive: true });
 
-    const codexDir = writeCodexConfig({
-      tempHome,
-      mcpServers,
-      tools,
-    });
+    const codexDir = writeCodexConfig(ctx);
 
     setupProcessAgentEnv({
-      OPENAI_API_KEY: apiKey,
+      OPENAI_API_KEY: ctx.apiKey,
       HOME: tempHome,
       CODEX_HOME: codexDir, // point Codex to our config directory
     });
 
     // get model and reasoning effort based on effort level
-    const model = codexModel[effort];
-    const modelReasoningEffort = codexReasoningEffort[effort];
+    const model = codexModel[ctx.effort];
+    const modelReasoningEffort = codexReasoningEffort[ctx.effort];
     log.info(`Using model: ${model}`);
     if (modelReasoningEffort) {
       log.info(`Using modelReasoningEffort: ${modelReasoningEffort}`);
@@ -118,8 +108,8 @@ export const codex = agent({
 
     // Configure Codex
     const codexOptions: CodexOptions = {
-      apiKey,
-      codexPathOverride: cliPath,
+      apiKey: ctx.apiKey,
+      codexPathOverride: ctx.cliPath,
     };
 
     const codex = new Codex(codexOptions);
@@ -129,11 +119,11 @@ export const codex = agent({
       model,
       approvalPolicy: "never" as const,
       // write: "disabled" → read-only sandbox, otherwise full access for git ops
-      sandboxMode: tools.write === "disabled" ? "read-only" : "danger-full-access",
+      sandboxMode: ctx.tools.write === "disabled" ? "read-only" : "danger-full-access",
       // web: controls network access
-      networkAccessEnabled: tools.web !== "disabled",
+      networkAccessEnabled: ctx.tools.web !== "disabled",
       // search: controls web search
-      webSearchEnabled: tools.search !== "disabled",
+      webSearchEnabled: ctx.tools.search !== "disabled",
       ...(modelReasoningEffort && { modelReasoningEffort }),
     };
 
@@ -144,7 +134,7 @@ export const codex = agent({
     const thread = codex.startThread(threadOptions);
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo, tools }));
+      const streamedTurn = await thread.runStreamed(addInstructions(ctx));
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {

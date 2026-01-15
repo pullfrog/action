@@ -5,11 +5,10 @@ import { spawn } from "../utils/subprocess.ts";
 import { addInstructions } from "./instructions.ts";
 import {
   agent,
-  type ConfigureMcpServersParams,
+  type AgentConfig,
   createAgentEnv,
   installFromNpmTarball,
   setupProcessAgentEnv,
-  type ToolPermissions,
 } from "./shared.ts";
 
 export const opencode = agent({
@@ -22,24 +21,15 @@ export const opencode = agent({
       installDependencies: true,
     });
   },
-  run: async ({
-    payload,
-    apiKey: _apiKey,
-    apiKeys,
-    mcpServers,
-    cliPath,
-    repo,
-    effort: _effort,
-    tools,
-  }) => {
+  run: async (ctx) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    configureOpenCode({ mcpServers, tools });
+    configureOpenCode(ctx);
 
-    const prompt = addInstructions({ payload, repo, tools });
+    const prompt = addInstructions(ctx);
     log.group("Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags
@@ -60,7 +50,7 @@ export const opencode = agent({
     delete env.GITHUB_TOKEN;
 
     // add API keys from apiKeys object
-    for (const [key, value] of Object.entries(apiKeys || {})) {
+    for (const [key, value] of Object.entries(ctx.apiKeys || {})) {
       env[key.toUpperCase()] = value;
       // also set GOOGLE_GENERATIVE_AI_API_KEY for Google provider compatibility
       if (key === "GEMINI_API_KEY") {
@@ -71,7 +61,7 @@ export const opencode = agent({
     // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
     const repoDir = process.cwd();
 
-    log.info(`🚀 Starting OpenCode CLI: ${cliPath} ${args.join(" ")}`);
+    log.info(`🚀 Starting OpenCode CLI: ${ctx.cliPath} ${args.join(" ")}`);
     log.info(`📁 Working directory: ${repoDir}`);
     log.debug(`🏠 HOME: ${env.HOME}`);
     log.debug(`📋 XDG_CONFIG_HOME: ${env.XDG_CONFIG_HOME}`);
@@ -83,7 +73,7 @@ export const opencode = agent({
     let output = "";
     let stdoutBuffer = ""; // buffer for incomplete lines across chunks
     const result = await spawn({
-      cmd: cliPath,
+      cmd: ctx.cliPath,
       args,
       cwd: repoDir,
       env,
@@ -191,16 +181,11 @@ export const opencode = agent({
   },
 });
 
-interface ConfigureOpenCodeParams {
-  mcpServers: ConfigureMcpServersParams["mcpServers"];
-  tools: ToolPermissions;
-}
-
 /**
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode({ mcpServers, tools }: ConfigureOpenCodeParams): void {
+function configureOpenCode(ctx: AgentConfig): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -208,7 +193,7 @@ function configureOpenCode({ mcpServers, tools }: ConfigureOpenCodeParams): void
 
   // build MCP servers config
   const opencodeMcpServers: Record<string, { type: "remote"; url: string }> = {};
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
     if (serverConfig.type !== "http") {
       log.error(
         `unsupported MCP server type for OpenCode: ${(serverConfig as never as { type: string }).type || "unknown"}`
@@ -227,9 +212,9 @@ function configureOpenCode({ mcpServers, tools }: ConfigureOpenCodeParams): void
   // build permission object based on tool permissions
   // note: OpenCode has no built-in web search tool
   const permission = {
-    edit: tools.write === "disabled" ? "deny" : "allow",
-    bash: tools.bash !== "enabled" ? "deny" : "allow",
-    webfetch: tools.web === "disabled" ? "deny" : "allow",
+    edit: ctx.tools.write === "disabled" ? "deny" : "allow",
+    bash: ctx.tools.bash !== "enabled" ? "deny" : "allow",
+    webfetch: ctx.tools.web === "disabled" ? "deny" : "allow",
     doom_loop: "allow",
     external_directory: "allow",
   };

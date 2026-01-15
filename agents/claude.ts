@@ -3,7 +3,7 @@ import type { Effort } from "../external.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, createAgentEnv, installFromNpmTarball, type ToolPermissions } from "./shared.ts";
+import { type AgentConfig, agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
 
 // Model selection based on effort level
 // Note: mini uses Haiku for speed, auto uses opusplan for balance, max uses Opus for capability
@@ -22,14 +22,14 @@ const claudeEffortModels: Record<Effort, string> = {
 /**
  * Build disallowedTools list from ToolPermissions.
  */
-function buildDisallowedTools(tools: ToolPermissions): string[] {
+function buildDisallowedTools(ctx: AgentConfig): string[] {
   const disallowed: string[] = [];
-  if (tools.web === "disabled") disallowed.push("WebFetch");
-  if (tools.search === "disabled") disallowed.push("WebSearch");
-  if (tools.write === "disabled") disallowed.push("Write");
+  if (ctx.tools.web === "disabled") disallowed.push("WebFetch");
+  if (ctx.tools.search === "disabled") disallowed.push("WebSearch");
+  if (ctx.tools.write === "disabled") disallowed.push("Write");
   // both "disabled" and "restricted" block native bash
   // "restricted" means use MCP bash tool instead
-  if (tools.bash !== "enabled") disallowed.push("Bash");
+  if (ctx.tools.bash !== "enabled") disallowed.push("Bash");
   return disallowed;
 }
 
@@ -43,19 +43,19 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort, tools }) => {
+  run: async (ctx) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
-    const prompt = addInstructions({ payload, repo, tools });
+    const prompt = addInstructions(ctx);
     log.group("Full prompt", () => log.info(prompt));
 
     // select model based on effort level
-    const model = claudeEffortModels[effort];
-    log.info(`Using model: ${model} (effort: ${effort})`);
+    const model = claudeEffortModels[ctx.effort];
+    log.info(`Using model: ${model} (effort: ${ctx.effort})`);
 
     // build disallowedTools based on tool permissions
-    const disallowedTools = buildDisallowedTools(tools);
+    const disallowedTools = buildDisallowedTools(ctx);
     if (disallowedTools.length > 0) {
       log.info(`🔒 disallowed tools: ${disallowedTools.join(", ")}`);
     }
@@ -65,10 +65,10 @@ export const claude = agent({
     const queryOptions: Options = {
       permissionMode: "bypassPermissions" as const,
       disallowedTools,
-      mcpServers,
+      mcpServers: ctx.mcpServers,
       model,
-      pathToClaudeCodeExecutable: cliPath,
-      env: createAgentEnv({ ANTHROPIC_API_KEY: apiKey }),
+      pathToClaudeCodeExecutable: ctx.cliPath,
+      env: createAgentEnv({ ANTHROPIC_API_KEY: ctx.apiKey }),
     };
 
     const queryInstance = query({

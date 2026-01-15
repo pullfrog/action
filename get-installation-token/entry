@@ -25505,11 +25505,19 @@ var core3 = __toESM(require_core(), 1);
 var core2 = __toESM(require_core(), 1);
 import { createSign } from "node:crypto";
 
-// utils/cli.ts
+// utils/log.ts
 var core = __toESM(require_core(), 1);
 var import_table = __toESM(require_src(), 1);
 var isGitHubActions = !!process.env.GITHUB_ACTIONS;
 var isDebugEnabled = () => process.env.LOG_LEVEL === "debug" || process.env.ACTIONS_STEP_DEBUG === "true" || process.env.RUNNER_DEBUG === "1" || core.isDebug();
+function formatArgs(args) {
+  return args.map((arg) => {
+    if (typeof arg === "string") return arg;
+    if (arg instanceof Error) return `${arg.message}
+${arg.stack}`;
+    return JSON.stringify(arg);
+  }).join(" ");
+}
 function startGroup2(name) {
   if (isGitHubActions) {
     core.startGroup(name);
@@ -25614,25 +25622,25 @@ function separator(length = 50) {
 }
 var log = {
   /** Print info message */
-  info: (message) => {
-    core.info(message);
+  info: (...args) => {
+    core.info(formatArgs(args));
   },
   /** Print warning message */
-  warning: (message) => {
-    core.warning(message);
+  warning: (...args) => {
+    core.warning(formatArgs(args));
   },
   /** Print error message */
-  error: (message) => {
-    core.error(message);
+  error: (...args) => {
+    core.error(formatArgs(args));
   },
   /** Print success message */
-  success: (message) => {
-    core.info(`\u2705 ${message}`);
+  success: (...args) => {
+    core.info(`\u2705 ${formatArgs(args)}`);
   },
   /** Print debug message (only if LOG_LEVEL=debug) */
-  debug: (message) => {
+  debug: (...args) => {
     if (isDebugEnabled()) {
-      core.info(`[DEBUG] ${message}`);
+      core.info(`[DEBUG] ${formatArgs(args)}`);
     }
   },
   /** Print a formatted box with text */
