@@ -55,13 +55,6 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       // set PR context
       ctx.toolState.prNumber = pull_number;
 
-      // get the PR to determine the head commit if commit_id not provided
-      const pr = await ctx.octokit.rest.pulls.get({
-        owner: ctx.owner,
-        repo: ctx.name,
-        pull_number,
-      });
-
       // compose the request
       const params: RestEndpointMethodTypes["pulls"]["createReview"]["parameters"] = {
         owner: ctx.owner,
@@ -73,6 +66,12 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       if (commit_id) {
         params.commit_id = commit_id;
       } else {
+        // get the PR to determine the head commit if commit_id not provided
+        const pr = await ctx.octokit.rest.pulls.get({
+          owner: ctx.owner,
+          repo: ctx.name,
+          pull_number,
+        });
         params.commit_id = pr.data.head.sha;
       }
       if (comments.length > 0) {
