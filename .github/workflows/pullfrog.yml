@@ -11,16 +11,18 @@ on:
       prompt:
         description: Agent prompt
         type: string
-    secrets: inherit
 
 permissions:
   id-token: write
+  contents: read
 
 jobs:
-  agent:
+  pullfrog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Run agent
         uses: pullfrog/pullfrog@main
