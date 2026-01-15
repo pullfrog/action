@@ -26,6 +26,11 @@ function filterEnv(isPublicRepo: boolean): Record<string, string> {
     if (isPublicRepo && isSensitive(key)) continue;
     filtered[key] = value;
   }
+  // restore original GITHUB_TOKEN (the one set by GitHub Actions, not our installation token)
+  // this allows git operations in subprocesses to work while keeping our installation token secure
+  if (process.env.ORIGINAL_GITHUB_TOKEN) {
+    filtered.GITHUB_TOKEN = process.env.ORIGINAL_GITHUB_TOKEN;
+  }
   return filtered;
 }
 

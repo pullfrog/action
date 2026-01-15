@@ -230,6 +230,7 @@ const findInstallationId = async (
   );
 };
 
+// for local development only
 async function acquireTokenViaGitHubApp(): Promise<string> {
   const repoContext = parseRepoContext();
 
@@ -263,6 +264,8 @@ let githubInstallationToken: string | undefined;
  */
 export async function setupGitHubInstallationToken() {
   assert(!githubInstallationToken, "GitHub installation token is already set.");
+  // store original GITHUB_TOKEN before we overwrite it (used by filterEnv in bash.ts)
+  process.env.ORIGINAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   const acquiredToken = await acquireNewToken();
   core.setSecret(acquiredToken);
   githubInstallationToken = acquiredToken;
@@ -339,10 +342,10 @@ export function createOctokit(token: string): OctokitWithPlugins {
   return new OctokitWithPlugins({
     auth: token,
     throttle: {
-      onRateLimit: (retryAfter, options, octokit, retryCount) => {
+      onRateLimit: (_retryAfter, _options, _octokit, retryCount) => {
         return retryCount <= 2;
       },
-      onSecondaryRateLimit: (retryAfter, options, octokit, retryCount) => {
+      onSecondaryRateLimit: (_retryAfter, _options, _octokit, retryCount) => {
         return retryCount <= 2;
       },
     },
