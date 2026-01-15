@@ -1,4 +1,4 @@
-import type { AgentName } from "../external.ts";
+import type { AgentName, BashPermission, ToolPermission } from "../external.ts";
 import type { RepoContext } from "./github.ts";
 
 export interface Mode {
@@ -10,17 +10,19 @@ export interface Mode {
 
 export interface RepoSettings {
   defaultAgent: AgentName | null;
-  webAccessLevel: "full_access" | "limited";
-  webAccessAllowTrusted: boolean;
-  webAccessDomains: string;
+  web: ToolPermission;
+  search: ToolPermission;
+  write: ToolPermission;
+  bash: BashPermission;
   modes: Mode[];
 }
 
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   defaultAgent: null,
-  webAccessLevel: "full_access",
-  webAccessAllowTrusted: false,
-  webAccessDomains: "",
+  web: "enabled",
+  search: "enabled",
+  write: "enabled",
+  bash: "restricted",
   modes: [],
 };
 

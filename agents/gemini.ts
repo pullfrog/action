@@ -10,6 +10,7 @@ import {
   type ConfigureMcpServersParams,
   createAgentEnv,
   installFromGithub,
+  type ToolPermissions,
 } from "./shared.ts";
 
 // effort configuration: model + thinking level
@@ -171,48 +172,23 @@ export const gemini = agent({
       ...(githubInstallationToken && { githubInstallationToken }),
     });
   },
-  run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort }) => {
+  run: async ({ payload, apiKey, mcpServers, cliPath, repo, effort, tools }) => {
     // get model and thinking level based on effort
     const { model, thinkingLevel } = geminiEffortConfig[effort];
     log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
 
-    configureGeminiSettings({ mcpServers, isPublicRepo: repo.isPublic, thinkingLevel });
+    configureGeminiSettings({ mcpServers, tools, thinkingLevel });
 
     if (!apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions({ payload, repo });
+    const sessionPrompt = addInstructions({ payload, repo, tools });
     log.group("Full prompt", () => log.info(sessionPrompt));
 
-    // build CLI args based on sandbox mode
-    // for public repos, native shell is disabled via excludeTools in settings.json
-    let args: string[];
-    if (payload.sandbox) {
-      // sandbox mode: read-only tools only
-      args = [
-        "--model",
-        model,
-        "--allowed-tools",
-        "read_file,list_directory,search_file_content,glob,save_memory,write_todos",
-        "--allowed-mcp-server-names",
-        "gh_pullfrog",
-        "--output-format=stream-json",
-        "-p",
-        sessionPrompt,
-      ];
-    } else {
-      // normal mode: --yolo for auto-approval
-      // for public repos, shell is excluded via settings.json excludeTools
-      args = ["--model", model, "--yolo", "--output-format=stream-json", "-p", sessionPrompt];
-      if (repo.isPublic) {
-        log.info("🔒 public repo: native shell disabled via excludeTools, using MCP bash");
-      }
-    }
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
+    // build CLI args - --yolo for auto-approval
+    // tool restrictions handled via settings.json tools.exclude
+    const args = ["--model", model, "--yolo", "--output-format=stream-json", "-p", sessionPrompt];
 
     let finalOutput = "";
     let stdoutBuffer = "";
@@ -294,23 +270,23 @@ export const gemini = agent({
   },
 });
 
-type ConfigureGeminiParams = {
+interface ConfigureGeminiParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
-  isPublicRepo: boolean;
+  tools: ToolPermissions;
   thinkingLevel: string;
-};
+}
 
 /**
  * Configure Gemini CLI settings by writing to settings.json.
  * - MCP servers: uses `httpUrl` for HTTP/streamable transport
  * - thinkingLevel: configured via modelConfig.generateContentConfig.thinkingConfig
- * - For public repos, excludeTools disables native shell
+ * - tools.exclude: disables native tools based on ToolPermissions (v0.3.0+ format)
  *
  * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
 function configureGeminiSettings({
   mcpServers,
-  isPublicRepo,
+  tools,
   thinkingLevel,
 }: ConfigureGeminiParams): void {
   const realHome = homedir();
@@ -328,7 +304,7 @@ function configureGeminiSettings({
   }
 
   // convert to Gemini's expected format (httpUrl for HTTP transport, no type field)
-  type GeminiMcpServerConfig = {
+  interface GeminiMcpServerConfig {
     command?: string;
     args?: string[];
     env?: Record<string, string>;
@@ -341,7 +317,7 @@ function configureGeminiSettings({
     description?: string;
     includeTools?: string[];
     excludeTools?: string[];
-  };
+  }
   const geminiMcpServers: Record<string, GeminiMcpServerConfig> = {};
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
     if (serverConfig.type !== "http") {
@@ -353,8 +329,15 @@ function configureGeminiSettings({
       httpUrl: serverConfig.url,
       trust: true, // trust our own MCP server to avoid confirmation prompts
     };
-    log.info(`Adding MCP server '${serverName}' at ${serverConfig.url}...`);
+    log.info(`adding MCP server '${serverName}' at ${serverConfig.url}...`);
   }
+
+  // build tools.exclude based on permissions (v0.3.0+ nested format)
+  const exclude: string[] = [];
+  if (tools.bash !== "enabled") exclude.push("run_shell_command");
+  if (tools.write === "disabled") exclude.push("write_file");
+  if (tools.web === "disabled") exclude.push("web_fetch");
+  if (tools.search === "disabled") exclude.push("google_web_search");
 
   // merge with existing settings, overwriting mcpServers and modelConfig
   const newSettings: Record<string, unknown> = {
@@ -369,13 +352,13 @@ function configureGeminiSettings({
         },
       },
     },
+    // v0.3.0+ nested format
+    ...(exclude.length > 0 && { tools: { exclude } }),
   };
-
-  // for public repos, exclude native shell tool to prevent secret leakage via env
-  if (isPublicRepo) {
-    newSettings.excludeTools = ["run_shell_command"];
-  }
 
   writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
   log.info(`» Gemini settings written to ${settingsPath}`);
+  if (exclude.length > 0) {
+    log.info(`🔒 excluded tools: ${exclude.join(", ")}`);
+  }
 }

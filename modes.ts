@@ -69,7 +69,7 @@ export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
 `,
     },
     {
-      name: "Address Reviews",
+      name: "AddressReviews",
       description:
         "Address PR review feedback; respond to reviewer comments; make requested changes to an existing PR",
       prompt: `Follow these steps. THINK HARDER.

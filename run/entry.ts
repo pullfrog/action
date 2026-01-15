@@ -9,12 +9,21 @@ import { Inputs, main } from "../main.ts";
 
 async function run(): Promise<void> {
   try {
+    // granular tool permissions (empty string means not set, use default)
+    const web = core.getInput("web") || undefined;
+    const search = core.getInput("search") || undefined;
+    const write = core.getInput("write") || undefined;
+    const bash = core.getInput("bash") || undefined;
+
     const inputs = Inputs.assert({
       prompt: core.getInput("prompt", { required: true }),
       effort: core.getInput("effort") || "auto",
       agent: core.getInput("agent") || null,
-      sandbox: core.getInput("sandbox") === "true" ? true : undefined,
       cwd: core.getInput("cwd") || null,
+      web,
+      search,
+      write,
+      bash,
     });
 
     const result = await main(inputs);

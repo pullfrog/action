@@ -56,6 +56,14 @@ export type AgentApiKeyName = (typeof agentsManifest)[AgentName]["apiKeyNames"][
 export const Effort = type.enumerated("mini", "auto", "max");
 export type Effort = typeof Effort.infer;
 
+// tool permission types shared with server dispatch
+export type ToolPermission = "disabled" | "enabled";
+export type BashPermission = "disabled" | "restricted" | "enabled";
+
+// permission level for the author who triggered the event
+// matches GitHub's permission levels: admin > write > maintain > triage > read > none
+export type AuthorPermission = "admin" | "maintain" | "write" | "triage" | "read" | "none";
+
 // base interface for common payload event fields
 interface BasePayloadEvent {
   issue_number?: number;
@@ -83,6 +91,8 @@ interface BasePayloadEvent {
     url: string;
   };
   comment_ids?: number[] | "all";
+  /** permission level of the user who triggered this event */
+  authorPermission?: AuthorPermission;
   [key: string]: any;
 }
 
@@ -248,16 +258,22 @@ export type PayloadEvent =
 
 export interface DispatchOptions {
   /**
-   * Sandbox mode flag - when true, restricts agent to read-only operations
-   * (no Write, Web, or Bash access)
-   */
-  readonly sandbox?: boolean;
-
-  /**
    * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)
    */
   readonly disableProgressComment?: true;
+
+  /**
+   * Granular tool permissions set server-side for dispatch workflows.
+   */
+  readonly web?: ToolPermission;
+  readonly search?: ToolPermission;
+  readonly write?: ToolPermission;
+  readonly bash?: BashPermission;
 }
+
+export type MutableDispatchOptions = {
+  -readonly [K in keyof DispatchOptions]: DispatchOptions[K];
+};
 
 // payload type for agent execution
 export interface Payload extends DispatchOptions {

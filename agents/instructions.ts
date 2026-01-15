@@ -3,6 +3,7 @@ import { encode as toonEncode } from "@toon-format/toon";
 import type { Payload } from "../external.ts";
 import { ghPullfrogMcpName } from "../external.ts";
 import { getModes } from "../modes.ts";
+import type { ToolPermissions } from "./shared.ts";
 
 interface RepoInfo {
   owner: string;
@@ -54,12 +55,28 @@ function buildRuntimeContext(repo: RepoInfo): string {
 interface AddInstructionsParams {
   payload: Payload;
   repo: RepoInfo;
+  tools: ToolPermissions;
 }
 
-export const addInstructions = ({ payload, repo }: AddInstructionsParams) => {
-  // for public repos, always use MCP bash for security (filters secrets)
-  // for private repos, agents can use their native bash
-  const useNativeBash = !repo.isPublic;
+/**
+ * Generate shell instructions based on bash permission level.
+ */
+function getShellInstructions(bash: ToolPermissions["bash"]): string {
+  switch (bash) {
+    case "disabled":
+      return `**Shell commands**: Shell command execution is DISABLED. Do not attempt to run shell commands.`;
+    case "restricted":
+      return `**Shell commands**: Use the \`${ghPullfrogMcpName}/bash\` MCP tool for all shell command execution. This tool provides a secure environment with filtered credentials. Do NOT use any native shell/bash tool - it is disabled for security.`;
+    case "enabled":
+      return `**Shell commands**: Use your native bash/shell tool for shell command execution.`;
+    default: {
+      const _exhaustive: never = bash;
+      return _exhaustive satisfies never;
+    }
+  }
+}
+
+export const addInstructions = ({ payload, repo, tools }: AddInstructionsParams) => {
   let encodedEvent = "";
 
   const eventKeys = Object.keys(payload.event);
@@ -142,11 +159,7 @@ Tool names may be formatted as \`(server name)/(tool name)\`, for example: \`${g
 
 **Efficiency**: Trust the tools - do not repeatedly verify file contents or git status after operations. If a tool reports success, proceed to the next step. Only verify if you encounter an actual error.
 
-${
-  useNativeBash
-    ? `**Shell commands**: Use your native bash/shell tool for shell command execution.`
-    : `**Shell commands**: Use the \`${ghPullfrogMcpName}/bash\` MCP tool for all shell command execution. This tool provides a secure environment with filtered credentials. Do NOT use any native shell/bash tool - it is disabled for security.`
-}
+${getShellInstructions(tools.bash)}
 
 **Command execution**: Never use \`sleep\` to wait for commands to complete. Commands run synchronously - when the bash tool returns, the command has finished.
 

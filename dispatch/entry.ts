@@ -33,7 +33,11 @@ async function run(): Promise<void> {
       agent: payloadObj.agent,
       event: payloadObj.event,
       modes: payloadObj.modes,
-      sandbox: payloadObj.sandbox,
+      // granular tool permissions
+      web: payloadObj.web,
+      search: payloadObj.search,
+      write: payloadObj.write,
+      bash: payloadObj.bash,
       disableProgressComment: payloadObj.disableProgressComment,
       comment_id: payloadObj.comment_id,
       issue_id: payloadObj.issue_id,

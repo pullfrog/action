@@ -37,6 +37,22 @@ export interface RepoInfo {
 }
 
 /**
+ * Tool permission levels
+ */
+export type ToolPermission = "disabled" | "enabled";
+export type BashPermission = "disabled" | "restricted" | "enabled";
+
+/**
+ * Granular tool permissions for agents
+ */
+export interface ToolPermissions {
+  web: ToolPermission;
+  search: ToolPermission;
+  write: ToolPermission;
+  bash: BashPermission;
+}
+
+/**
  * Configuration for agent creation
  */
 export interface AgentConfig {
@@ -47,6 +63,7 @@ export interface AgentConfig {
   cliPath: string;
   repo: RepoInfo;
   effort: Effort;
+  tools: ToolPermissions;
 }
 
 /**

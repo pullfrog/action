@@ -1,5 +1,4 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-
 import { join } from "node:path";
 import { log } from "../utils/cli.ts";
 import { spawn } from "../utils/subprocess.ts";
@@ -10,6 +9,7 @@ import {
   createAgentEnv,
   installFromNpmTarball,
   setupProcessAgentEnv,
+  type ToolPermissions,
 } from "./shared.ts";
 
 export const opencode = agent({
@@ -30,27 +30,20 @@ export const opencode = agent({
     cliPath,
     repo,
     effort: _effort,
+    tools,
   }) => {
     // 1. configure home/config directory
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
-    configureOpenCode({
-      mcpServers,
-      sandbox: payload.sandbox ?? false,
-      isPublicRepo: repo.isPublic,
-    });
+    configureOpenCode({ mcpServers, tools });
 
-    const prompt = addInstructions({ payload, repo });
+    const prompt = addInstructions({ payload, repo, tools });
     log.group("Full prompt", () => log.info(prompt));
 
     // message positional must come right after "run", before flags
     const args = ["run", prompt, "--format", "json"];
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
 
     // 6. set up environment
     setupProcessAgentEnv({ HOME: tempHome });
@@ -200,15 +193,14 @@ export const opencode = agent({
 
 interface ConfigureOpenCodeParams {
   mcpServers: ConfigureMcpServersParams["mcpServers"];
-  sandbox: boolean;
-  isPublicRepo: boolean;
+  tools: ToolPermissions;
 }
 
 /**
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenCodeParams): void {
+function configureOpenCode({ mcpServers, tools }: ConfigureOpenCodeParams): void {
   const tempHome = process.env.PULLFROG_TEMP_DIR!;
   const configDir = join(tempHome, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
@@ -232,25 +224,15 @@ function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenC
     };
   }
 
-  // SECURITY: For PUBLIC repos, OpenCode spawns subprocesses with full process.env, leaking API keys.
-  // disable native bash; agents use MCP bash tool which filters secrets.
-  // for private repos, native bash is allowed.
-  const bashPermission = isPublicRepo ? "deny" : "allow";
-  const permission = sandbox
-    ? {
-        edit: "deny",
-        bash: "deny",
-        webfetch: "deny",
-        doom_loop: "allow",
-        external_directory: "allow",
-      }
-    : {
-        edit: "allow",
-        bash: bashPermission,
-        webfetch: "allow",
-        doom_loop: "allow",
-        external_directory: "allow",
-      };
+  // build permission object based on tool permissions
+  // note: OpenCode has no built-in web search tool
+  const permission = {
+    edit: tools.write === "disabled" ? "deny" : "allow",
+    bash: tools.bash !== "enabled" ? "deny" : "allow",
+    webfetch: tools.web === "disabled" ? "deny" : "allow",
+    doom_loop: "allow",
+    external_directory: "allow",
+  };
 
   // build complete config in one object
   const config = {
@@ -268,7 +250,10 @@ function configureOpenCode({ mcpServers, sandbox, isPublicRepo }: ConfigureOpenC
     throw error;
   }
 
-  log.info(`» OpenCode config written to ${configPath} (sandbox: ${sandbox})`);
+  log.info(`» OpenCode config written to ${configPath}`);
+  log.info(
+    `🔧 OpenCode permissions: edit=${permission.edit}, bash=${permission.bash}, webfetch=${permission.webfetch}`
+  );
   log.debug(`OpenCode config contents:\n${configJson}`);
 }
 

@@ -3,7 +3,7 @@ import type { Effort } from "../external.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
+import { agent, createAgentEnv, installFromNpmTarball, type ToolPermissions } from "./shared.ts";
 
 // Model selection based on effort level
 // Note: mini uses Haiku for speed, auto uses opusplan for balance, max uses Opus for capability
@@ -19,6 +19,20 @@ const claudeEffortModels: Record<Effort, string> = {
 // See: https://platform.claude.com/docs/en/build-with-claude/effort
 // This approach could replace model selection if effort proves effective for controlling capability.
 
+/**
+ * Build disallowedTools list from ToolPermissions.
+ */
+function buildDisallowedTools(tools: ToolPermissions): string[] {
+  const disallowed: string[] = [];
+  if (tools.web === "disabled") disallowed.push("WebFetch");
+  if (tools.search === "disabled") disallowed.push("WebSearch");
+  if (tools.write === "disabled") disallowed.push("Write");
+  // both "disabled" and "restricted" block native bash
+  // "restricted" means use MCP bash tool instead
+  if (tools.bash !== "enabled") disallowed.push("Bash");
+  return disallowed;
+}
+
 export const claude = agent({
   name: "claude",
   install: async () => {
@@ -29,44 +43,28 @@ export const claude = agent({
       executablePath: "cli.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort, tools }) => {
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
-    const prompt = addInstructions({ payload, repo });
+    const prompt = addInstructions({ payload, repo, tools });
     log.group("Full prompt", () => log.info(prompt));
 
     // select model based on effort level
     const model = claudeEffortModels[effort];
     log.info(`Using model: ${model} (effort: ${effort})`);
 
-    // SECURITY: For PUBLIC repos, Claude Code spawns subprocesses with full process.env, leaking API keys.
-    // disable native Bash; agents use MCP bash tool which filters secrets.
-    // for private repos, native Bash is allowed since secrets are less exposed.
-    const disallowedTools = repo.isPublic ? ["Bash"] : [];
-    const sandboxOptions: Options = payload.sandbox
-      ? {
-          permissionMode: "default",
-          disallowedTools: ["Bash", "WebSearch", "WebFetch", "Write"],
-          async canUseTool(toolName, input, _options) {
-            if (toolName.startsWith("mcp__gh_pullfrog__"))
-              return { behavior: "allow", updatedInput: input, updatedPermissions: [] };
-            return { behavior: "deny", message: "tool not allowed in sandbox mode" };
-          },
-        }
-      : {
-          permissionMode: "bypassPermissions" as const,
-          disallowedTools,
-        };
-
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
+    // build disallowedTools based on tool permissions
+    const disallowedTools = buildDisallowedTools(tools);
+    if (disallowedTools.length > 0) {
+      log.info(`🔒 disallowed tools: ${disallowedTools.join(", ")}`);
     }
 
     // Pass secrets via SDK's env option only (not process.env)
     // This ensures secrets are only available to Claude Code subprocess, not user code
     const queryOptions: Options = {
-      ...sandboxOptions,
+      permissionMode: "bypassPermissions" as const,
+      disallowedTools,
       mcpServers,
       model,
       pathToClaudeCodeExecutable: cliPath,

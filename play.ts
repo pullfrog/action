@@ -18,7 +18,7 @@ config();
 // also load .env from repo root (for monorepo structure)
 config({ path: join(__dirname, "..", ".env") });
 
-export async function run(prompt: string): Promise<AgentResult> {
+export async function run(inputsOrPrompt: Inputs | string): Promise<AgentResult> {
   try {
     const tempDir = join(__dirname, ".temp");
     setupTestRepo({ tempDir });
@@ -26,9 +26,9 @@ export async function run(prompt: string): Promise<AgentResult> {
     const originalCwd = process.cwd();
     process.chdir(tempDir);
 
-    const inputs: Inputs = {
-      prompt,
-    };
+    // allow passing full Inputs object or just a prompt string
+    const inputs: Inputs =
+      typeof inputsOrPrompt === "string" ? { prompt: inputsOrPrompt } : inputsOrPrompt;
 
     const result = await main(inputs);
 
@@ -220,6 +220,14 @@ Examples:
 
           process.exit(allSuccess ? 0 : 1);
         } else if (typeof module.default === "object") {
+          const obj = module.default as Record<string, unknown>;
+          // Inputs objects have `prompt` field and optional tool permission fields
+          // Payload objects have `~pullfrog` field
+          if ("prompt" in obj && !("~pullfrog" in obj)) {
+            // this is an Inputs object - run directly with tool permissions
+            const result = await run(obj as Inputs);
+            process.exit(result.success ? 0 : 1);
+          }
           // Payload objects (with ~pullfrog) should be stringified
           prompt = JSON.stringify(module.default, null, 2);
         } else {

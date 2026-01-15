@@ -6,7 +6,7 @@ import type { Octokit } from "@octokit/rest";
 import { encode as toonEncode } from "@toon-format/toon";
 import { type } from "arktype";
 import { type Agent, agents } from "./agents/index.ts";
-import type { AgentResult } from "./agents/shared.ts";
+import type { AgentResult, ToolPermissions } from "./agents/shared.ts";
 import { AgentName, agentsManifest, Effort, type Payload } from "./external.ts";
 import { ensureProgressCommentUpdated, reportProgress } from "./mcp/comment.ts";
 import { createMcpConfigs } from "./mcp/config.ts";
@@ -21,6 +21,10 @@ import { createOctokit, parseRepoContext, setupGitHubInstallationToken } from ".
 import { setupGitAuth, setupGitConfig } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 
+// tool permission enum types for inputs
+const ToolPermissionInput = type.enumerated("disabled", "enabled");
+const BashPermissionInput = type.enumerated("disabled", "restricted", "enabled");
+
 // inputs schema - mirrors Payload fields without the discriminated union for event
 export const Inputs = type({
   prompt: "string",
@@ -28,7 +32,10 @@ export const Inputs = type({
   "agent?": AgentName.or("null"),
   "event?": "object",
   "modes?": ModeSchema.array(),
-  "sandbox?": "boolean",
+  "web?": ToolPermissionInput,
+  "search?": ToolPermissionInput,
+  "write?": ToolPermissionInput,
+  "bash?": BashPermissionInput,
   "disableProgressComment?": "true",
   "comment_id?": "number|null",
   "issue_id?": "number|null",
@@ -430,7 +437,6 @@ function parsePayload(inputs: Inputs): Payload {
       event: inputs.event as Payload["event"],
       modes: inputs.modes ?? modes,
       effort: inputs.effort ?? "auto",
-      sandbox: inputs.sandbox,
       disableProgressComment: inputs.disableProgressComment,
       comment_id: inputs.comment_id,
       issue_id: inputs.issue_id,
@@ -460,7 +466,6 @@ function parsePayload(inputs: Inputs): Payload {
       },
       modes: inputs.modes ?? modes,
       effort: inputs.effort ?? "auto",
-      sandbox: inputs.sandbox,
     } as Payload;
   }
 }
@@ -517,6 +522,22 @@ function validateApiKey(params: { agent: Agent; owner: string; name: string }): 
   };
 }
 
+/**
+ * Compute tool permissions from inputs.
+ * For run action, bash defaults to restricted for public repos when unset.
+ */
+function computeToolPermissions(params: {
+  inputs: Inputs;
+  isPublicRepo: boolean;
+}): ToolPermissions {
+  return {
+    web: params.inputs.web ?? "enabled",
+    search: params.inputs.search ?? "enabled",
+    write: params.inputs.write ?? "enabled",
+    bash: params.inputs.bash ?? (params.isPublicRepo ? "restricted" : "enabled"),
+  };
+}
+
 async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   const effort = ctx.payload.effort ?? "auto";
   log.info(`Running ${ctx.agent.name} with effort=${effort}...`);
@@ -525,6 +546,11 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
   // format: prompt + two newlines + TOON encoded event
   const promptContent = `${ctx.payload.prompt}\n\n${toonEncode(eventWithoutContext)}`;
   log.box(promptContent, { title: "Prompt" });
+
+  const tools = computeToolPermissions({ inputs: ctx.inputs, isPublicRepo: !ctx.repo.private });
+  log.info(
+    `Tool permissions: web=${tools.web}, search=${tools.search}, write=${tools.write}, bash=${tools.bash}`
+  );
 
   return ctx.agent.run({
     payload: ctx.payload,
@@ -539,6 +565,7 @@ async function runAgent(ctx: AgentContext): Promise<AgentResult> {
       isPublic: !ctx.repo.private,
     },
     effort,
+    tools,
   });
 }
 

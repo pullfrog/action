@@ -10,6 +10,7 @@ import {
   type ConfigureMcpServersParams,
   createAgentEnv,
   installFromCurl,
+  type ToolPermissions,
 } from "./shared.ts";
 
 // effort configuration for Cursor
@@ -100,9 +101,9 @@ export const cursor = agent({
       executableName: "cursor-agent",
     });
   },
-  run: async ({ payload, apiKey, cliPath, mcpServers, repo, effort }) => {
+  run: async ({ payload, apiKey, cliPath, mcpServers, repo, effort, tools }) => {
     configureCursorMcpServers({ mcpServers, cliPath });
-    configureCursorSandbox({ sandbox: payload.sandbox ?? false, isPublicRepo: repo.isPublic });
+    configureCursorTools({ tools });
 
     // determine model based on effort level
     // respect project's .cursor/cli.json if it specifies a model
@@ -201,11 +202,10 @@ export const cursor = agent({
     };
 
     try {
-      const fullPrompt = addInstructions({ payload, repo });
+      const fullPrompt = addInstructions({ payload, repo, tools });
       log.group("Full prompt", () => log.info(fullPrompt));
 
-      // configure sandbox mode if enabled
-      // in sandbox mode: remove --force flag and rely on cli-config.json sandbox settings
+      // build CLI args
       const baseArgs = ["--print", fullPrompt, "--output-format", "stream-json", "--approve-mcps"];
 
       // add model flag if we have an override
@@ -213,13 +213,8 @@ export const cursor = agent({
         baseArgs.push("--model", modelOverride);
       }
 
-      const cursorArgs = payload.sandbox
-        ? baseArgs // --force removed in sandbox mode to enforce safety checks
-        : [...baseArgs, "--force"];
-
-      if (payload.sandbox) {
-        log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-      }
+      // always use --force since permissions are controlled via cli-config.json
+      const cursorArgs = [...baseArgs, "--force"];
 
       log.info("Running Cursor CLI...");
 
@@ -347,48 +342,50 @@ function configureCursorMcpServers({ mcpServers }: ConfigureMcpServersParams) {
   log.info(`» MCP config written to ${mcpConfigPath}`);
 }
 
+interface ConfigureCursorToolsParams {
+  tools: ToolPermissions;
+}
+
 /**
- * Configure Cursor CLI sandbox mode via cli-config.json.
- *
- * SECURITY: For PUBLIC repos, Cursor spawns subprocesses with full process.env, leaking API keys.
- * We deny native Shell via Shell(*) rule, forcing use of MCP bash tool which
- * filters secrets. Note: Shell(**) does NOT work, must use Shell(*).
- * For private repos, native Shell is allowed.
+ * Configure Cursor CLI tool permissions via cli-config.json.
  *
  * Config path: $XDG_CONFIG_HOME/cursor/ (not ~/.cursor/) because createAgentEnv
- * sets XDG_CONFIG_HOME=$HOME/.config. See issues/cursor-perms.md.
+ * sets XDG_CONFIG_HOME=$HOME/.config.
  */
-function configureCursorSandbox({
-  sandbox,
-  isPublicRepo,
-}: {
-  sandbox: boolean;
-  isPublicRepo: boolean;
-}): void {
+function configureCursorTools({ tools }: ConfigureCursorToolsParams): void {
   const realHome = homedir();
   const cursorConfigDir = join(realHome, ".config", "cursor");
   const cliConfigPath = join(cursorConfigDir, "cli-config.json");
   mkdirSync(cursorConfigDir, { recursive: true });
 
-  // deny native shell for public repos to prevent secret leakage
-  const denyShell = isPublicRepo ? ["Shell(*)"] : [];
+  // build deny list based on tool permissions
+  const deny: string[] = [];
+  if (tools.search === "disabled") deny.push("WebSearch");
+  if (tools.write === "disabled") deny.push("Write(**)");
+  // both "disabled" and "restricted" block native shell
+  if (tools.bash !== "enabled") deny.push("Shell(*)");
 
-  const config = sandbox
-    ? {
-        permissions: {
-          allow: ["Read(**)"],
-          deny: ["Write(**)", ...denyShell],
-        },
-      }
-    : {
-        permissions: {
-          allow: ["Read(**)", "Write(**)"],
-          deny: denyShell,
-        },
-      };
+  // web: "disabled" requires sandbox with network blocking
+  // sandbox.networkAccess: "allowlist" blocks network in shell subprocesses via seatbelt
+  const needsSandbox = tools.web === "disabled";
+
+  const config: Record<string, unknown> = {
+    permissions: {
+      allow: tools.write === "disabled" ? ["Read(**)"] : ["Read(**)", "Write(**)"],
+      deny,
+    },
+  };
+
+  if (needsSandbox) {
+    config.sandbox = {
+      mode: "enabled",
+      networkAccess: "allowlist",
+    };
+  }
 
   writeFileSync(cliConfigPath, JSON.stringify(config, null, 2), "utf-8");
+  log.info(`» CLI config written to ${cliConfigPath}`);
   log.info(
-    `» CLI config written to ${cliConfigPath} (sandbox: ${sandbox}, isPublicRepo: ${isPublicRepo})`
+    `🔧 Cursor permissions: allow=${(config.permissions as { allow: string[] }).allow.join(",")}, deny=${deny.join(",") || "(none)"}, sandbox=${needsSandbox ? "enabled" : "disabled"}`
   );
 }

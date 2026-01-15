@@ -11,7 +11,12 @@ import {
 import type { Effort } from "../external.ts";
 import { log } from "../utils/cli.ts";
 import { addInstructions } from "./instructions.ts";
-import { agent, installFromNpmTarball, setupProcessAgentEnv } from "./shared.ts";
+import {
+  agent,
+  installFromNpmTarball,
+  setupProcessAgentEnv,
+  type ToolPermissions,
+} from "./shared.ts";
 
 // model configuration based on effort level
 const codexModel: Record<Effort, string> = {
@@ -33,10 +38,10 @@ const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
 interface WriteCodexConfigParams {
   tempHome: string;
   mcpServers: Record<string, McpHttpServerConfig>;
-  isPublicRepo: boolean;
+  tools: ToolPermissions;
 }
 
-function writeCodexConfig({ tempHome, mcpServers, isPublicRepo }: WriteCodexConfigParams): string {
+function writeCodexConfig({ tempHome, mcpServers, tools }: WriteCodexConfigParams): string {
   const codexDir = join(tempHome, ".codex");
   mkdirSync(codexDir, { recursive: true });
   const configPath = join(codexDir, "config.toml");
@@ -45,32 +50,32 @@ function writeCodexConfig({ tempHome, mcpServers, isPublicRepo }: WriteCodexConf
   const mcpServerSections: string[] = [];
   for (const [name, config] of Object.entries(mcpServers)) {
     if (config.type !== "http") continue;
-    log.info(`» Adding MCP server '${name}' at ${config.url}`);
+    log.info(`» adding MCP server '${name}' at ${config.url}`);
     mcpServerSections.push(`[mcp_servers.${name}]\nurl = "${config.url}"`);
   }
 
-  // SECURITY: for public repos, enforce env filtering via shell_environment_policy
-  // this prevents vuln if user's ~/.codex/config.toml has ignore_default_excludes=true
-  // for private repos, no filtering - agents use native shell with full env access
-  const shellPolicy = isPublicRepo
-    ? `[shell_environment_policy]
-ignore_default_excludes = false`
-    : "";
+  // build features section for tool control
+  // disable native shell if bash is "disabled" or "restricted"
+  // when "restricted", agent uses MCP bash tool which filters secrets
+  const features: string[] = [];
+  if (tools.bash !== "enabled") {
+    features.push("shell_command_tool = false");
+    features.push("unified_exec = false");
+  }
+  const featuresSection = features.length > 0 ? `[features]\n${features.join("\n")}` : "";
 
   writeFileSync(
     configPath,
     `# written by pullfrog
-${shellPolicy}
+${featuresSection}
 
 ${mcpServerSections.join("\n\n")}
 `.trim() + "\n"
   );
 
-  if (isPublicRepo) {
-    log.info(`» Codex config written to ${configPath} (env filtering: enabled)`);
-  } else {
-    log.info(`» Codex config written to ${configPath} (private repo: no env filtering)`);
-  }
+  log.info(
+    `» Codex config written to ${configPath} (shell: ${tools.bash === "enabled" ? "enabled" : "disabled"})`
+  );
 
   return codexDir;
 }
@@ -84,7 +89,7 @@ export const codex = agent({
       executablePath: "bin/codex.js",
     });
   },
-  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort }) => {
+  run: async ({ payload, mcpServers, apiKey, cliPath, repo, effort, tools }) => {
     const tempHome = process.env.PULLFROG_TEMP_DIR!;
 
     // create config directory for codex before setting HOME
@@ -94,7 +99,7 @@ export const codex = agent({
     const codexDir = writeCodexConfig({
       tempHome,
       mcpServers,
-      isPublicRepo: repo.isPublic,
+      tools,
     });
 
     setupProcessAgentEnv({
@@ -117,36 +122,29 @@ export const codex = agent({
       codexPathOverride: cliPath,
     };
 
-    if (payload.sandbox) {
-      log.info("🔒 sandbox mode enabled: restricting to read-only operations");
-    }
-
     const codex = new Codex(codexOptions);
 
-    // Build thread options with model and optional model_reasoning_effort
-    const baseThreadOptions = payload.sandbox
-      ? {
-          model,
-          approvalPolicy: "never" as const,
-          sandboxMode: "read-only" as const,
-          networkAccessEnabled: false,
-        }
-      : {
-          model,
-          approvalPolicy: "never" as const,
-          // use danger-full-access to allow git operations (workspace-write blocks .git directory writes)
-          sandboxMode: "danger-full-access" as const,
-          networkAccessEnabled: true,
-        };
+    // build thread options based on tool permissions
+    const threadOptions: ThreadOptions = {
+      model,
+      approvalPolicy: "never" as const,
+      // write: "disabled" → read-only sandbox, otherwise full access for git ops
+      sandboxMode: tools.write === "disabled" ? "read-only" : "danger-full-access",
+      // web: controls network access
+      networkAccessEnabled: tools.web !== "disabled",
+      // search: controls web search
+      webSearchEnabled: tools.search !== "disabled",
+      ...(modelReasoningEffort && { modelReasoningEffort }),
+    };
 
-    const threadOptions: ThreadOptions = modelReasoningEffort
-      ? { ...baseThreadOptions, modelReasoningEffort }
-      : baseThreadOptions;
+    log.info(
+      `🔧 Codex options: sandboxMode=${threadOptions.sandboxMode}, networkAccessEnabled=${threadOptions.networkAccessEnabled}, webSearchEnabled=${threadOptions.webSearchEnabled}`
+    );
 
     const thread = codex.startThread(threadOptions);
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo }));
+      const streamedTurn = await thread.runStreamed(addInstructions({ payload, repo, tools }));
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {
