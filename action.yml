@@ -9,9 +9,9 @@ inputs:
     description: "Prompt to send to the agent"
     required: true
   effort:
-    description: "Effort level: nothink (fast), think (default), max (most capable)"
+    description: "Effort level: mini (fast), auto (default), max (most capable)"
     required: false
-    default: "think"
+    default: "auto"
   agent:
     description: "Agent to use: claude, codex, gemini, cursor, opencode"
     required: false
