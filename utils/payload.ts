@@ -33,10 +33,10 @@ export const Inputs = type({
   prompt: "string",
   "effort?": Effort,
   "agent?": AgentName.or("null"),
-  "web?": ToolPermissionInput,
-  "search?": ToolPermissionInput,
-  "write?": ToolPermissionInput,
-  "bash?": BashPermissionInput,
+  "web?": ToolPermissionInput.or("undefined"),
+  "search?": ToolPermissionInput.or("undefined"),
+  "write?": ToolPermissionInput.or("undefined"),
+  "bash?": BashPermissionInput.or("undefined"),
   "cwd?": "string|null",
 });
 
