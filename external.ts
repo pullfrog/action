@@ -93,6 +93,8 @@ interface BasePayloadEvent {
   comment_ids?: number[] | "all";
   /** permission level of the user who triggered this event */
   authorPermission?: AuthorPermission;
+  /** when true, runs silently without progress comments (e.g., auto-labeling) */
+  silent?: boolean;
   [key: string]: any;
 }
 
@@ -239,19 +241,8 @@ export type PayloadEvent =
   | ImplementPlanEvent
   | UnknownEvent;
 
-// | undefined needed on optional props for exactOptionalPropertyTypes
-export interface DispatchOptions {
-  /** when true, disables progress comment (no "leaping into action" comment, no report_progress tool) */
-  disableProgressComment?: true | undefined;
-  /** granular tool permissions set server-side for dispatch workflows */
-  web?: ToolPermission | undefined;
-  search?: ToolPermission | undefined;
-  write?: ToolPermission | undefined;
-  bash?: BashPermission | undefined;
-}
-
 // writeable payload type for building payloads
-export interface WriteablePayload extends DispatchOptions {
+export interface WriteablePayload {
   "~pullfrog": true;
   /** agent slug identifier (e.g., "claude", "codex", "gemini") */
   agent: AgentName | null;

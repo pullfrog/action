@@ -4,6 +4,7 @@ import { type } from "arktype";
 import {
   AgentName,
   type AgentName as AgentNameType,
+  type AuthorPermission,
   Effort,
   type PayloadEvent,
 } from "../external.ts";
@@ -14,17 +15,24 @@ const ToolPermissionInput = type.enumerated("disabled", "enabled");
 const BashPermissionInput = type.enumerated("disabled", "restricted", "enabled");
 
 // schema for JSON payload passed via prompt (internal dispatch invocation)
+// note: permissions are intentionally NOT included here to prevent injection attacks
+// permissions are derived from event.authorPermission instead
 const JsonPayload = type({
   "~pullfrog": "true",
   "agent?": AgentName.or("null"),
   "prompt?": "string",
   "event?": "object",
   "effort?": Effort,
-  "web?": ToolPermissionInput,
-  "search?": ToolPermissionInput,
-  "write?": ToolPermissionInput,
-  "bash?": BashPermissionInput,
 });
+
+// permission levels that indicate collaborator status (have push access)
+const COLLABORATOR_PERMISSIONS: AuthorPermission[] = ["admin", "maintain", "write"];
+
+// check if the event author has collaborator-level permissions
+function isCollaborator(event: PayloadEvent): boolean {
+  const perm = event.authorPermission;
+  return perm !== undefined && COLLABORATOR_PERMISSIONS.includes(perm);
+}
 
 // inputs schema - action inputs from core.getInput()
 // note: tool permissions use .or("undefined") because getInput() || undefined
@@ -103,7 +111,11 @@ export function resolvePayload(repoSettings: RepoSettings) {
     agent ??
     (jsonAgent !== undefined && jsonAgent !== "null" && isAgentName(jsonAgent) ? jsonAgent : null);
 
-  // build payload - precedence: inputs > jsonPayload > repoSettings > fallbacks
+  // determine if permissions should be restricted based on event author
+  // non-collaborators (read, triage, none, or missing) get restricted bash access
+  const shouldRestrict = !isCollaborator(event);
+
+  // build payload - precedence: inputs > repoSettings > fallbacks
   // note: modes are NOT in payload - they come from repoSettings in main()
   return {
     "~pullfrog": true as const,
@@ -115,11 +127,12 @@ export function resolvePayload(repoSettings: RepoSettings) {
     effort: inputs.effort ?? jsonPayload?.effort ?? "auto",
     cwd: resolveCwd(inputs.cwd),
 
-    // permissions: inputs > jsonPayload > repoSettings > fallbacks
-    web: inputs.web ?? jsonPayload?.web ?? repoSettings.web ?? "enabled",
-    search: inputs.search ?? jsonPayload?.search ?? repoSettings.search ?? "enabled",
-    write: inputs.write ?? jsonPayload?.write ?? repoSettings.write ?? "enabled",
-    bash: inputs.bash ?? jsonPayload?.bash ?? repoSettings.bash ?? "restricted",
+    // permissions: inputs > repoSettings > fallbacks
+    // bash is restricted for non-collaborators regardless of repoSettings
+    web: inputs.web ?? repoSettings.web ?? "enabled",
+    search: inputs.search ?? repoSettings.search ?? "enabled",
+    write: inputs.write ?? repoSettings.write ?? "enabled",
+    bash: inputs.bash ?? (shouldRestrict ? "restricted" : repoSettings.bash) ?? "restricted",
   };
 }
 
