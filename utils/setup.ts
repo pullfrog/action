@@ -1,5 +1,4 @@
 import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,11 +30,7 @@ export function setupTestRepo(options: SetupOptions): void {
   const { tempDir } = options;
   const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) throw new Error("GITHUB_REPOSITORY is required");
-  if (existsSync(tempDir)) {
-    log.info("» removing existing .temp directory...");
-    rmSync(tempDir, { recursive: true, force: true });
-  }
-  log.info(`» cloning ${repo} into .temp...`);
+  log.info(`» cloning ${repo} into ${tempDir}...`);
   $("git", ["clone", `git@github.com:${repo}.git`, tempDir]);
 }
 

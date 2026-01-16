@@ -86,6 +86,7 @@ export async function main(core: {
       toolState,
       runId,
       jobId,
+      tools,
     };
 
     await using mcpHttpServer = await startMcpHttpServer(toolContext);

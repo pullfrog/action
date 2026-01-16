@@ -17,6 +17,8 @@
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.js",
     "play": "node play.ts",
+    "smoke": "node test/smoke.ts",
+    "nobash": "node test/nobash.ts",
     "scratch": "node scratch.ts",
     "upDeps": "pnpm up --latest",
     "lock": "pnpm --ignore-workspace install",

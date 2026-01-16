@@ -9,9 +9,18 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: action
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,6 +33,7 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+          cache-dependency-path: action/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -33,3 +43,9 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Run smoke tests
+        run: pnpm smoke
+
+      - name: Run nobash tests
+        run: pnpm nobash

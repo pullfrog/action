@@ -24,6 +24,7 @@ export interface ToolState {
 }
 
 export interface ToolContext {
+  tools: ToolPermissions;
   owner: string;
   name: string;
   repo: { default_branch: string; private: boolean };
@@ -38,6 +39,7 @@ export interface ToolContext {
   jobId: string | undefined;
 }
 
+import type { ToolPermissions } from "../agents/shared.ts";
 import { BashTool } from "./bash.ts";
 import { CheckoutPrTool } from "./checkout.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
@@ -129,8 +131,15 @@ export async function startMcpHttpServer(
     CreateBranchTool(ctx),
     CommitFilesTool(ctx),
     PushBranchTool(ctx),
-    BashTool(ctx),
   ];
+
+  // only add BashTool if bash is not disabled
+  // - "enabled": native bash + MCP bash
+  // - "restricted": MCP bash only (native blocked by agent)
+  // - "disabled": no bash at all
+  if (ctx.tools.bash !== "disabled") {
+    tools.push(BashTool(ctx));
+  }
 
   if (!ctx.disableProgressComment) {
     tools.push(ReportProgressTool(ctx));
