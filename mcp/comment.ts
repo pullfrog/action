@@ -1,16 +1,11 @@
 import { type } from "arktype";
-import type { Payload } from "../external.ts";
-import { agentsManifest } from "../external.ts";
-import type { ToolContext } from "../main.ts";
-import { fetchWorkflowRunInfo } from "../utils/api.ts";
+import type { Agent } from "../agents/index.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { writeSummary } from "../utils/cli.ts";
-import {
-  createOctokit,
-  getGitHubInstallationToken,
-  type OctokitWithPlugins,
-  parseRepoContext,
-} from "../utils/github.ts";
+import { createOctokit, type OctokitWithPlugins, parseRepoContext } from "../utils/github.ts";
+import { getGitHubInstallationToken } from "../utils/token.ts";
+import { fetchWorkflowRunInfo } from "../utils/workflowRun.ts";
+import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 /**
@@ -21,21 +16,18 @@ import { execute, tool } from "./shared.ts";
 export const LEAPING_INTO_ACTION_PREFIX = "Leaping into action";
 
 interface BuildCommentFooterParams {
-  payload: Payload;
+  agent: Agent | undefined;
   octokit?: OctokitWithPlugins | undefined;
   customParts?: string[] | undefined;
 }
 
 async function buildCommentFooter({
-  payload,
+  agent,
   octokit,
   customParts,
 }: BuildCommentFooterParams): Promise<string> {
   const repoContext = parseRepoContext();
   const runId = process.env.GITHUB_RUN_ID;
-
-  const agentName = payload.agent;
-  const agentInfo = agentName ? agentsManifest[agentName] : null;
 
   let workflowRunHtmlUrl: string | undefined;
   if (runId && octokit) {
@@ -56,8 +48,8 @@ async function buildCommentFooter({
   const footerParams = {
     triggeredBy: true,
     agent: {
-      displayName: agentInfo?.displayName || "Unknown agent",
-      url: agentInfo?.url || "https://pullfrog.com",
+      displayName: agent?.displayName || "Unknown agent",
+      url: agent?.url || "https://pullfrog.com",
     },
     workflowRun: runId
       ? {
@@ -88,13 +80,14 @@ function buildImplementPlanLink(
   return `[Implement plan ➔](${apiUrl}/trigger/${owner}/${repo}/${issueNumber}?action=implement&comment_id=${commentId})`;
 }
 
-async function addFooter(
-  body: string,
-  payload: Payload,
-  octokit?: OctokitWithPlugins
-): Promise<string> {
+interface AddFooterCtx {
+  agent?: Agent | undefined;
+  octokit?: OctokitWithPlugins | undefined;
+}
+
+async function addFooter(ctx: AddFooterCtx, body: string): Promise<string> {
   const bodyWithoutFooter = stripExistingFooter(body);
-  const footer = await buildCommentFooter({ payload, octokit });
+  const footer = await buildCommentFooter({ agent: ctx.agent, octokit: ctx.octokit });
   return `${bodyWithoutFooter}${footer}`;
 }
 
@@ -110,7 +103,7 @@ export function CreateCommentTool(ctx: ToolContext) {
       "Create a comment on a GitHub issue. NOTE: Do NOT use this for progress updates or status summaries - use report_progress instead, which updates the existing progress comment.",
     parameters: Comment,
     execute: execute(async ({ issueNumber, body }) => {
-      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
+      const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.issues.createComment({
         owner: ctx.owner,
@@ -140,7 +133,7 @@ export function EditCommentTool(ctx: ToolContext) {
     description: "Edit a GitHub issue comment by its ID",
     parameters: EditComment,
     execute: execute(async ({ commentId, body }) => {
-      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
+      const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.issues.updateComment({
         owner: ctx.owner,
@@ -218,8 +211,7 @@ export async function reportProgress(
   | undefined
 > {
   const existingCommentId = getProgressCommentId();
-  const issueNumber =
-    ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
+  const issueNumber = ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.event.issue_number;
   const isPlanMode = ctx.toolState.selectedMode === "Plan";
 
   // if we already have a progress comment, update it
@@ -231,7 +223,7 @@ export async function reportProgress(
 
     const bodyWithoutFooter = stripExistingFooter(body);
     const footer = await buildCommentFooter({
-      payload: ctx.payload,
+      agent: ctx.agent,
       octokit: ctx.octokit,
       customParts,
     });
@@ -264,7 +256,7 @@ export async function reportProgress(
   }
 
   // for new comments, we need to create first, then update with Plan link if in Plan mode
-  const initialBody = await addFooter(body, ctx.payload, ctx.octokit);
+  const initialBody = await addFooter(ctx, body);
 
   const result = await ctx.octokit.rest.issues.createComment({
     owner: ctx.owner,
@@ -282,7 +274,7 @@ export async function reportProgress(
     const customParts = [buildImplementPlanLink(ctx.owner, ctx.name, issueNumber, result.data.id)];
     const bodyWithoutFooter = stripExistingFooter(body);
     const footer = await buildCommentFooter({
-      payload: ctx.payload,
+      agent: ctx.agent,
       octokit: ctx.octokit,
       customParts,
     });
@@ -382,6 +374,10 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
   return true;
 }
 
+interface EnsureProgressCommentUpdatedParams {
+  disableProgressComment: boolean;
+}
+
 /**
  * Ensure the progress comment is updated with a generic error message if it was never updated.
  * This should be called after agent execution completes to handle cases where the agent
@@ -390,9 +386,16 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
  * Works even if MCP context is not initialized (e.g., if error occurs before MCP server starts).
  * Will fetch comment ID from database if not available in environment variable.
  */
-export async function ensureProgressCommentUpdated(payload?: Payload): Promise<void> {
+export async function ensureProgressCommentUpdated(
+  params: EnsureProgressCommentUpdatedParams
+): Promise<void> {
   // skip if comment was already updated during execution
   if (progressComment.wasUpdated) {
+    return;
+  }
+
+  // skip if progress comments are disabled
+  if (params.disableProgressComment) {
     return;
   }
 
@@ -453,8 +456,8 @@ export async function ensureProgressCommentUpdated(payload?: Payload): Promise<v
 
 The workflow encountered an error before any progress could be reported. Please check the ${workflowRunLink} for details.`;
 
-  // add footer if we have payload, otherwise use plain message
-  const body = payload ? await addFooter(errorMessage, payload, octokit) : errorMessage;
+  // add footer without agent info (we don't have context here)
+  const body = await addFooter({ octokit }, errorMessage);
 
   await octokit.rest.issues.updateComment({
     owner: repoContext.owner,
@@ -479,7 +482,7 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
       "Reply to a PR review comment thread. Call this for EACH comment you address. Keep replies extremely brief (1 sentence max).",
     parameters: ReplyToReviewComment,
     execute: execute(async ({ pull_number, comment_id, body }) => {
-      const bodyWithFooter = await addFooter(body, ctx.payload, ctx.octokit);
+      const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.pulls.createReplyForReviewComment({
         owner: ctx.owner,

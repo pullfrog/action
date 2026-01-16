@@ -4,7 +4,7 @@
  */
 
 import { agentsManifest } from "../external.ts";
-import { getGitHubInstallationToken } from "./github.ts";
+import { getGitHubInstallationToken } from "./token.ts";
 
 function getAllSecrets(): string[] {
   const secrets: string[] = [];

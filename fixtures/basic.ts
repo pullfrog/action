@@ -8,5 +8,4 @@ export default {
   event: {
     trigger: "workflow_dispatch",
   },
-  modes: [],
 } satisfies Payload;

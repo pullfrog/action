@@ -1,12 +1,10 @@
-# note: this file must remain identical to action/action.yml and action/run/action.yml
-# future agents: keep both files in sync manually
 name: "Pullfrog Action"
 description: "Execute coding agents with a prompt"
 author: "Pullfrog"
 
 inputs:
   prompt:
-    description: "Prompt to send to the agent"
+    description: "Prompt to send to the agent (string or JSON payload)"
     required: true
   effort:
     description: "Effort level: mini (fast), auto (default), max (most capable)"

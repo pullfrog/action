@@ -1,5 +1,6 @@
-import { fetchWorkflowRunInfo } from "./api.ts";
-import { createOctokit, getGitHubInstallationToken, parseRepoContext } from "./github.ts";
+import { createOctokit, parseRepoContext } from "./github.ts";
+import { getGitHubInstallationToken } from "./token.ts";
+import { fetchWorkflowRunInfo } from "./workflowRun.ts";
 
 /**
  * Get progress comment ID from environment variable or database.
@@ -22,7 +23,7 @@ export async function reportErrorToComment({
   error: string;
   title?: string;
 }): Promise<void> {
-  const formattedError = title ? `${title}\n\n${error}` : `❌ ${error}`;
+  const formattedError = title ? `${title}\n\n${error}` : error;
 
   // try to get comment ID from env var first, then from database if needed
   let commentId = getProgressCommentIdFromEnv();

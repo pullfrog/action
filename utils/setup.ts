@@ -1,14 +1,27 @@
 import { execSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import type { Payload } from "../external.ts";
-import type { ToolState } from "../main.ts";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { PayloadEvent } from "../external.ts";
 import { checkoutPrBranch } from "../mcp/checkout.ts";
+import type { ToolState } from "../mcp/server.ts";
 import { log } from "./cli.ts";
 import type { OctokitWithPlugins } from "./github.ts";
 import { $ } from "./shell.ts";
 
 export interface SetupOptions {
   tempDir: string;
+}
+
+/**
+ * Create a shared temp directory for the action
+ */
+export async function createTempDirectory(): Promise<string> {
+  const sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
+  process.env.PULLFROG_TEMP_DIR = sharedTempDir;
+  log.info(`» created temp dir at ${sharedTempDir}`);
+  return sharedTempDir;
 }
 
 /**
@@ -26,13 +39,30 @@ export function setupTestRepo(options: SetupOptions): void {
   $("git", ["clone", `git@github.com:${repo}.git`, tempDir]);
 }
 
+interface SetupGitParams {
+  token: string;
+  owner: string;
+  name: string;
+  event: PayloadEvent;
+  octokit: OctokitWithPlugins;
+  toolState: ToolState;
+}
+
 /**
- * Setup git configuration to avoid identity errors
- * Uses --local flag to scope config to the current repo only
- * Only sets defaults if not already configured (respects workflow config)
+ * Setup git configuration and authentication for the repository.
+ * - Configures git identity (user.email, user.name)
+ * - Sets up authentication via token
+ * - For PR events, checks out the PR branch using shared helper
+ *
+ * FORK PR ARCHITECTURE:
+ * - origin: always points to BASE REPO (where PR targets)
+ * - checkoutPrBranch sets per-branch pushRemote config for fork PRs
+ * - checkout_pr returns the PR diff via GitHub API (authoritative source)
  */
-export function setupGitConfig(): void {
+export async function setupGit(params: SetupGitParams): Promise<void> {
   const repoDir = process.cwd();
+
+  // 1. configure git identity
   log.info("» setting up git configuration...");
   try {
     // check current config - only set defaults if not configured or using generic bot
@@ -79,29 +109,8 @@ export function setupGitConfig(): void {
       `Failed to set git config: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-}
 
-interface SetupGitAuthParams {
-  token: string;
-  owner: string;
-  name: string;
-  payload: Payload;
-  octokit: OctokitWithPlugins;
-  toolState: ToolState;
-}
-
-/**
- * Setup git authentication for the repository.
- * For PR events, uses the shared checkoutPrBranch helper (also used by checkout_pr MCP tool).
- *
- * FORK PR ARCHITECTURE:
- * - origin: always points to BASE REPO (where PR targets)
- * - checkoutPrBranch sets per-branch pushRemote config for fork PRs
- * - checkout_pr returns the PR diff via GitHub API (authoritative source)
- */
-export async function setupGitAuth(params: SetupGitAuthParams): Promise<void> {
-  const repoDir = process.cwd();
-
+  // 2. setup authentication
   log.info("» setting up git authentication...");
 
   // remove existing git auth headers that actions/checkout might have set
@@ -116,7 +125,7 @@ export async function setupGitAuth(params: SetupGitAuthParams): Promise<void> {
   }
 
   // non-PR events: set up origin with token, stay on default branch
-  if (params.payload.event.is_pr !== true || !params.payload.event.issue_number) {
+  if (params.event.is_pr !== true || !params.event.issue_number) {
     const originUrl = `https://x-access-token:${params.token}@github.com/${params.owner}/${params.name}.git`;
     $("git", ["remote", "set-url", "origin", originUrl], { cwd: repoDir });
     log.info("» updated origin URL with authentication token");
@@ -124,7 +133,7 @@ export async function setupGitAuth(params: SetupGitAuthParams): Promise<void> {
   }
 
   // PR event: checkout PR branch using shared helper
-  const prNumber = params.payload.event.issue_number;
+  const prNumber = params.event.issue_number;
 
   // ensure origin is configured with auth token before checkout
   const originUrl = `https://x-access-token:${params.token}@github.com/${params.owner}/${params.name}.git`;

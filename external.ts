@@ -1,17 +1,17 @@
 /**
- * ⚠️ NO IMPORTS except modes.ts - this file is imported by Next.js and must avoid pulling in backend code.
+ * ⚠️ LIMITED IMPORTS - this file is imported by Next.js and must avoid pulling in backend code.
  * All shared constants, types, and data used by both the Next.js app and the action runtime live here.
  * Other files in action/ re-export from this file for backward compatibility.
  */
 
 import { type } from "arktype";
-import type { Mode } from "./modes.ts";
 
 // mcp name constant
 export const ghPullfrogMcpName = "gh_pullfrog";
 
 export interface AgentManifest {
   displayName: string;
+  /** empty array means accepts any *API_KEY* env var */
   apiKeyNames: string[];
   url: string;
 }
@@ -40,7 +40,7 @@ export const agentsManifest = {
   },
   opencode: {
     displayName: "OpenCode",
-    apiKeyNames: [], // empty array means OpenCode accepts any API_KEY from environment
+    apiKeyNames: [],
     url: "https://opencode.ai",
   },
 } as const satisfies Record<string, AgentManifest>;
@@ -256,60 +256,35 @@ export type PayloadEvent =
   | ImplementPlanEvent
   | UnknownEvent;
 
+// | undefined needed on optional props for exactOptionalPropertyTypes
 export interface DispatchOptions {
-  /**
-   * When true, disables progress comment (no "leaping into action" comment, no report_progress tool)
-   */
-  readonly disableProgressComment?: true;
-
-  /**
-   * Granular tool permissions set server-side for dispatch workflows.
-   */
-  readonly web?: ToolPermission;
-  readonly search?: ToolPermission;
-  readonly write?: ToolPermission;
-  readonly bash?: BashPermission;
+  /** when true, disables progress comment (no "leaping into action" comment, no report_progress tool) */
+  disableProgressComment?: true | undefined;
+  /** granular tool permissions set server-side for dispatch workflows */
+  web?: ToolPermission | undefined;
+  search?: ToolPermission | undefined;
+  write?: ToolPermission | undefined;
+  bash?: BashPermission | undefined;
 }
 
-export type MutableDispatchOptions = {
-  -readonly [K in keyof DispatchOptions]: DispatchOptions[K];
-};
-
-// payload type for agent execution
-export interface Payload extends DispatchOptions {
+// writeable payload type for building payloads
+export interface WriteablePayload extends DispatchOptions {
   "~pullfrog": true;
-
-  /**
-   * Agent slug identifier (e.g., "claude", "codex", "gemini")
-   */
-  readonly agent: AgentName | null;
-
-  /**
-   * The prompt/instructions for the agent to execute
-   */
-  readonly prompt: string;
-
-  /**
-   * Event data from webhook payload.
-   * Discriminated union based on trigger field.
-   */
-  readonly event: PayloadEvent;
-
-  /**
-   * Execution mode configuration
-   */
-  modes: readonly Mode[];
-
-  /**
-   * Effort level for model selection (mini, auto, max)
-   * Defaults to "auto" if not specified
-   */
-  readonly effort?: Effort;
-
-  /**
-   * Optional IDs of the issue, PR, or comment that the agent is working on
-   */
-  readonly comment_id?: number | null;
-  readonly issue_id?: number | null;
-  readonly pr_id?: number | null;
+  /** agent slug identifier (e.g., "claude", "codex", "gemini") */
+  agent: AgentName | null;
+  /** the prompt/instructions for the agent to execute */
+  prompt: string;
+  /** event data from webhook payload - discriminated union based on trigger field */
+  event: PayloadEvent;
+  /** effort level for model selection (mini, auto, max) - defaults to "auto" */
+  effort?: Effort | undefined;
+  /** optional IDs of the issue, PR, or comment that the agent is working on */
+  comment_id?: number | null | undefined;
+  issue_id?: number | null | undefined;
+  pr_id?: number | null | undefined;
+  /** working directory for the agent */
+  cwd?: string | null | undefined;
 }
+
+// immutable payload type for agent execution
+export type Payload = Readonly<WriteablePayload>;

@@ -1,9 +1,44 @@
 import "./arkConfig.ts";
 import { createServer } from "node:net";
 // this must be imported first
+import type { Octokit } from "@octokit/rest";
 import { FastMCP, type Tool } from "fastmcp";
-import { ghPullfrogMcpName } from "../external.ts";
-import type { ToolContext } from "../main.ts";
+import type { Agent } from "../agents/index.ts";
+import { ghPullfrogMcpName, type PayloadEvent } from "../external.ts";
+import type { Mode } from "../modes.ts";
+import type { PrepResult } from "../prep/index.ts";
+
+export interface ToolState {
+  prNumber?: number;
+  issueNumber?: number;
+  selectedMode?: string;
+  review?: {
+    id: number;
+    nodeId: string;
+  };
+  dependencyInstallation?: {
+    status: "not_started" | "in_progress" | "completed" | "failed";
+    promise: Promise<PrepResult[]> | undefined;
+    results: PrepResult[] | undefined;
+  };
+}
+
+export interface ToolContext {
+  owner: string;
+  name: string;
+  repo: { default_branch: string; private: boolean };
+  githubInstallationToken: string;
+  octokit: Octokit;
+  agent: Agent;
+  event: PayloadEvent;
+  disableProgressComment: boolean;
+  modes: Mode[];
+  toolState: ToolState;
+  runId: string;
+  jobId: string | undefined;
+}
+
+import { BashTool } from "./bash.ts";
 import { CheckoutPrTool } from "./checkout.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
 import {
@@ -29,7 +64,6 @@ import { CreatePullRequestReviewTool } from "./review.ts";
 import { GetReviewCommentsTool, ListPullRequestReviewsTool } from "./reviewComments.ts";
 import { SelectModeTool } from "./selectMode.ts";
 import { addTools } from "./shared.ts";
-import { BashTool } from "./bash.ts";
 
 /**
  * Find an available port starting from the given port
@@ -98,7 +132,7 @@ export async function startMcpHttpServer(
     BashTool(ctx),
   ];
 
-  if (!ctx.payload.disableProgressComment) {
+  if (!ctx.disableProgressComment) {
     tools.push(ReportProgressTool(ctx));
   }
 

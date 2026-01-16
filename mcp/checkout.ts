@@ -2,9 +2,9 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
-import type { ToolContext } from "../main.ts";
 import { log } from "../utils/cli.ts";
 import { $ } from "../utils/shell.ts";
+import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 type PullFile = RestEndpointMethodTypes["pulls"]["listFiles"]["response"]["data"][number];
@@ -118,7 +118,7 @@ export async function checkoutPrBranch(
   params: CheckoutPrBranchParams
 ): Promise<CheckoutPrBranchResult> {
   const { octokit, owner, name, token, pullNumber } = params;
-  log.info(`🔀 checking out PR #${pullNumber}...`);
+  log.info(`» checking out PR #${pullNumber}...`);
 
   // fetch PR metadata
   const pr = await octokit.rest.pulls.get({
@@ -149,7 +149,7 @@ export async function checkoutPrBranch(
     log.debug(`already on PR branch ${localBranch}, skipping checkout`);
   } else {
     // fetch base branch so origin/<base> exists for diff operations
-    log.debug(`📥 fetching base branch (${baseBranch})...`);
+    log.debug(`» fetching base branch (${baseBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", baseBranch]);
 
     // checkout base branch first to avoid "refusing to fetch into current branch" error
@@ -157,18 +157,18 @@ export async function checkoutPrBranch(
     $("git", ["checkout", "-B", baseBranch, `origin/${baseBranch}`]);
 
     // fetch PR branch using pull/{n}/head refspec (works for both fork and same-repo PRs)
-    log.debug(`🌿 fetching PR #${pullNumber} (${localBranch})...`);
+    log.debug(`» fetching PR #${pullNumber} (${localBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", `pull/${pullNumber}/head:${localBranch}`]);
 
     // checkout the branch
     $("git", ["checkout", localBranch]);
-    log.debug(`✓ checked out PR #${pullNumber}`);
+    log.debug(`» checked out PR #${pullNumber}`);
   }
 
   // ensure base branch is fetched (needed for diff operations)
   // fetch if we skipped checkout (already on branch) - otherwise already fetched above
   if (alreadyOnBranch) {
-    log.debug(`📥 fetching base branch (${baseBranch})...`);
+    log.debug(`» fetching base branch (${baseBranch})...`);
     $("git", ["fetch", "--no-tags", "origin", baseBranch]);
   }
 
@@ -182,23 +182,23 @@ export async function checkoutPrBranch(
     // add fork as a named remote (suppress logging to avoid "error: remote already exists" spam)
     try {
       $("git", ["remote", "add", remoteName, forkUrl], { log: false });
-      log.debug(`📌 added remote '${remoteName}' for fork ${headRepo.full_name}`);
+      log.debug(`» added remote '${remoteName}' for fork ${headRepo.full_name}`);
     } catch {
       // remote already exists, update its URL
       $("git", ["remote", "set-url", remoteName, forkUrl], { log: false });
-      log.debug(`📌 updated remote '${remoteName}' for fork ${headRepo.full_name}`);
+      log.debug(`» updated remote '${remoteName}' for fork ${headRepo.full_name}`);
     }
 
     // set branch push config so `git push` knows where to push
     $("git", ["config", `branch.${localBranch}.pushRemote`, remoteName]);
     // set merge ref so git knows the remote branch name (may differ from local)
     $("git", ["config", `branch.${localBranch}.merge`, `refs/heads/${headBranch}`]);
-    log.debug(`📌 configured branch '${localBranch}' to push to '${remoteName}/${headBranch}'`);
+    log.debug(`» configured branch '${localBranch}' to push to '${remoteName}/${headBranch}'`);
 
     // warn if maintainer can't modify (push will likely fail)
     if (!pr.data.maintainer_can_modify) {
       log.warning(
-        `⚠️ fork PR has maintainer_can_modify=false - push operations will fail. ` +
+        `» fork PR has maintainer_can_modify=false - push operations will fail. ` +
           `ask the PR author to enable "Allow edits from maintainers" or the fork may be owned by an organization.`
       );
     }

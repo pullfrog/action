@@ -2,10 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Effort } from "../external.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import { log } from "../utils/cli.ts";
+import { installFromGithub } from "../utils/install.ts";
 import { spawn } from "../utils/subprocess.ts";
-import { addInstructions } from "./instructions.ts";
-import { type AgentConfig, agent, createAgentEnv, installFromGithub } from "./shared.ts";
+import { getGitHubInstallationToken } from "../utils/token.ts";
+import { type AgentRunContext, agent } from "./shared.ts";
 
 // effort configuration: model + thinking level
 // thinkingLevel is set via settings.json modelConfig.generateContentConfig.thinkingConfig
@@ -156,29 +158,38 @@ const messageHandlers = {
   },
 };
 
+async function installGemini(githubInstallationToken?: string): Promise<string> {
+  return await installFromGithub({
+    owner: "google-gemini",
+    repo: "gemini-cli",
+    assetName: "gemini.js",
+    ...(githubInstallationToken && { githubInstallationToken }),
+  });
+}
+
 export const gemini = agent({
   name: "gemini",
-  install: async (githubInstallationToken?: string) => {
-    return await installFromGithub({
-      owner: "google-gemini",
-      repo: "gemini-cli",
-      assetName: "gemini.js",
-      ...(githubInstallationToken && { githubInstallationToken }),
-    });
-  },
+  install: installGemini,
   run: async (ctx) => {
+    // install CLI at start of run - use token for GitHub API rate limiting
+    const cliPath = await installGemini(getGitHubInstallationToken());
+
     const model = configureGeminiSettings(ctx);
 
     if (!ctx.apiKey) {
       throw new Error("google_api_key or gemini_api_key is required for gemini agent");
     }
 
-    const sessionPrompt = addInstructions(ctx);
-    log.group("Full prompt", () => log.info(sessionPrompt));
-
     // build CLI args - --yolo for auto-approval
     // tool restrictions handled via settings.json tools.exclude
-    const args = ["--model", model, "--yolo", "--output-format=stream-json", "-p", sessionPrompt];
+    const args = [
+      "--model",
+      model,
+      "--yolo",
+      "--output-format=stream-json",
+      "-p",
+      ctx.instructions,
+    ];
 
     let finalOutput = "";
     let stdoutBuffer = "";
@@ -186,8 +197,8 @@ export const gemini = agent({
     try {
       const result = await spawn({
         cmd: "node",
-        args: [ctx.cliPath, ...args],
-        env: createAgentEnv({ GEMINI_API_KEY: ctx.apiKey }),
+        args: [cliPath, ...args],
+        env: process.env,
         onStdout: async (chunk) => {
           const text = chunk.toString();
           finalOutput += text;
@@ -242,7 +253,7 @@ export const gemini = agent({
       }
 
       finalOutput = finalOutput || result.stdout || "Gemini CLI completed successfully.";
-      log.info("✓ Gemini CLI completed successfully");
+      log.info("» Gemini CLI completed successfully");
 
       return {
         success: true,
@@ -266,9 +277,9 @@ export const gemini = agent({
  *
  * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
-function configureGeminiSettings(ctx: AgentConfig): string {
+function configureGeminiSettings(ctx: AgentRunContext): string {
   const { model, thinkingLevel } = geminiEffortConfig[ctx.effort];
-  log.info(`Using model: ${model}, thinkingLevel: ${thinkingLevel}`);
+  log.info(`» using model: ${model}, thinkingLevel: ${thinkingLevel}`);
 
   const realHome = homedir();
   const geminiConfigDir = join(realHome, ".gemini");
@@ -299,19 +310,13 @@ function configureGeminiSettings(ctx: AgentConfig): string {
     includeTools?: string[];
     excludeTools?: string[];
   }
-  const geminiMcpServers: Record<string, GeminiMcpServerConfig> = {};
-  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
-    if (serverConfig.type !== "http") {
-      throw new Error(
-        `Unsupported MCP server type for Gemini: ${(serverConfig as { type?: string }).type || "unknown"}`
-      );
-    }
-    geminiMcpServers[serverName] = {
-      httpUrl: serverConfig.url,
+  log.info(`» adding MCP server '${ghPullfrogMcpName}' at ${ctx.mcpServerUrl}...`);
+  const geminiMcpServers: Record<string, GeminiMcpServerConfig> = {
+    [ghPullfrogMcpName]: {
+      httpUrl: ctx.mcpServerUrl,
       trust: true, // trust our own MCP server to avoid confirmation prompts
-    };
-    log.info(`adding MCP server '${serverName}' at ${serverConfig.url}...`);
-  }
+    },
+  };
 
   // build tools.exclude based on permissions (v0.3.0+ nested format)
   const exclude: string[] = [];
@@ -340,7 +345,7 @@ function configureGeminiSettings(ctx: AgentConfig): string {
   writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf-8");
   log.info(`» Gemini settings written to ${settingsPath}`);
   if (exclude.length > 0) {
-    log.info(`🔒 excluded tools: ${exclude.join(", ")}`);
+    log.info(`» excluded tools: ${exclude.join(", ")}`);
   }
 
   return model;

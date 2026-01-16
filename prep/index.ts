@@ -31,7 +31,7 @@ export async function runPrepPhase(): Promise<PrepResult[]> {
     if (result.dependenciesInstalled) {
       log.debug(`» ${step.name}: dependencies installed`);
     } else if (result.issues.length > 0) {
-      log.warning(`⚠️  ${step.name}: ${result.issues[0]}`);
+      log.warning(`» ${step.name}: ${result.issues[0]}`);
     }
   }
 

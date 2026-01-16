@@ -1,6 +1,5 @@
 import { type } from "arktype";
-import { agentsManifest } from "../external.ts";
-import type { ToolContext } from "../main.ts";
+import type { ToolContext } from "./server.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
@@ -14,12 +13,9 @@ export const PullRequest = type({
 });
 
 function buildPrBodyWithFooter(ctx: ToolContext, body: string): string {
-  const agentName = ctx.payload.agent;
-  const agentInfo = agentName ? agentsManifest[agentName] : null;
-
   const footer = buildPullfrogFooter({
     triggeredBy: true,
-    agent: agentInfo ? { displayName: agentInfo.displayName, url: agentInfo.url } : undefined,
+    agent: { displayName: ctx.agent.displayName, url: ctx.agent.url },
     workflowRun: ctx.runId
       ? { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId }
       : undefined,

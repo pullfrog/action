@@ -30,7 +30,21 @@ export async function run(inputsOrPrompt: Inputs | string): Promise<AgentResult>
     const inputs: Inputs =
       typeof inputsOrPrompt === "string" ? { prompt: inputsOrPrompt } : inputsOrPrompt;
 
-    const result = await main(inputs);
+    // Mock core.getInput to simulate Github Actions input
+    const mockCore = {
+      getInput: (name: string, options?: { required?: boolean }): string => {
+        const value = inputs[name as keyof Inputs];
+        if (value === undefined || value === null) {
+          if (options?.required) {
+            throw new Error(`Input required and not supplied: ${name}`);
+          }
+          return "";
+        }
+        return String(value);
+      },
+    };
+
+    const result = await main(mockCore);
 
     process.chdir(originalCwd);
 

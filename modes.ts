@@ -14,15 +14,16 @@ export const ModeSchema = type({
   prompt: "string",
 });
 
-export interface GetModesParams {
-  disableProgressComment: true | undefined;
+export interface ComputeModesParams {
+  disableProgressComment: boolean;
 }
 
 const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to share progress and results. Continue calling it as you make progress - it will update the same comment. Never create additional comments manually.`;
 
 const dependencyInstallationStep = `If this task will require running tests, builds, linters, or CLI commands that need installed packages, call \`${ghPullfrogMcpName}/start_dependency_installation\` NOW. This is non-blocking and allows dependencies to install in the background while you continue. Later, call \`${ghPullfrogMcpName}/await_dependency_installation\` before running commands that need them. Skip this step if only reading code or answering questions.`;
 
-export function getModes({ disableProgressComment }: GetModesParams): Mode[] {
+export function computeModes(ctx: ComputeModesParams): Mode[] {
+  const disableProgressComment = ctx.disableProgressComment;
   return [
     {
       name: "Build",
@@ -170,6 +171,6 @@ ${
   ];
 }
 
-export const modes: Mode[] = getModes({
-  disableProgressComment: undefined,
+export const modes: Mode[] = computeModes({
+  disableProgressComment: false,
 });

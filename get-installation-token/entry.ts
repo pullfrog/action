@@ -6,7 +6,7 @@
  */
 
 import * as core from "@actions/core";
-import { acquireInstallationToken, revokeInstallationToken } from "./token.ts";
+import { acquireInstallationToken, revokeInstallationToken } from "../utils/token.ts";
 
 const STATE_TOKEN = "token";
 const STATE_IS_POST = "isPost";

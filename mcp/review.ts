@@ -1,6 +1,6 @@
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
-import type { ToolContext } from "../main.ts";
+import type { ToolContext } from "./server.ts";
 import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { deleteProgressComment } from "./comment.ts";

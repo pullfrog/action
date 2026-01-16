@@ -1,70 +1,59 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ghPullfrogMcpName } from "../external.ts";
 import { log } from "../utils/cli.ts";
+import { installFromNpmTarball } from "../utils/install.ts";
 import { spawn } from "../utils/subprocess.ts";
-import { addInstructions } from "./instructions.ts";
-import {
-  agent,
-  type AgentConfig,
-  createAgentEnv,
-  installFromNpmTarball,
-  setupProcessAgentEnv,
-} from "./shared.ts";
+import { type AgentRunContext, agent } from "./shared.ts";
+
+async function installOpencode(): Promise<string> {
+  return await installFromNpmTarball({
+    packageName: "opencode-ai",
+    version: "latest",
+    executablePath: "bin/opencode",
+    installDependencies: true,
+  });
+}
 
 export const opencode = agent({
   name: "opencode",
-  install: async () => {
-    return await installFromNpmTarball({
-      packageName: "opencode-ai",
-      version: "latest",
-      executablePath: "bin/opencode",
-      installDependencies: true,
-    });
-  },
+  install: installOpencode,
   run: async (ctx) => {
+    // install CLI at start of run
+    const cliPath = await installOpencode();
+
     // 1. configure home/config directory
-    const tempHome = process.env.PULLFROG_TEMP_DIR!;
+    const tempHome = ctx.tmpdir;
     const configDir = join(tempHome, ".config", "opencode");
     mkdirSync(configDir, { recursive: true });
 
     configureOpenCode(ctx);
 
-    const prompt = addInstructions(ctx);
-    log.group("Full prompt", () => log.info(prompt));
-
     // message positional must come right after "run", before flags
-    const args = ["run", prompt, "--format", "json"];
+    const args = ["run", ctx.instructions, "--format", "json"];
 
-    // 6. set up environment
-    setupProcessAgentEnv({ HOME: tempHome });
+    process.env.HOME = tempHome;
 
-    // SECURITY: build env vars from whitelisted base env to prevent API key leakage
-    // this prevents leaking other API keys (ANTHROPIC, GEMINI, etc.) to OpenCode subprocess
     // XDG_CONFIG_HOME must be set because GitHub Actions sets it to a different path,
     // and OpenCode follows XDG spec (checks XDG_CONFIG_HOME before falling back to $HOME/.config)
-    const env: Record<string, string> = {
-      ...createAgentEnv({ HOME: tempHome }),
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOME: tempHome,
       XDG_CONFIG_HOME: join(tempHome, ".config"),
+      // set GOOGLE_GENERATIVE_AI_API_KEY alias for Google provider compatibility (if not already set)
+      GOOGLE_GENERATIVE_AI_API_KEY:
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY,
     };
     // OpenCode doesn't support GitHub App installation tokens
     delete env.GITHUB_TOKEN;
 
-    // add API keys from apiKeys object
-    for (const [key, value] of Object.entries(ctx.apiKeys || {})) {
-      env[key.toUpperCase()] = value;
-      // also set GOOGLE_GENERATIVE_AI_API_KEY for Google provider compatibility
-      if (key === "GEMINI_API_KEY") {
-        env.GOOGLE_GENERATIVE_AI_API_KEY = value;
-      }
-    }
-
     // run OpenCode in the repository directory (process.cwd() is set to GITHUB_WORKSPACE or repo dir)
     const repoDir = process.cwd();
 
-    log.info(`🚀 Starting OpenCode CLI: ${ctx.cliPath} ${args.join(" ")}`);
-    log.info(`📁 Working directory: ${repoDir}`);
-    log.debug(`🏠 HOME: ${env.HOME}`);
-    log.debug(`📋 XDG_CONFIG_HOME: ${env.XDG_CONFIG_HOME}`);
+    log.debug(`» starting OpenCode: ${cliPath} ${args.join(" ")}`);
+    log.debug(`» working directory: ${repoDir}`);
+    log.debug(`» HOME: ${env.HOME}`);
+    log.debug(`» XDG_CONFIG_HOME: ${env.XDG_CONFIG_HOME}`);
 
     const startTime = Date.now();
     let lastActivityTime = startTime;
@@ -73,7 +62,7 @@ export const opencode = agent({
     let output = "";
     let stdoutBuffer = ""; // buffer for incomplete lines across chunks
     const result = await spawn({
-      cmd: ctx.cliPath,
+      cmd: cliPath,
       args,
       cwd: repoDir,
       env,
@@ -111,7 +100,7 @@ export const opencode = agent({
                   ? ` (waiting for ${activeToolCalls} tool call${activeToolCalls > 1 ? "s" : ""})`
                   : " (OpenCode may be processing internally - LLM calls, planning, etc.)";
               log.warning(
-                `⚠️  No activity for ${(timeSinceLastActivity / 1000).toFixed(1)}s${toolCallInfo} (${eventCount} events processed so far)`
+                `» no activity for ${(timeSinceLastActivity / 1000).toFixed(1)}s${toolCallInfo} (${eventCount} events processed so far)`
               );
             }
             lastActivityTime = Date.now();
@@ -121,7 +110,7 @@ export const opencode = agent({
             } else {
               // log unhandled event types for visibility
               log.info(
-                `📋 OpenCode event (unhandled): type=${event.type}, data=${JSON.stringify(event).substring(0, 500)}`
+                `» OpenCode event (unhandled): type=${event.type}, data=${JSON.stringify(event).substring(0, 500)}`
               );
             }
           } catch {
@@ -145,7 +134,7 @@ export const opencode = agent({
     });
 
     const duration = Date.now() - startTime;
-    log.info(`✅ OpenCode CLI completed in ${duration}ms with exit code ${result.exitCode}`);
+    log.info(`» OpenCode CLI completed in ${duration}ms with exit code ${result.exitCode}`);
 
     // 8. log tokens if they weren't logged yet (fallback if result event wasn't emitted)
     if (!tokensLogged && (accumulatedTokens.input > 0 || accumulatedTokens.output > 0)) {
@@ -185,29 +174,15 @@ export const opencode = agent({
  * Configure OpenCode via opencode.json config file.
  * Builds complete config with MCP servers and permissions in a single write to avoid race conditions.
  */
-function configureOpenCode(ctx: AgentConfig): void {
-  const tempHome = process.env.PULLFROG_TEMP_DIR!;
-  const configDir = join(tempHome, ".config", "opencode");
+function configureOpenCode(ctx: AgentRunContext): void {
+  const configDir = join(ctx.tmpdir, ".config", "opencode");
   mkdirSync(configDir, { recursive: true });
   const configPath = join(configDir, "opencode.json");
 
   // build MCP servers config
-  const opencodeMcpServers: Record<string, { type: "remote"; url: string }> = {};
-  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
-    if (serverConfig.type !== "http") {
-      log.error(
-        `unsupported MCP server type for OpenCode: ${(serverConfig as never as { type: string }).type || "unknown"}`
-      );
-      throw new Error(
-        `Unsupported MCP server type for OpenCode: ${(serverConfig as never as { type: string }).type || "unknown"}`
-      );
-    }
-
-    opencodeMcpServers[serverName] = {
-      type: "remote",
-      url: serverConfig.url,
-    };
-  }
+  const opencodeMcpServers = {
+    [ghPullfrogMcpName]: { type: "remote" as const, url: ctx.mcpServerUrl },
+  };
 
   // build permission object based on tool permissions
   // note: OpenCode has no built-in web search tool
@@ -237,7 +212,7 @@ function configureOpenCode(ctx: AgentConfig): void {
 
   log.info(`» OpenCode config written to ${configPath}`);
   log.info(
-    `🔧 OpenCode permissions: edit=${permission.edit}, bash=${permission.bash}, webfetch=${permission.webfetch}`
+    `» OpenCode permissions: edit=${permission.edit}, bash=${permission.bash}, webfetch=${permission.webfetch}`
   );
   log.debug(`OpenCode config contents:\n${configJson}`);
 }
@@ -396,10 +371,10 @@ let stepHistory: Array<{ stepId: string; stepType: string; toolCalls: string[] }
 const messageHandlers = {
   init: (event: OpenCodeInitEvent) => {
     // initialization event - reset state
-    log.info(
-      `🔵 OpenCode init: session_id=${event.session_id || "unknown"}, model=${event.model || "unknown"}`
+    log.debug(
+      `» OpenCode init: session_id=${event.session_id || "unknown"}, model=${event.model || "unknown"}`
     );
-    log.info(`🔵 OpenCode init event (full): ${JSON.stringify(event)}`);
+    log.debug(`» OpenCode init event (full): ${JSON.stringify(event)}`);
     finalOutput = "";
     accumulatedTokens = { input: 0, output: 0 };
     tokensLogged = false;
@@ -410,20 +385,20 @@ const messageHandlers = {
       if (message) {
         if (event.delta) {
           // delta messages are streaming thoughts/reasoning
-          log.info(
-            `💭 OpenCode thinking: ${message.substring(0, 300)}${message.length > 300 ? "..." : ""}`
+          log.debug(
+            `» OpenCode thinking: ${message.substring(0, 300)}${message.length > 300 ? "..." : ""}`
           );
         } else {
           // complete messages
-          log.info(
-            `💬 OpenCode message (${event.role}): ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`
+          log.debug(
+            `» OpenCode message (${event.role}): ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`
           );
           finalOutput = message;
         }
       }
     } else if (event.role === "user") {
-      log.info(
-        `💬 OpenCode message (${event.role}): ${event.content?.substring(0, 100) || ""}${event.content && event.content.length > 100 ? "..." : ""}`
+      log.debug(
+        `» OpenCode message (${event.role}): ${event.content?.substring(0, 100) || ""}${event.content && event.content.length > 100 ? "..." : ""}`
       );
     }
   },
@@ -503,22 +478,22 @@ const messageHandlers = {
         const toolDuration = Date.now() - toolStartTime;
         toolCallTimings.delete(toolId);
         const stepContext = currentStepId ? ` (step=${currentStepType || "unknown"})` : "";
-        log.info(
-          `🔧 OpenCode tool_result${stepContext}: id=${toolId}, status=${status}, duration=${toolDuration}ms`
+        log.debug(
+          `» OpenCode tool_result${stepContext}: id=${toolId}, status=${status}, duration=${toolDuration}ms`
         );
         if (output) {
           log.debug(`  output: ${typeof output === "string" ? output : JSON.stringify(output)}`);
         }
         if (toolDuration > 5000) {
           log.warning(
-            `⚠️  Tool call took ${(toolDuration / 1000).toFixed(1)}s - this may indicate network latency or slow processing`
+            `» ⚠️ tool call took ${(toolDuration / 1000).toFixed(1)}s - this may indicate network latency or slow processing`
           );
         }
       }
     }
     if (status === "error") {
       const errorMsg = typeof output === "string" ? output : JSON.stringify(output);
-      log.warning(`❌ Tool call failed: ${errorMsg}`);
+      log.error(`» ❌ tool call failed: ${errorMsg}`);
     }
   },
   result: async (event: OpenCodeResultEvent) => {
@@ -526,19 +501,17 @@ const messageHandlers = {
     const duration = event.stats?.duration_ms || 0;
     const toolCalls = event.stats?.tool_calls || 0;
     log.info(
-      `🏁 OpenCode result: status=${status}, duration=${duration}ms, tool_calls=${toolCalls}`
+      `» OpenCode result: status=${status}, duration=${duration}ms, tool_calls=${toolCalls}`
     );
 
     if (event.status === "error") {
-      log.error(`❌ OpenCode CLI failed: ${JSON.stringify(event)}`);
+      log.error(`» OpenCode CLI failed: ${JSON.stringify(event)}`);
     } else {
       // log tokens once at the end (use stats from result if available, otherwise use accumulated from step_finish)
       const inputTokens = event.stats?.input_tokens || accumulatedTokens.input || 0;
       const outputTokens = event.stats?.output_tokens || accumulatedTokens.output || 0;
       const totalTokens = event.stats?.total_tokens || inputTokens + outputTokens;
-      log.info(
-        `📊 OpenCode final stats: input=${inputTokens}, output=${outputTokens}, total=${totalTokens}, tool_calls=${toolCalls}, duration=${duration}ms`
-      );
+      log.info(`» run complete: tool_calls=${toolCalls}, duration=${duration}ms`);
 
       if ((inputTokens > 0 || outputTokens > 0) && !tokensLogged) {
         log.table([

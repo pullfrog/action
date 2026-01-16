@@ -1,21 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * entry point for pullfrog/pullfrog - main action
+ * entry point for pullfrog/pullfrog - unified action
  */
 
 import * as core from "@actions/core";
-import { Inputs, main } from "./main.ts";
+import { main } from "./main.ts";
 
 async function run(): Promise<void> {
   try {
-    const inputs = Inputs.assert({
-      prompt: core.getInput("prompt", { required: true }),
-      effort: core.getInput("effort") || "auto",
-      cwd: core.getInput("cwd") || null,
-    });
-
-    const result = await main(inputs);
+    const result = await main(core);
 
     if (!result.success) {
       throw new Error(result.error || "Agent execution failed");

@@ -66,7 +66,7 @@ async function installTool(name: string): Promise<string | null> {
     return null;
   }
 
-  log.info(`📦 installing ${name}...`);
+  log.info(`» installing ${name}...`);
   const [cmd, ...args] = installCmd;
   const result = await spawn({
     cmd,
@@ -79,7 +79,7 @@ async function installTool(name: string): Promise<string | null> {
     return result.stderr || `failed to install ${name}`;
   }
 
-  log.info(`✅ installed ${name}`);
+  log.info(`» installed ${name}`);
   return null;
 }
 
@@ -113,12 +113,12 @@ export const installPythonDependencies: PrepDefinition = {
       };
     }
 
-    log.info(`🐍 detected python config: ${config.file} (using ${config.tool})`);
+    log.info(`» detected python config: ${config.file} (using ${config.tool})`);
 
     // check if the tool is available, install if needed
     const isAvailable = await isCommandAvailable(config.tool);
     if (!isAvailable) {
-      log.info(`${config.tool} not found, attempting to install...`);
+      log.info(`» ${config.tool} not found, attempting to install...`);
       const installError = await installTool(config.tool);
       if (installError) {
         return {
@@ -133,7 +133,7 @@ export const installPythonDependencies: PrepDefinition = {
 
     // run the install command
     const [cmd, ...args] = config.installCmd;
-    log.info(`running: ${cmd} ${args.join(" ")}`);
+    log.info(`» running: ${cmd} ${args.join(" ")}`);
     const result = await spawn({
       cmd,
       args,

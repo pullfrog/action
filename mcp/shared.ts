@@ -1,8 +1,8 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { encode as toonEncode } from "@toon-format/toon";
 import type { FastMCP, Tool } from "fastmcp";
-import type { ToolContext } from "../main.ts";
 import { formatJsonValue, log } from "../utils/cli.ts";
+import type { ToolContext } from "./server.ts";
 
 export const tool = <const params>(toolDef: Tool<any, StandardSchemaV1<params>>) => toolDef;
 

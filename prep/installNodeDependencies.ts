@@ -56,7 +56,7 @@ async function installPackageManager(
   installSpec: string
 ): Promise<string | null> {
   if (name === "npm") return null; // npm is always available
-  log.info(`📦 installing ${installSpec}...`);
+  log.info(`» installing ${installSpec}...`);
   const [cmd, ...templateArgs] = nodePackageManagers[name];
   const args = templateArgs.map((arg) => (arg === "{version}" ? installSpec : arg));
   const result = await spawn({
@@ -76,7 +76,7 @@ async function installPackageManager(
     process.env.PATH = `${denoPath}:${process.env.PATH}`;
   }
 
-  log.info(`✅ installed ${name}`);
+  log.info(`» installed ${name}`);
   return null;
 }
 
@@ -101,16 +101,16 @@ export const installNodeDependencies: PrepDefinition = {
     const agent = detected?.agent || packageManager;
 
     if (fromPackageJson) {
-      log.info(`📦 using packageManager from package.json: ${fromPackageJson.installSpec}`);
+      log.info(`» using packageManager from package.json: ${fromPackageJson.installSpec}`);
     } else if (detected) {
-      log.info(`📦 detected package manager: ${packageManager} (${agent})`);
+      log.info(`» detected package manager: ${packageManager} (${agent})`);
     } else {
-      log.info(`📦 no package manager detected, defaulting to npm`);
+      log.info(`» no package manager detected, defaulting to npm`);
     }
 
     // check if package manager is available, install if needed
     if (!(await isCommandAvailable(packageManager))) {
-      log.info(`${packageManager} not found, attempting to install...`);
+      log.info(`» ${packageManager} not found, attempting to install...`);
       const installError = await installPackageManager(packageManager, installSpec);
       if (installError) {
         return {
@@ -134,7 +134,7 @@ export const installNodeDependencies: PrepDefinition = {
     }
 
     const fullCommand = `${resolved.command} ${resolved.args.join(" ")}`;
-    log.info(`running: ${fullCommand}`);
+    log.info(`» running: ${fullCommand}`);
     const result = await spawn({
       cmd: resolved.command,
       args: resolved.args,

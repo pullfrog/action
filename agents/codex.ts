@@ -8,14 +8,10 @@ import {
   type ThreadOptions,
 } from "@openai/codex-sdk";
 import type { Effort } from "../external.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import { log } from "../utils/cli.ts";
-import { addInstructions } from "./instructions.ts";
-import {
-  agent,
-  type AgentConfig,
-  installFromNpmTarball,
-  setupProcessAgentEnv,
-} from "./shared.ts";
+import { installFromNpmTarball } from "../utils/install.ts";
+import { type AgentRunContext, agent } from "./shared.ts";
 
 // model configuration based on effort level
 const codexModel: Record<Effort, string> = {
@@ -34,19 +30,14 @@ const codexReasoningEffort: Record<Effort, ModelReasoningEffort | undefined> = {
   max: "high",
 };
 
-function writeCodexConfig(ctx: AgentConfig): string {
-  const tempHome = process.env.PULLFROG_TEMP_DIR!;
-  const codexDir = join(tempHome, ".codex");
+function writeCodexConfig(ctx: AgentRunContext): string {
+  const codexDir = join(ctx.tmpdir, ".codex");
   mkdirSync(codexDir, { recursive: true });
   const configPath = join(codexDir, "config.toml");
 
   // build MCP servers section
-  const mcpServerSections: string[] = [];
-  for (const [name, config] of Object.entries(ctx.mcpServers)) {
-    if (config.type !== "http") continue;
-    log.info(`» adding MCP server '${name}' at ${config.url}`);
-    mcpServerSections.push(`[mcp_servers.${name}]\nurl = "${config.url}"`);
-  }
+  log.info(`» adding MCP server '${ghPullfrogMcpName}' at ${ctx.mcpServerUrl}`);
+  const mcpServerSections = [`[mcp_servers.${ghPullfrogMcpName}]\nurl = "${ctx.mcpServerUrl}"`];
 
   // build features section for tool control
   // disable native shell if bash is "disabled" or "restricted"
@@ -74,42 +65,42 @@ ${mcpServerSections.join("\n\n")}
   return codexDir;
 }
 
+async function installCodex(): Promise<string> {
+  return await installFromNpmTarball({
+    packageName: "@openai/codex",
+    version: "latest",
+    executablePath: "bin/codex.js",
+  });
+}
+
 export const codex = agent({
   name: "codex",
-  install: async () => {
-    return await installFromNpmTarball({
-      packageName: "@openai/codex",
-      version: "latest",
-      executablePath: "bin/codex.js",
-    });
-  },
+  install: installCodex,
   run: async (ctx) => {
-    const tempHome = process.env.PULLFROG_TEMP_DIR!;
+    // install CLI at start of run
+    const cliPath = await installCodex();
 
     // create config directory for codex before setting HOME
-    const configDir = join(tempHome, ".config", "codex");
+    const configDir = join(ctx.tmpdir, ".config", "codex");
     mkdirSync(configDir, { recursive: true });
 
     const codexDir = writeCodexConfig(ctx);
 
-    setupProcessAgentEnv({
-      OPENAI_API_KEY: ctx.apiKey,
-      HOME: tempHome,
-      CODEX_HOME: codexDir, // point Codex to our config directory
-    });
+    process.env.HOME = ctx.tmpdir;
+    process.env.CODEX_HOME = codexDir;
 
     // get model and reasoning effort based on effort level
     const model = codexModel[ctx.effort];
     const modelReasoningEffort = codexReasoningEffort[ctx.effort];
-    log.info(`Using model: ${model}`);
+    log.info(`» using model: ${model}`);
     if (modelReasoningEffort) {
-      log.info(`Using modelReasoningEffort: ${modelReasoningEffort}`);
+      log.info(`» using modelReasoningEffort: ${modelReasoningEffort}`);
     }
 
     // Configure Codex
     const codexOptions: CodexOptions = {
       apiKey: ctx.apiKey,
-      codexPathOverride: ctx.cliPath,
+      codexPathOverride: cliPath,
     };
 
     const codex = new Codex(codexOptions);
@@ -128,13 +119,13 @@ export const codex = agent({
     };
 
     log.info(
-      `🔧 Codex options: sandboxMode=${threadOptions.sandboxMode}, networkAccessEnabled=${threadOptions.networkAccessEnabled}, webSearchEnabled=${threadOptions.webSearchEnabled}`
+      `» Codex options: sandboxMode=${threadOptions.sandboxMode}, networkAccessEnabled=${threadOptions.networkAccessEnabled}, webSearchEnabled=${threadOptions.webSearchEnabled}`
     );
 
     const thread = codex.startThread(threadOptions);
 
     try {
-      const streamedTurn = await thread.runStreamed(addInstructions(ctx));
+      const streamedTurn = await thread.runStreamed(ctx.instructions);
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {

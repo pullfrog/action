@@ -3,7 +3,7 @@ import { spawn as nodeSpawn } from "node:child_process";
 export interface SpawnOptions {
   cmd: string;
   args: string[];
-  env?: Record<string, string>;
+  env?: NodeJS.ProcessEnv;
   input?: string;
   timeout?: number;
   cwd?: string;

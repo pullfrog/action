@@ -216,7 +216,7 @@ export const log = {
 
   /** Print success message */
   success: (...args: unknown[]): void => {
-    core.info(`✅ ${formatArgs(args)}`);
+    core.info(`» ${formatArgs(args)}`);
   },
 
   /** Print debug message (only if LOG_LEVEL=debug) */

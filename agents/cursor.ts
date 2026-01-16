@@ -3,9 +3,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Effort } from "../external.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import { log } from "../utils/cli.ts";
-import { addInstructions } from "./instructions.ts";
-import { type AgentConfig, agent, createAgentEnv, installFromCurl } from "./shared.ts";
+import { installFromCurl } from "../utils/install.ts";
+import { type AgentRunContext, agent } from "./shared.ts";
 
 // effort configuration for Cursor
 // only "max" overrides the model; mini/auto use default ("auto")
@@ -87,15 +88,20 @@ type CursorEvent =
   | CursorToolCallEvent
   | CursorResultEvent;
 
+async function installCursor(): Promise<string> {
+  return await installFromCurl({
+    installUrl: "https://cursor.com/install",
+    executableName: "cursor-agent",
+  });
+}
+
 export const cursor = agent({
   name: "cursor",
-  install: async () => {
-    return await installFromCurl({
-      installUrl: "https://cursor.com/install",
-      executableName: "cursor-agent",
-    });
-  },
+  install: installCursor,
   run: async (ctx) => {
+    // install CLI at start of run
+    const cliPath = await installCursor();
+
     configureCursorMcpServers(ctx);
     configureCursorTools(ctx);
 
@@ -108,7 +114,7 @@ export const cursor = agent({
       try {
         const projectConfig = JSON.parse(readFileSync(projectCliConfigPath, "utf-8"));
         if (projectConfig.model) {
-          log.info(`Using model from project .cursor/cli.json: ${projectConfig.model}`);
+          log.info(`» using model from project .cursor/cli.json: ${projectConfig.model}`);
         } else {
           modelOverride = cursorEffortModels[ctx.effort];
         }
@@ -120,9 +126,9 @@ export const cursor = agent({
     }
 
     if (modelOverride) {
-      log.info(`Using model: ${modelOverride} (effort: ${ctx.effort})`);
+      log.info(`» using model: ${modelOverride}, effort=${ctx.effort}`);
     } else if (!existsSync(projectCliConfigPath)) {
-      log.info(`Using default model (effort: ${ctx.effort})`);
+      log.info(`» using default model, effort=${ctx.effort}`);
     }
 
     // track logged model_call_ids to avoid duplicates
@@ -196,11 +202,14 @@ export const cursor = agent({
     };
 
     try {
-      const fullPrompt = addInstructions(ctx);
-      log.group("Full prompt", () => log.info(fullPrompt));
-
       // build CLI args
-      const baseArgs = ["--print", fullPrompt, "--output-format", "stream-json", "--approve-mcps"];
+      const baseArgs = [
+        "--print",
+        ctx.instructions,
+        "--output-format",
+        "stream-json",
+        "--approve-mcps",
+      ];
 
       // add model flag if we have an override
       if (modelOverride) {
@@ -210,16 +219,14 @@ export const cursor = agent({
       // always use --force since permissions are controlled via cli-config.json
       const cursorArgs = [...baseArgs, "--force"];
 
-      log.info("Running Cursor CLI...");
+      log.info("» running Cursor CLI...");
 
       const startTime = Date.now();
 
       return new Promise((resolve) => {
-        const child = spawn(ctx.cliPath, cursorArgs, {
+        const child = spawn(cliPath, cursorArgs, {
           cwd: process.cwd(),
-          env: createAgentEnv({
-            CURSOR_API_KEY: ctx.apiKey,
-          }),
+          env: process.env,
           stdio: ["ignore", "pipe", "pipe"], // Ignore stdin, pipe stdout/stderr
         });
 
@@ -311,28 +318,16 @@ export const cursor = agent({
 // There was an issue on macOS when you set HOME to a temp directory
 // it was unable to find the macOS keychain and would fail
 // temp solution is to stick with the actual $HOME
-function configureCursorMcpServers(ctx: AgentConfig): void {
+function configureCursorMcpServers(ctx: AgentRunContext): void {
   const realHome = homedir();
   const cursorConfigDir = join(realHome, ".cursor");
   const mcpConfigPath = join(cursorConfigDir, "mcp.json");
   mkdirSync(cursorConfigDir, { recursive: true });
 
-  // Convert to Cursor's expected format (HTTP config)
-  const cursorMcpServers: Record<string, { type: string; url: string }> = {};
-  for (const [serverName, serverConfig] of Object.entries(ctx.mcpServers)) {
-    if (serverConfig.type !== "http") {
-      throw new Error(
-        `Unsupported MCP server type for Cursor: ${(serverConfig as any).type || "unknown"}`
-      );
-    }
-
-    cursorMcpServers[serverName] = {
-      type: "http",
-      url: serverConfig.url,
-    };
-  }
-
-  writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: cursorMcpServers }, null, 2), "utf-8");
+  const mcpServers = {
+    [ghPullfrogMcpName]: { type: "http", url: ctx.mcpServerUrl },
+  };
+  writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers }, null, 2), "utf-8");
   log.info(`» MCP config written to ${mcpConfigPath}`);
 }
 
@@ -350,10 +345,9 @@ interface CursorCliConfig {
 /**
  * Configure Cursor CLI tool permissions via cli-config.json.
  *
- * Config path: $XDG_CONFIG_HOME/cursor/ (not ~/.cursor/) because createAgentEnv
- * sets XDG_CONFIG_HOME=$HOME/.config.
+ * Config path: $HOME/.config/cursor/ (not ~/.cursor/).
  */
-function configureCursorTools(ctx: AgentConfig): void {
+function configureCursorTools(ctx: AgentRunContext): void {
   const realHome = homedir();
   const cursorConfigDir = join(realHome, ".config", "cursor");
   const cliConfigPath = join(cursorConfigDir, "cli-config.json");

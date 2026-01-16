@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import type { ToolContext } from "../main.ts";
+import type { ToolContext } from "./server.ts";
 import type { PrepResult } from "../prep/index.ts";
 import { runPrepPhase } from "../prep/index.ts";
 import { execute, tool } from "./shared.ts";

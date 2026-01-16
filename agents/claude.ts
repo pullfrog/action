@@ -1,9 +1,10 @@
 import { type Options, query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Effort } from "../external.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "../utils/cli.ts";
-import { addInstructions } from "./instructions.ts";
-import { type AgentConfig, agent, createAgentEnv, installFromNpmTarball } from "./shared.ts";
+import { installFromNpmTarball } from "../utils/install.ts";
+import { type AgentRunContext, agent } from "./shared.ts";
 
 // Model selection based on effort level
 // Note: mini uses Haiku for speed, auto uses opusplan for balance, max uses Opus for capability
@@ -22,7 +23,7 @@ const claudeEffortModels: Record<Effort, string> = {
 /**
  * Build disallowedTools list from ToolPermissions.
  */
-function buildDisallowedTools(ctx: AgentConfig): string[] {
+function buildDisallowedTools(ctx: AgentRunContext): string[] {
   const disallowed: string[] = [];
   if (ctx.tools.web === "disabled") disallowed.push("WebFetch");
   if (ctx.tools.search === "disabled") disallowed.push("WebSearch");
@@ -33,31 +34,33 @@ function buildDisallowedTools(ctx: AgentConfig): string[] {
   return disallowed;
 }
 
+async function installClaude(): Promise<string> {
+  const versionRange = packageJson.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
+  return await installFromNpmTarball({
+    packageName: "@anthropic-ai/claude-agent-sdk",
+    version: versionRange,
+    executablePath: "cli.js",
+  });
+}
+
 export const claude = agent({
   name: "claude",
-  install: async () => {
-    const versionRange = packageJson.dependencies["@anthropic-ai/claude-agent-sdk"] || "latest";
-    return await installFromNpmTarball({
-      packageName: "@anthropic-ai/claude-agent-sdk",
-      version: versionRange,
-      executablePath: "cli.js",
-    });
-  },
+  install: installClaude,
   run: async (ctx) => {
+    // install CLI at start of run
+    const cliPath = await installClaude();
+
     // Ensure API key is NOT in process.env - only pass via SDK's env option
     delete process.env.ANTHROPIC_API_KEY;
 
-    const prompt = addInstructions(ctx);
-    log.group("Full prompt", () => log.info(prompt));
-
     // select model based on effort level
     const model = claudeEffortModels[ctx.effort];
-    log.info(`Using model: ${model} (effort: ${ctx.effort})`);
+    log.info(`» using model: ${model} (effort: ${ctx.effort})`);
 
     // build disallowedTools based on tool permissions
     const disallowedTools = buildDisallowedTools(ctx);
     if (disallowedTools.length > 0) {
-      log.info(`🔒 disallowed tools: ${disallowedTools.join(", ")}`);
+      log.info(`» disallowed tools: ${disallowedTools.join(", ")}`);
     }
 
     // Pass secrets via SDK's env option only (not process.env)
@@ -65,14 +68,16 @@ export const claude = agent({
     const queryOptions: Options = {
       permissionMode: "bypassPermissions" as const,
       disallowedTools,
-      mcpServers: ctx.mcpServers,
+      mcpServers: {
+        [ghPullfrogMcpName]: { type: "http", url: ctx.mcpServerUrl },
+      },
       model,
-      pathToClaudeCodeExecutable: ctx.cliPath,
-      env: createAgentEnv({ ANTHROPIC_API_KEY: ctx.apiKey }),
+      pathToClaudeCodeExecutable: cliPath,
+      env: process.env,
     };
 
     const queryInstance = query({
-      prompt,
+      prompt: ctx.instructions,
       options: queryOptions,
     });
 

@@ -25499,11 +25499,10 @@ var require_src = __commonJS({
 });
 
 // get-installation-token/entry.ts
-var core3 = __toESM(require_core(), 1);
+var core4 = __toESM(require_core(), 1);
 
-// utils/github.ts
-var core2 = __toESM(require_core(), 1);
-import { createSign } from "node:crypto";
+// utils/token.ts
+var core3 = __toESM(require_core(), 1);
 
 // utils/log.ts
 var core = __toESM(require_core(), 1);
@@ -25635,7 +25634,7 @@ var log = {
   },
   /** Print success message */
   success: (...args) => {
-    core.info(`\u2705 ${formatArgs(args)}`);
+    core.info(`\xBB ${formatArgs(args)}`);
   },
   /** Print debug message (only if LOG_LEVEL=debug) */
   debug: (...args) => {
@@ -25667,6 +25666,10 @@ function formatJsonValue(value) {
   const compact = JSON.stringify(value);
   return compact.length > 80 || compact.includes("\n") ? JSON.stringify(value, null, 2) : compact;
 }
+
+// utils/github.ts
+var core2 = __toESM(require_core(), 1);
+import { createSign } from "node:crypto";
 
 // utils/retry.ts
 var defaultShouldRetry = (error2) => {
@@ -25844,6 +25847,19 @@ async function acquireNewToken(opts) {
     return await acquireTokenViaGitHubApp();
   }
 }
+function parseRepoContext() {
+  const githubRepo = process.env.GITHUB_REPOSITORY;
+  if (!githubRepo) {
+    throw new Error("GITHUB_REPOSITORY environment variable is required");
+  }
+  const [owner, name] = githubRepo.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
+  }
+  return { owner, name };
+}
+
+// utils/token.ts
 async function revokeGitHubInstallationToken(token) {
   const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
   try {
@@ -25862,52 +25878,33 @@ async function revokeGitHubInstallationToken(token) {
     );
   }
 }
-function parseRepoContext() {
-  const githubRepo = process.env.GITHUB_REPOSITORY;
-  if (!githubRepo) {
-    throw new Error("GITHUB_REPOSITORY environment variable is required");
-  }
-  const [owner, name] = githubRepo.split("/");
-  if (!owner || !name) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${githubRepo}. Expected 'owner/repo'`);
-  }
-  return { owner, name };
-}
-
-// get-installation-token/token.ts
-async function acquireInstallationToken(opts) {
-  return acquireNewToken(opts);
-}
-async function revokeInstallationToken(token) {
-  return revokeGitHubInstallationToken(token);
-}
 
 // get-installation-token/entry.ts
 var STATE_TOKEN = "token";
 var STATE_IS_POST = "isPost";
 async function main() {
-  core3.saveState(STATE_IS_POST, "true");
-  const reposInput = core3.getInput("repos");
+  core4.saveState(STATE_IS_POST, "true");
+  const reposInput = core4.getInput("repos");
   const additionalRepos = reposInput ? reposInput.split(",").map((r) => r.trim()).filter(Boolean) : [];
-  const token = await acquireInstallationToken({ repos: additionalRepos });
-  core3.setSecret(token);
-  core3.saveState(STATE_TOKEN, token);
-  core3.setOutput("token", token);
+  const token = await acquireNewToken({ repos: additionalRepos });
+  core4.setSecret(token);
+  core4.saveState(STATE_TOKEN, token);
+  core4.setOutput("token", token);
   const scope = additionalRepos.length ? `current repo + ${additionalRepos.join(", ")}` : "current repo only";
-  core3.info(`\xBB installation token acquired (${scope})`);
+  core4.info(`\xBB installation token acquired (${scope})`);
 }
 async function post() {
-  const token = core3.getState(STATE_TOKEN);
+  const token = core4.getState(STATE_TOKEN);
   if (!token) {
-    core3.debug("no token found in state, skipping revocation");
+    core4.debug("no token found in state, skipping revocation");
     return;
   }
-  await revokeInstallationToken(token);
-  core3.info("\xBB installation token revoked");
+  await revokeGitHubInstallationToken(token);
+  core4.info("\xBB installation token revoked");
 }
 async function run() {
   try {
-    const isPost = core3.getState(STATE_IS_POST) === "true";
+    const isPost = core4.getState(STATE_IS_POST) === "true";
     if (isPost) {
       await post();
     } else {
@@ -25915,7 +25912,7 @@ async function run() {
     }
   } catch (error2) {
     const message = error2 instanceof Error ? error2.message : String(error2);
-    core3.setFailed(message);
+    core4.setFailed(message);
   }
 }
 await run();

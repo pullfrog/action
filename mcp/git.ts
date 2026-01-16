@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import type { ToolContext } from "../main.ts";
+import type { ToolContext } from "./server.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";

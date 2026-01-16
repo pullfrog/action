@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type } from "arktype";
-import type { ToolContext } from "../main.ts";
+import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 export const BashParams = type({

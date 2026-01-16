@@ -31,5 +31,4 @@ This tests that you can execute shell commands properly.`,
   event: {
     trigger: "workflow_dispatch",
   },
-  modes: [],
 } satisfies Payload;
