@@ -50,9 +50,6 @@ export const claude = agent({
     // install CLI at start of run
     const cliPath = await installClaude();
 
-    // Ensure API key is NOT in process.env - only pass via SDK's env option
-    delete process.env.ANTHROPIC_API_KEY;
-
     // select model based on effort level
     const model = claudeEffortModels[ctx.effort];
     log.info(`» using model: ${model} (effort: ${ctx.effort})`);
@@ -63,8 +60,6 @@ export const claude = agent({
       log.info(`» disallowed tools: ${disallowedTools.join(", ")}`);
     }
 
-    // Pass secrets via SDK's env option only (not process.env)
-    // This ensures secrets are only available to Claude Code subprocess, not user code
     const queryOptions: Options = {
       permissionMode: "bypassPermissions" as const,
       disallowedTools,

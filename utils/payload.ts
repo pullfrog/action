@@ -29,6 +29,10 @@ const JsonPayload = type({
 });
 
 // inputs schema - action inputs from core.getInput()
+// note: tool permissions use .or("undefined") because getInput() || undefined
+// explicitly sets the property to undefined when empty, which is different from
+// the property being absent. arktype's "prop?" means "optional to include" but
+// if included, must match the type - so we need to explicitly allow undefined.
 export const Inputs = type({
   prompt: "string",
   "effort?": Effort,
