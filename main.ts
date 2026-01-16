@@ -5,6 +5,7 @@ import { validateApiKey } from "./utils/apiKeys.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
 import { resolveInstructions } from "./utils/instructions.ts";
+import { normalizeEnv } from "./utils/normalizeEnv.ts";
 import { resolvePayload } from "./utils/payload.ts";
 import { resolveRepoData } from "./utils/repoData.ts";
 import { resolveAgent } from "./utils/resolveAgent.ts";
@@ -25,6 +26,9 @@ export interface MainResult {
 export async function main(core: {
   getInput: (name: string, options?: { required?: boolean }) => string;
 }): Promise<MainResult> {
+  // normalize env var names to uppercase (handles case-insensitive workflow files)
+  normalizeEnv();
+
   // store original GITHUB_TOKEN
   process.env.ORIGINAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
