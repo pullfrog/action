@@ -9,10 +9,6 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: action
-
 jobs:
   test:
     runs-on: ubuntu-latest
