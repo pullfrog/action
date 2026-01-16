@@ -17,8 +17,8 @@ export function GetCheckSuiteLogsTool(ctx: ToolContext) {
       const workflowRuns = await ctx.octokit.paginate(
         ctx.octokit.rest.actions.listWorkflowRunsForRepo,
         {
-          owner: ctx.owner,
-          repo: ctx.name,
+          owner: ctx.repo.owner,
+          repo: ctx.repo.name,
           check_suite_id,
           per_page: 100,
         }
@@ -38,8 +38,8 @@ export function GetCheckSuiteLogsTool(ctx: ToolContext) {
       const logsForRuns = await Promise.all(
         failedRuns.map(async (run) => {
           const jobs = await ctx.octokit.paginate(ctx.octokit.rest.actions.listJobsForWorkflowRun, {
-            owner: ctx.owner,
-            repo: ctx.name,
+            owner: ctx.repo.owner,
+            repo: ctx.repo.name,
             run_id: run.id,
           });
 
@@ -47,8 +47,8 @@ export function GetCheckSuiteLogsTool(ctx: ToolContext) {
             jobs.map(async (job) => {
               try {
                 const logsResponse = await ctx.octokit.rest.actions.downloadJobLogsForWorkflowRun({
-                  owner: ctx.owner,
-                  repo: ctx.name,
+                  owner: ctx.repo.owner,
+                  repo: ctx.repo.name,
                   job_id: job.id,
                 });
 

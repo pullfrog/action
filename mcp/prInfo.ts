@@ -14,8 +14,8 @@ export function PullRequestInfoTool(ctx: ToolContext) {
     parameters: PullRequestInfo,
     execute: execute(async ({ pull_number }) => {
       const pr = await ctx.octokit.rest.pulls.get({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
       });
 

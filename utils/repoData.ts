@@ -1,38 +1,42 @@
 import type { Octokit } from "@octokit/rest";
 import packageJson from "../package.json" with { type: "json" };
 import { log } from "./cli.ts";
-import { createOctokit, parseRepoContext } from "./github.ts";
+import { createOctokit, type OctokitWithPlugins, parseRepoContext } from "./github.ts";
 import { fetchRepoSettings, type RepoSettings } from "./repoSettings.ts";
 
 export interface RepoData {
   owner: string;
   name: string;
-  octokit: Octokit;
   repo: Awaited<ReturnType<Octokit["repos"]["get"]>>["data"];
   repoSettings: RepoSettings;
 }
 
+interface ResolveRepoDataParams {
+  octokit: OctokitWithPlugins;
+  token: string;
+}
+
 /**
- * Initialize GitHub connection: token, octokit, repo data, settings
+ * Initialize repo data: parse context, fetch repo info and settings
  */
-export async function resolveRepoData(token: string): Promise<RepoData> {
+export async function resolveRepoData(params: ResolveRepoDataParams): Promise<RepoData> {
   log.info(`» running Pullfrog v${packageJson.version}...`);
 
   const { owner, name } = parseRepoContext();
 
-  const octokit = createOctokit(token);
-
   // fetch repo data and settings in parallel
   const [repoResponse, repoSettings] = await Promise.all([
-    octokit.repos.get({ owner, repo: name }),
-    fetchRepoSettings({ token, repoContext: { owner, name } }),
+    params.octokit.repos.get({ owner, repo: name }),
+    fetchRepoSettings({ token: params.token, repoContext: { owner, name } }),
   ]);
 
   return {
     owner,
     name,
-    octokit,
     repo: repoResponse.data,
     repoSettings,
   };
 }
+
+// re-export for convenience
+export { createOctokit };

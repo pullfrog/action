@@ -1,4 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
+import * as core from "@actions/core";
 import { type } from "arktype";
 import {
   AgentName,
@@ -6,6 +7,7 @@ import {
   Effort,
   type PayloadEvent,
 } from "../external.ts";
+import type { RepoSettings } from "./repoSettings.ts";
 
 // tool permission enum types for inputs
 const ToolPermissionInput = type.enumerated("disabled", "enabled");
@@ -22,10 +24,6 @@ const JsonPayload = type({
   "search?": ToolPermissionInput,
   "write?": ToolPermissionInput,
   "bash?": BashPermissionInput,
-  "disableProgressComment?": "true",
-  "comment_id?": "number|null",
-  "issue_id?": "number|null",
-  "pr_id?": "number|null",
 });
 
 // inputs schema - action inputs from core.getInput()
@@ -61,9 +59,7 @@ function resolveCwd(cwd: string | null | undefined): string | null {
   return workspace ? resolve(workspace, cwd) : cwd;
 }
 
-export function resolvePayload(core: {
-  getInput: (name: string, options?: { required?: boolean }) => string;
-}) {
+export function resolvePayload(repoSettings: RepoSettings) {
   const inputs = Inputs.assert({
     prompt: core.getInput("prompt", { required: true }),
     effort: core.getInput("effort") || "auto",
@@ -107,7 +103,7 @@ export function resolvePayload(core: {
     agent ??
     (jsonAgent !== undefined && jsonAgent !== "null" && isAgentName(jsonAgent) ? jsonAgent : null);
 
-  // build payload - precedence: inputs > jsonPayload > defaults
+  // build payload - precedence: inputs > jsonPayload > repoSettings > fallbacks
   // note: modes are NOT in payload - they come from repoSettings in main()
   return {
     "~pullfrog": true as const,
@@ -115,15 +111,13 @@ export function resolvePayload(core: {
     prompt: inputs.prompt ?? jsonPayload?.prompt,
     event,
     effort: inputs.effort ?? jsonPayload?.effort ?? "auto",
-    web: inputs.web ?? jsonPayload?.web,
-    search: inputs.search ?? jsonPayload?.search,
-    write: inputs.write ?? jsonPayload?.write,
-    bash: inputs.bash ?? jsonPayload?.bash,
-    disableProgressComment: jsonPayload?.disableProgressComment === true,
-    comment_id: jsonPayload?.comment_id ?? null,
-    issue_id: jsonPayload?.issue_id ?? null,
-    pr_id: jsonPayload?.pr_id ?? null,
     cwd: resolveCwd(inputs.cwd),
+
+    // permissions: inputs > jsonPayload > repoSettings > fallbacks
+    web: inputs.web ?? jsonPayload?.web ?? repoSettings.web ?? "enabled",
+    search: inputs.search ?? jsonPayload?.search ?? repoSettings.search ?? "enabled",
+    write: inputs.write ?? jsonPayload?.write ?? repoSettings.write ?? "enabled",
+    bash: inputs.bash ?? jsonPayload?.bash ?? repoSettings.bash ?? "restricted",
   };
 }
 

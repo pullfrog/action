@@ -221,8 +221,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
     execute: execute(async ({ pull_number }) => {
       const result = await checkoutPrBranch({
         octokit: ctx.octokit,
-        owner: ctx.owner,
-        name: ctx.name,
+        owner: ctx.repo.owner,
+        name: ctx.repo.name,
         token: ctx.githubInstallationToken,
         pullNumber: pull_number,
       });
@@ -232,8 +232,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
 
       // fetch PR metadata to return result
       const pr = await ctx.octokit.rest.pulls.get({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
       });
 
@@ -244,8 +244,8 @@ export function CheckoutPrTool(ctx: ToolContext) {
 
       // fetch PR files and format with line numbers
       const filesResponse = await ctx.octokit.rest.pulls.listFiles({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
         per_page: 100,
       });

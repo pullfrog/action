@@ -57,8 +57,8 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
 
       // compose the request
       const params: RestEndpointMethodTypes["pulls"]["createReview"]["parameters"] = {
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
         event: "COMMENT",
       };
@@ -68,8 +68,8 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       } else {
         // get the PR to determine the head commit if commit_id not provided
         const pr = await ctx.octokit.rest.pulls.get({
-          owner: ctx.owner,
-          repo: ctx.name,
+          owner: ctx.repo.owner,
+          repo: ctx.repo.name,
           pull_number,
         });
         params.commit_id = pr.data.head.sha;
@@ -98,11 +98,11 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
 
       // build quick links footer and update the review body
       const apiUrl = process.env.API_URL || "https://pullfrog.com";
-      const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pull_number}?action=fix&review_id=${reviewId}`;
-      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
+      const fixAllUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix&review_id=${reviewId}`;
+      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
 
       const footer = buildPullfrogFooter({
-        workflowRun: { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId },
+        workflowRun: { owner: ctx.repo.owner, repo: ctx.repo.name, runId: ctx.runId, jobId: ctx.jobId },
         customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
       });
 
@@ -110,8 +110,8 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
 
       // update the review with the footer
       await ctx.octokit.rest.pulls.updateReview({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
         review_id: reviewId,
         body: updatedBody,
@@ -171,8 +171,8 @@ async function findPendingReview(
   pull_number: number
 ): Promise<{ id: number; node_id: string } | null> {
   const reviews = await ctx.octokit.rest.pulls.listReviews({
-    owner: ctx.owner,
-    repo: ctx.name,
+    owner: ctx.repo.owner,
+    repo: ctx.repo.name,
     pull_number,
     per_page: 100,
   });
@@ -207,8 +207,8 @@ export function StartReviewTool(ctx: ToolContext) {
 
       // get the PR to get head commit SHA
       const pr = await ctx.octokit.rest.pulls.get({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
       });
 
@@ -219,8 +219,8 @@ export function StartReviewTool(ctx: ToolContext) {
       log.debug(`creating pending review for PR #${pull_number}...`);
       try {
         const result = await ctx.octokit.rest.pulls.createReview({
-          owner: ctx.owner,
-          repo: ctx.name,
+          owner: ctx.repo.owner,
+          repo: ctx.repo.name,
           pull_number,
           commit_id: pr.data.head.sha,
           // no 'event' = PENDING review
@@ -386,11 +386,11 @@ export function SubmitReviewTool(ctx: ToolContext) {
 
       // build quick links footer
       const apiUrl = process.env.API_URL || "https://pullfrog.com";
-      const fixAllUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix&review_id=${reviewId}`;
-      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.owner}/${ctx.name}/${ctx.toolState.prNumber}?action=fix-approved&review_id=${reviewId}`;
+      const fixAllUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${ctx.toolState.prNumber}?action=fix&review_id=${reviewId}`;
+      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${ctx.toolState.prNumber}?action=fix-approved&review_id=${reviewId}`;
 
       const footer = buildPullfrogFooter({
-        workflowRun: { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId },
+        workflowRun: { owner: ctx.repo.owner, repo: ctx.repo.name, runId: ctx.runId, jobId: ctx.jobId },
         customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
       });
 
@@ -398,8 +398,8 @@ export function SubmitReviewTool(ctx: ToolContext) {
 
       // submit the pending review via REST
       const result = await ctx.octokit.rest.pulls.submitReview({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number: ctx.toolState.prNumber,
         review_id: reviewId,
         event: "COMMENT",

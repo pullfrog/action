@@ -142,7 +142,7 @@ ${getShellInstructions(input.bash)}
 
 ### Available modes
 
-${[...computeModes({ disableProgressComment: false }), ...input.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
+${[...computeModes({ hasProgressComment: true }), ...input.modes].map((w) => `    - "${w.name}": ${w.description}`).join("\n")}
 
 ### Following the mode instructions
 

@@ -17,8 +17,8 @@ export function GetIssueCommentsTool(ctx: ToolContext) {
       ctx.toolState.issueNumber = issue_number;
 
       const comments = await ctx.octokit.paginate(ctx.octokit.rest.issues.listComments, {
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         issue_number,
       });
 

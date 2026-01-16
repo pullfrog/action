@@ -9,7 +9,7 @@ import { main } from "./main.ts";
 
 async function run(): Promise<void> {
   try {
-    const result = await main(core);
+    const result = await main();
 
     if (!result.success) {
       throw new Error(result.error || "Agent execution failed");

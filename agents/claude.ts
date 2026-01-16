@@ -21,16 +21,17 @@ const claudeEffortModels: Record<Effort, string> = {
 // This approach could replace model selection if effort proves effective for controlling capability.
 
 /**
- * Build disallowedTools list from ToolPermissions.
+ * Build disallowedTools list from payload permissions.
  */
 function buildDisallowedTools(ctx: AgentRunContext): string[] {
   const disallowed: string[] = [];
-  if (ctx.tools.web === "disabled") disallowed.push("WebFetch");
-  if (ctx.tools.search === "disabled") disallowed.push("WebSearch");
-  if (ctx.tools.write === "disabled") disallowed.push("Write");
+  if (ctx.payload.web === "disabled") disallowed.push("WebFetch");
+  if (ctx.payload.search === "disabled") disallowed.push("WebSearch");
+  if (ctx.payload.write === "disabled") disallowed.push("Write");
   // both "disabled" and "restricted" block native bash
   // "restricted" means use MCP bash tool instead
-  if (ctx.tools.bash !== "enabled") disallowed.push("Bash");
+  const bash = ctx.payload.bash;
+  if (bash !== "enabled") disallowed.push("Bash");
   return disallowed;
 }
 
@@ -51,8 +52,8 @@ export const claude = agent({
     const cliPath = await installClaude();
 
     // select model based on effort level
-    const model = claudeEffortModels[ctx.effort];
-    log.info(`» using model: ${model} (effort: ${ctx.effort})`);
+    const model = claudeEffortModels[ctx.payload.effort];
+    log.info(`» using model: ${model} (effort: ${ctx.payload.effort})`);
 
     // build disallowedTools based on tool permissions
     const disallowedTools = buildDisallowedTools(ctx);

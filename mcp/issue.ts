@@ -22,8 +22,8 @@ export function IssueTool(ctx: ToolContext) {
     parameters: Issue,
     execute: execute(async ({ title, body, labels, assignees }) => {
       const result = await ctx.octokit.rest.issues.create({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         title: title,
         body: body,
         labels: labels ?? [],

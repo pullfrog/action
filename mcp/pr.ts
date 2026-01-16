@@ -1,9 +1,9 @@
 import { type } from "arktype";
-import type { ToolContext } from "./server.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { containsSecrets } from "../utils/secrets.ts";
 import { $ } from "../utils/shell.ts";
+import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 export const PullRequest = type({
@@ -17,7 +17,7 @@ function buildPrBodyWithFooter(ctx: ToolContext, body: string): string {
     triggeredBy: true,
     agent: { displayName: ctx.agent.displayName, url: ctx.agent.url },
     workflowRun: ctx.runId
-      ? { owner: ctx.owner, repo: ctx.name, runId: ctx.runId, jobId: ctx.jobId }
+      ? { owner: ctx.repo.owner, repo: ctx.repo.name, runId: ctx.runId, jobId: ctx.jobId }
       : undefined,
   });
 
@@ -56,8 +56,8 @@ export function CreatePullRequestTool(ctx: ToolContext) {
       const bodyWithFooter = buildPrBodyWithFooter(ctx, body);
 
       const result = await ctx.octokit.rest.pulls.create({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         title: title,
         body: bodyWithFooter,
         head: currentBranch,

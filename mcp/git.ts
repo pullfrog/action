@@ -6,7 +6,7 @@ import { $ } from "../utils/shell.ts";
 import { execute, tool } from "./shared.ts";
 
 export function CreateBranchTool(ctx: ToolContext) {
-  const defaultBranch = ctx.repo.default_branch || "main";
+  const defaultBranch = ctx.repo.repo.default_branch || "main";
 
   const CreateBranch = type({
     branchName: type.string.describe(
@@ -24,7 +24,7 @@ export function CreateBranchTool(ctx: ToolContext) {
     parameters: CreateBranch,
     execute: execute(async ({ branchName, baseBranch }) => {
       // baseBranch should always be defined due to default, but TypeScript needs help
-      const resolvedBaseBranch = baseBranch || ctx.repo.default_branch || "main";
+      const resolvedBaseBranch = baseBranch || ctx.repo.repo.default_branch || "main";
 
       // validate branch name for secrets
       if (containsSecrets(branchName)) {

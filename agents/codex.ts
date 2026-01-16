@@ -42,8 +42,9 @@ function writeCodexConfig(ctx: AgentRunContext): string {
   // build features section for tool control
   // disable native shell if bash is "disabled" or "restricted"
   // when "restricted", agent uses MCP bash tool which filters secrets
+  const bash = ctx.payload.bash;
   const features: string[] = [];
-  if (ctx.tools.bash !== "enabled") {
+  if (bash !== "enabled") {
     features.push("shell_command_tool = false");
     features.push("unified_exec = false");
   }
@@ -58,9 +59,7 @@ ${mcpServerSections.join("\n\n")}
 `.trim() + "\n"
   );
 
-  log.info(
-    `» Codex config written to ${configPath} (shell: ${ctx.tools.bash === "enabled" ? "enabled" : "disabled"})`
-  );
+  log.info(`» Codex config written to ${configPath} (shell: ${bash === "enabled" ? "enabled" : "disabled"})`);
 
   return codexDir;
 }
@@ -90,16 +89,21 @@ export const codex = agent({
     process.env.CODEX_HOME = codexDir;
 
     // get model and reasoning effort based on effort level
-    const model = codexModel[ctx.effort];
-    const modelReasoningEffort = codexReasoningEffort[ctx.effort];
+    const model = codexModel[ctx.payload.effort];
+    const modelReasoningEffort = codexReasoningEffort[ctx.payload.effort];
     log.info(`» using model: ${model}`);
     if (modelReasoningEffort) {
       log.info(`» using modelReasoningEffort: ${modelReasoningEffort}`);
     }
 
     // Configure Codex
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY is required for codex agent");
+    }
+
     const codexOptions: CodexOptions = {
-      apiKey: ctx.apiKey,
+      apiKey,
       codexPathOverride: cliPath,
     };
 
@@ -110,11 +114,11 @@ export const codex = agent({
       model,
       approvalPolicy: "never" as const,
       // write: "disabled" → read-only sandbox, otherwise full access for git ops
-      sandboxMode: ctx.tools.write === "disabled" ? "read-only" : "danger-full-access",
+      sandboxMode: ctx.payload.write === "disabled" ? "read-only" : "danger-full-access",
       // web: controls network access
-      networkAccessEnabled: ctx.tools.web !== "disabled",
+      networkAccessEnabled: ctx.payload.web !== "disabled",
       // search: controls web search
-      webSearchEnabled: ctx.tools.search !== "disabled",
+      webSearchEnabled: ctx.payload.search !== "disabled",
       ...(modelReasoningEffort && { modelReasoningEffort }),
     };
 

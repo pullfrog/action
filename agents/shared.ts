@@ -1,6 +1,7 @@
 import type { show } from "@ark/util";
-import { type AgentManifest, type AgentName, agentsManifest, type Effort } from "../external.ts";
+import { type AgentManifest, type AgentName, agentsManifest } from "../external.ts";
 import { log } from "../utils/cli.ts";
+import type { ResolvedPayload } from "../utils/payload.ts";
 
 /**
  * Result returned by agent execution
@@ -13,43 +14,26 @@ export interface AgentResult {
 }
 
 /**
- * Tool permission levels
- */
-export type ToolPermission = "disabled" | "enabled";
-export type BashPermission = "disabled" | "restricted" | "enabled";
-
-/**
- * Granular tool permissions for agents
- */
-export interface ToolPermissions {
-  web: ToolPermission;
-  search: ToolPermission;
-  write: ToolPermission;
-  bash: BashPermission;
-}
-
-/**
  * Minimal context passed to agent.run()
  */
 export interface AgentRunContext {
-  effort: Effort;
-  tools: ToolPermissions;
+  payload: ResolvedPayload;
   mcpServerUrl: string;
   tmpdir: string;
   instructions: string;
-  apiKey: string;
-  apiKeys: Record<string, string>;
 }
 
 export const agent = <const input extends AgentInput>(input: input): defineAgent<input> => {
   return {
     ...input,
     run: async (ctx: AgentRunContext): Promise<AgentResult> => {
-      log.info(`» running ${input.name} with effort=${ctx.effort}...`);
+      const bash = ctx.payload.bash;
+      const web = ctx.payload.web;
+      const search = ctx.payload.search;
+      const write = ctx.payload.write;
+      log.info(`» running ${input.name} with effort=${ctx.payload.effort}...`);
       log.box(ctx.instructions, { title: "Instructions" });
-      log.info(
-        `» tool permissions: web=${ctx.tools.web}, search=${ctx.tools.search}, write=${ctx.tools.write}, bash=${ctx.tools.bash}`
-      );
+      log.info(`» tool permissions: web=${web}, search=${search}, write=${write}, bash=${bash}`);
       return input.run(ctx);
     },
     ...agentsManifest[input.name],

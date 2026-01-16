@@ -68,7 +68,7 @@ async function killProcessGroup(proc: ChildProcess): Promise<void> {
 }
 
 export function BashTool(ctx: ToolContext) {
-  const isPublicRepo = !ctx.repo.private;
+  const isPublicRepo = !ctx.repo.repo.private;
 
   return tool({
     name: "bash",

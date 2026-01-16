@@ -15,7 +15,7 @@ export const ModeSchema = type({
 });
 
 export interface ComputeModesParams {
-  disableProgressComment: boolean;
+  hasProgressComment: boolean;
 }
 
 const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to share progress and results. Continue calling it as you make progress - it will update the same comment. Never create additional comments manually.`;
@@ -23,7 +23,7 @@ const reportProgressInstruction = `Use ${ghPullfrogMcpName}/report_progress to s
 const dependencyInstallationStep = `If this task will require running tests, builds, linters, or CLI commands that need installed packages, call \`${ghPullfrogMcpName}/start_dependency_installation\` NOW. This is non-blocking and allows dependencies to install in the background while you continue. Later, call \`${ghPullfrogMcpName}/await_dependency_installation\` before running commands that need them. Skip this step if only reading code or answering questions.`;
 
 export function computeModes(ctx: ComputeModesParams): Mode[] {
-  const disableProgressComment = ctx.disableProgressComment;
+  const hasProgressComment = ctx.hasProgressComment;
   return [
     {
       name: "Build",
@@ -92,12 +92,12 @@ export function computeModes(ctx: ComputeModesParams): Mode[] {
 
 8. When done, commit your changes with ${ghPullfrogMcpName}/commit_files, then push with ${ghPullfrogMcpName}/push_branch. The push will automatically go to the correct remote (including fork repos). Do not create a new branch or PR - you are updating an existing one.
 ${
-  disableProgressComment
-    ? ""
-    : `
+  hasProgressComment
+    ? `
 9. ${reportProgressInstruction}
 
 **CRITICAL: Keep the progress comment extremely brief.** The summary should be 1-2 sentences max (e.g., "Fixed 3 review comments and pushed changes."). Almost all detail belongs in the individual reply_to_review_comment calls, NOT in the progress comment.`
+    : ""
 }`,
     },
     {
@@ -147,14 +147,14 @@ ${
 
 3. Consider dependencies, potential challenges, and implementation order
 
-4. Create a structured plan with clear milestones${disableProgressComment ? "" : `\n\n5. ${reportProgressInstruction}`}`,
+4. Create a structured plan with clear milestones${hasProgressComment ? `\n\n5. ${reportProgressInstruction}` : ""}`,
     },
     {
       name: "Prompt",
       description:
         "Fallback for tasks that don't fit other workflows, e.g. direct prompts via comments, or requests requiring general assistance",
       prompt: `Follow these steps. THINK HARDER.
-1. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.${disableProgressComment ? "" : " When creating comments, always use report_progress. Do not use create_issue_comment."}
+1. Perform the requested task. Only take action if you have high confidence that you understand what is being asked. If you are not sure, ask for clarification. Take stock of the tools at your disposal.${hasProgressComment ? " When creating comments, always use report_progress. Do not use create_issue_comment." : ""}
 
 2. If the task involves making code changes:
    - Create a branch using ${ghPullfrogMcpName}/create_branch. Branch names should be prefixed with "pullfrog/" and reflect the exact changes you are making. Never commit directly to main, master, or production.
@@ -172,5 +172,5 @@ ${
 }
 
 export const modes: Mode[] = computeModes({
-  disableProgressComment: false,
+  hasProgressComment: true,
 });

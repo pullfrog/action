@@ -176,8 +176,8 @@ export const gemini = agent({
 
     const model = configureGeminiSettings(ctx);
 
-    if (!ctx.apiKey) {
-      throw new Error("google_api_key or gemini_api_key is required for gemini agent");
+    if (!process.env.GOOGLE_API_KEY && !process.env.GEMINI_API_KEY) {
+      throw new Error("GOOGLE_API_KEY or GEMINI_API_KEY is required for gemini agent");
     }
 
     // build CLI args - --yolo for auto-approval
@@ -278,7 +278,7 @@ export const gemini = agent({
  * See: https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md
  */
 function configureGeminiSettings(ctx: AgentRunContext): string {
-  const { model, thinkingLevel } = geminiEffortConfig[ctx.effort];
+  const { model, thinkingLevel } = geminiEffortConfig[ctx.payload.effort];
   log.info(`» using model: ${model}, thinkingLevel: ${thinkingLevel}`);
 
   const realHome = homedir();
@@ -319,11 +319,12 @@ function configureGeminiSettings(ctx: AgentRunContext): string {
   };
 
   // build tools.exclude based on permissions (v0.3.0+ nested format)
+  const bash = ctx.payload.bash;
   const exclude: string[] = [];
-  if (ctx.tools.bash !== "enabled") exclude.push("run_shell_command");
-  if (ctx.tools.write === "disabled") exclude.push("write_file");
-  if (ctx.tools.web === "disabled") exclude.push("web_fetch");
-  if (ctx.tools.search === "disabled") exclude.push("google_web_search");
+  if (bash !== "enabled") exclude.push("run_shell_command");
+  if (ctx.payload.write === "disabled") exclude.push("write_file");
+  if (ctx.payload.web === "disabled") exclude.push("web_fetch");
+  if (ctx.payload.search === "disabled") exclude.push("google_web_search");
 
   // merge with existing settings, overwriting mcpServers and modelConfig
   const newSettings: Record<string, unknown> = {

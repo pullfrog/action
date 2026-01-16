@@ -1,12 +1,14 @@
 import "./arkConfig.ts";
 import { createServer } from "node:net";
 // this must be imported first
-import type { Octokit } from "@octokit/rest";
 import { FastMCP, type Tool } from "fastmcp";
 import type { Agent } from "../agents/index.ts";
-import { ghPullfrogMcpName, type PayloadEvent } from "../external.ts";
+import { ghPullfrogMcpName } from "../external.ts";
 import type { Mode } from "../modes.ts";
 import type { PrepResult } from "../prep/index.ts";
+import type { OctokitWithPlugins } from "../utils/github.ts";
+import type { ResolvedPayload } from "../utils/payload.ts";
+import type { RepoData } from "../utils/repoData.ts";
 
 export interface ToolState {
   prNumber?: number;
@@ -24,22 +26,19 @@ export interface ToolState {
 }
 
 export interface ToolContext {
-  tools: ToolPermissions;
-  owner: string;
-  name: string;
-  repo: { default_branch: string; private: boolean };
+  repo: RepoData;
+  payload: ResolvedPayload;
+  octokit: OctokitWithPlugins;
   githubInstallationToken: string;
-  octokit: Octokit;
   agent: Agent;
-  event: PayloadEvent;
-  disableProgressComment: boolean;
   modes: Mode[];
   toolState: ToolState;
   runId: string;
   jobId: string | undefined;
+  /** true if a progress comment was pre-created for this run */
+  hasProgressComment: boolean;
 }
 
-import type { ToolPermissions } from "../agents/shared.ts";
 import { BashTool } from "./bash.ts";
 import { CheckoutPrTool } from "./checkout.ts";
 import { GetCheckSuiteLogsTool } from "./checkSuite.ts";
@@ -137,11 +136,12 @@ export async function startMcpHttpServer(
   // - "enabled": native bash + MCP bash
   // - "restricted": MCP bash only (native blocked by agent)
   // - "disabled": no bash at all
-  if (ctx.tools.bash !== "disabled") {
+  const bash = ctx.payload.bash ?? "enabled";
+  if (bash !== "disabled") {
     tools.push(BashTool(ctx));
   }
 
-  if (!ctx.disableProgressComment) {
+  if (ctx.hasProgressComment) {
     tools.push(ReportProgressTool(ctx));
   }
 

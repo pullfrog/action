@@ -1,10 +1,5 @@
 import type { Agent } from "../agents/index.ts";
 
-export interface ApiKeySetup {
-  apiKey: string;
-  apiKeys: Record<string, string>;
-}
-
 /**
  * Build a helpful error message for missing API key with links to repo settings
  */
@@ -61,7 +56,7 @@ function collectApiKeys(agent: Agent): Record<string, string> {
   return apiKeys;
 }
 
-export function validateApiKey(params: { agent: Agent; owner: string; name: string }): ApiKeySetup {
+export function validateApiKey(params: { agent: Agent; owner: string; name: string }): void {
   const apiKeys = collectApiKeys(params.agent);
 
   if (Object.keys(apiKeys).length === 0) {
@@ -73,9 +68,4 @@ export function validateApiKey(params: { agent: Agent; owner: string; name: stri
       })
     );
   }
-
-  return {
-    apiKey: Object.values(apiKeys)[0],
-    apiKeys,
-  };
 }

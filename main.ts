@@ -1,19 +1,20 @@
 import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
 import { startMcpHttpServer, type ToolContext, type ToolState } from "./mcp/server.ts";
 import { computeModes } from "./modes.ts";
+import { resolveAgent } from "./utils/agent.ts";
 import { validateApiKey } from "./utils/apiKeys.ts";
 import { log } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
+import { createOctokit } from "./utils/github.ts";
 import { resolveInstructions } from "./utils/instructions.ts";
 import { normalizeEnv } from "./utils/normalizeEnv.ts";
 import { resolvePayload } from "./utils/payload.ts";
 import { resolveRepoData } from "./utils/repoData.ts";
-import { resolveAgent } from "./utils/resolveAgent.ts";
-import { handleAgentResult, resolvePermissions } from "./utils/run.ts";
+import { handleAgentResult } from "./utils/run.ts";
 import { createTempDirectory, setupGit } from "./utils/setup.ts";
 import { Timer } from "./utils/timer.ts";
 import { resolveInstallationToken } from "./utils/token.ts";
-import { resolveRunId } from "./utils/workflow.ts";
+import { resolveRun } from "./utils/workflow.ts";
 
 export { Inputs } from "./utils/payload.ts";
 
@@ -23,74 +24,66 @@ export interface MainResult {
   error?: string | undefined;
 }
 
-export async function main(core: {
-  getInput: (name: string, options?: { required?: boolean }) => string;
-}): Promise<MainResult> {
+export async function main(): Promise<MainResult> {
   // normalize env var names to uppercase (handles case-insensitive workflow files)
   normalizeEnv();
 
   // store original GITHUB_TOKEN
   process.env.ORIGINAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-  const payload = resolvePayload(core);
-  if (payload.cwd && process.cwd() !== payload.cwd) {
-    process.chdir(payload.cwd);
-  }
-
   const timer = new Timer();
   await using tokenRef = await resolveInstallationToken();
   process.env.GITHUB_TOKEN = tokenRef.token;
 
+  const octokit = createOctokit(tokenRef.token);
+  const runInfo = await resolveRun({ octokit });
+  const hasProgressComment = runInfo.workflowRunInfo.progressCommentId !== null;
+
   try {
-    const repoData = await resolveRepoData(tokenRef.token);
-    const tmpdir = await createTempDirectory();
+    const repo = await resolveRepoData({ octokit, token: tokenRef.token });
     timer.checkpoint("repoData");
 
-    const agent = resolveAgent({ payload, repoSettings: repoData.repoSettings });
+    // resolve payload after repoData so permissions can use DB settings
+    // precedence: action inputs > json payload > repoSettings > fallbacks
+    const payload = resolvePayload(repo.repoSettings);
+    if (payload.cwd && process.cwd() !== payload.cwd) {
+      process.chdir(payload.cwd);
+    }
 
-    const { apiKey, apiKeys } = validateApiKey({
+    const tmpdir = await createTempDirectory();
+
+    const agent = resolveAgent({ payload, repoSettings: repo.repoSettings });
+
+    validateApiKey({
       agent,
-      owner: repoData.owner,
-      name: repoData.name,
-    });
-
-    // compute tool permissions early
-    const tools = resolvePermissions({
-      payload,
-      isPublicRepo: !repoData.repo.private,
+      owner: repo.owner,
+      name: repo.name,
     });
 
     const toolState: ToolState = {};
     await setupGit({
       token: tokenRef.token,
-      owner: repoData.owner,
-      name: repoData.name,
+      owner: repo.owner,
+      name: repo.name,
       event: payload.event,
-      octokit: repoData.octokit,
+      octokit,
       toolState,
     });
     timer.checkpoint("git");
 
-    const modes = [
-      ...computeModes({ disableProgressComment: payload.disableProgressComment }),
-      ...repoData.repoSettings.modes,
-    ];
-    const { runId, jobId } = await resolveRunId(repoData);
+    const modes = [...computeModes({ hasProgressComment }), ...repo.repoSettings.modes];
 
     const toolContext: ToolContext = {
-      owner: repoData.owner,
-      name: repoData.name,
-      repo: { default_branch: repoData.repo.default_branch, private: repoData.repo.private },
+      repo,
+      payload,
+      octokit,
       githubInstallationToken: tokenRef.token,
-      octokit: repoData.octokit,
       agent,
-      event: payload.event,
-      disableProgressComment: payload.disableProgressComment,
       modes,
       toolState,
-      runId,
-      jobId,
-      tools,
+      runId: runInfo.runId,
+      jobId: runInfo.jobId,
+      hasProgressComment,
     };
 
     await using mcpHttpServer = await startMcpHttpServer(toolContext);
@@ -100,19 +93,16 @@ export async function main(core: {
     const instructions = resolveInstructions({
       prompt: payload.prompt,
       event: payload.event,
-      repoData,
+      repoData: repo,
       modes,
-      bash: tools.bash,
+      bash: payload.bash,
     });
 
     const result = await agent.run({
-      effort: payload.effort,
-      tools,
+      payload,
       mcpServerUrl: mcpHttpServer.url,
       tmpdir,
       instructions,
-      apiKey,
-      apiKeys,
     });
     const mainResult = await handleAgentResult(result);
     return mainResult;
@@ -132,9 +122,7 @@ export async function main(core: {
     // ensure progress comment is updated if it was never updated during execution
     // do this before revoking the token so we can still make API calls
     try {
-      await ensureProgressCommentUpdated({
-        disableProgressComment: payload.disableProgressComment,
-      });
+      await ensureProgressCommentUpdated({ hasProgressComment });
     } catch {
       // error updating comment, but don't let it mask the original error
     }

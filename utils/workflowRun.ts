@@ -1,11 +1,10 @@
 export interface WorkflowRunInfo {
   progressCommentId: string | null;
-  issueNumber: number | null;
 }
 
 /**
- * Fetch workflow run info from the Pullfrog API
- * Returns the pre-created progress comment ID if one exists
+ * Fetch workflow run info from the Pullfrog API.
+ * Returns the pre-created progress comment ID if one exists.
  */
 export async function fetchWorkflowRunInfo(runId: string): Promise<WorkflowRunInfo> {
   const apiUrl = process.env.API_URL || "https://pullfrog.com";
@@ -25,13 +24,13 @@ export async function fetchWorkflowRunInfo(runId: string): Promise<WorkflowRunIn
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return { progressCommentId: null, issueNumber: null };
+      return { progressCommentId: null };
     }
 
     const data = (await response.json()) as WorkflowRunInfo;
     return data;
   } catch {
     clearTimeout(timeoutId);
-    return { progressCommentId: null, issueNumber: null };
+    return { progressCommentId: null };
   }
 }

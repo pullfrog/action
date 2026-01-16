@@ -278,10 +278,6 @@ export interface WriteablePayload extends DispatchOptions {
   event: PayloadEvent;
   /** effort level for model selection (mini, auto, max) - defaults to "auto" */
   effort?: Effort | undefined;
-  /** optional IDs of the issue, PR, or comment that the agent is working on */
-  comment_id?: number | null | undefined;
-  issue_id?: number | null | undefined;
-  pr_id?: number | null | undefined;
   /** working directory for the agent */
   cwd?: string | null | undefined;
 }

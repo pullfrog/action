@@ -10,21 +10,12 @@ export interface Mode {
 
 export interface RepoSettings {
   defaultAgent: AgentName | null;
+  modes: Mode[];
   web: ToolPermission;
   search: ToolPermission;
   write: ToolPermission;
   bash: BashPermission;
-  modes: Mode[];
 }
-
-export const DEFAULT_REPO_SETTINGS: RepoSettings = {
-  defaultAgent: null,
-  web: "enabled",
-  search: "enabled",
-  write: "enabled",
-  bash: "restricted",
-  modes: [],
-};
 
 /**
  * Fetch repository settings from the Pullfrog API
@@ -55,17 +46,38 @@ export async function fetchRepoSettings(params: {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return DEFAULT_REPO_SETTINGS;
+      return {
+        defaultAgent: null,
+        modes: [],
+        web: "enabled",
+        search: "enabled",
+        write: "enabled",
+        bash: "restricted",
+      };
     }
 
     const settings = (await response.json()) as RepoSettings | null;
     if (settings === null) {
-      return DEFAULT_REPO_SETTINGS;
+      return {
+        defaultAgent: null,
+        modes: [],
+        web: "enabled",
+        search: "enabled",
+        write: "enabled",
+        bash: "restricted",
+      };
     }
 
     return settings;
   } catch {
     clearTimeout(timeoutId);
-    return DEFAULT_REPO_SETTINGS;
+    return {
+      defaultAgent: null,
+      modes: [],
+      web: "enabled",
+      search: "enabled",
+      write: "enabled",
+      bash: "restricted",
+    };
   }
 }

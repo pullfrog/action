@@ -116,19 +116,19 @@ export const cursor = agent({
         if (projectConfig.model) {
           log.info(`» using model from project .cursor/cli.json: ${projectConfig.model}`);
         } else {
-          modelOverride = cursorEffortModels[ctx.effort];
+          modelOverride = cursorEffortModels[ctx.payload.effort];
         }
       } catch {
-        modelOverride = cursorEffortModels[ctx.effort];
+        modelOverride = cursorEffortModels[ctx.payload.effort];
       }
     } else {
-      modelOverride = cursorEffortModels[ctx.effort];
+      modelOverride = cursorEffortModels[ctx.payload.effort];
     }
 
     if (modelOverride) {
-      log.info(`» using model: ${modelOverride}, effort=${ctx.effort}`);
+      log.info(`» using model: ${modelOverride}, effort=${ctx.payload.effort}`);
     } else if (!existsSync(projectCliConfigPath)) {
-      log.info(`» using default model, effort=${ctx.effort}`);
+      log.info(`» using default model, effort=${ctx.payload.effort}`);
     }
 
     // track logged model_call_ids to avoid duplicates
@@ -354,22 +354,23 @@ function configureCursorTools(ctx: AgentRunContext): void {
   mkdirSync(cursorConfigDir, { recursive: true });
 
   // build deny list based on tool permissions
+  const bash = ctx.payload.bash;
   const deny: string[] = [];
-  if (ctx.tools.search === "disabled") deny.push("WebSearch");
-  if (ctx.tools.write === "disabled") deny.push("Write(**)");
+  if (ctx.payload.search === "disabled") deny.push("WebSearch");
+  if (ctx.payload.write === "disabled") deny.push("Write(**)");
   // both "disabled" and "restricted" block native shell
-  if (ctx.tools.bash !== "enabled") deny.push("Shell(*)");
+  if (bash !== "enabled") deny.push("Shell(*)");
 
   const config: CursorCliConfig = {
     permissions: {
-      allow: ctx.tools.write === "disabled" ? ["Read(**)"] : ["Read(**)", "Write(**)"],
+      allow: ctx.payload.write === "disabled" ? ["Read(**)"] : ["Read(**)", "Write(**)"],
       deny,
     },
   };
 
   // web: "disabled" requires sandbox with network blocking
   // sandbox.networkAccess: "allowlist" blocks network in shell subprocesses via seatbelt
-  if (ctx.tools.web === "disabled") {
+  if (ctx.payload.web === "disabled") {
     config.sandbox = {
       mode: "enabled",
       networkAccess: "allowlist",

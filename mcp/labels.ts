@@ -15,8 +15,8 @@ export function AddLabelsTool(ctx: ToolContext) {
     parameters: AddLabelsParams,
     execute: execute(async ({ issue_number, labels }) => {
       const result = await ctx.octokit.rest.issues.addLabels({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         issue_number,
         labels,
       });

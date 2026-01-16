@@ -106,8 +106,8 @@ export function CreateCommentTool(ctx: ToolContext) {
       const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.issues.createComment({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         issue_number: issueNumber,
         body: bodyWithFooter,
       });
@@ -136,8 +136,8 @@ export function EditCommentTool(ctx: ToolContext) {
       const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.issues.updateComment({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         comment_id: commentId,
         body: bodyWithFooter,
       });
@@ -211,14 +211,15 @@ export async function reportProgress(
   | undefined
 > {
   const existingCommentId = getProgressCommentId();
-  const issueNumber = ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.event.issue_number;
+  const issueNumber =
+    ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   const isPlanMode = ctx.toolState.selectedMode === "Plan";
 
   // if we already have a progress comment, update it
   if (existingCommentId) {
     const customParts =
       isPlanMode && issueNumber !== undefined
-        ? [buildImplementPlanLink(ctx.owner, ctx.name, issueNumber, existingCommentId)]
+        ? [buildImplementPlanLink(ctx.repo.owner, ctx.repo.name, issueNumber, existingCommentId)]
         : undefined;
 
     const bodyWithoutFooter = stripExistingFooter(body);
@@ -230,8 +231,8 @@ export async function reportProgress(
     const bodyWithFooter = `${bodyWithoutFooter}${footer}`;
 
     const result = await ctx.octokit.rest.issues.updateComment({
-      owner: ctx.owner,
-      repo: ctx.name,
+      owner: ctx.repo.owner,
+      repo: ctx.repo.name,
       comment_id: existingCommentId,
       body: bodyWithFooter,
     });
@@ -259,8 +260,8 @@ export async function reportProgress(
   const initialBody = await addFooter(ctx, body);
 
   const result = await ctx.octokit.rest.issues.createComment({
-    owner: ctx.owner,
-    repo: ctx.name,
+    owner: ctx.repo.owner,
+    repo: ctx.repo.name,
     issue_number: issueNumber,
     body: initialBody,
   });
@@ -271,7 +272,9 @@ export async function reportProgress(
 
   // if Plan mode, update the comment to add the "Implement plan" link
   if (isPlanMode) {
-    const customParts = [buildImplementPlanLink(ctx.owner, ctx.name, issueNumber, result.data.id)];
+    const customParts = [
+      buildImplementPlanLink(ctx.repo.owner, ctx.repo.name, issueNumber, result.data.id),
+    ];
     const bodyWithoutFooter = stripExistingFooter(body);
     const footer = await buildCommentFooter({
       agent: ctx.agent,
@@ -281,8 +284,8 @@ export async function reportProgress(
     const bodyWithPlanLink = `${bodyWithoutFooter}${footer}`;
 
     const updateResult = await ctx.octokit.rest.issues.updateComment({
-      owner: ctx.owner,
-      repo: ctx.name,
+      owner: ctx.repo.owner,
+      repo: ctx.repo.name,
       comment_id: result.data.id,
       body: bodyWithPlanLink,
     });
@@ -353,8 +356,8 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
 
   try {
     await ctx.octokit.rest.issues.deleteComment({
-      owner: ctx.owner,
-      repo: ctx.name,
+      owner: ctx.repo.owner,
+      repo: ctx.repo.name,
       comment_id: existingCommentId,
     });
   } catch (error) {
@@ -375,7 +378,7 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
 }
 
 interface EnsureProgressCommentUpdatedParams {
-  disableProgressComment: boolean;
+  hasProgressComment: boolean;
 }
 
 /**
@@ -394,8 +397,8 @@ export async function ensureProgressCommentUpdated(
     return;
   }
 
-  // skip if progress comments are disabled
-  if (params.disableProgressComment) {
+  // skip if no progress comment was created for this run
+  if (!params.hasProgressComment) {
     return;
   }
 
@@ -485,8 +488,8 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
       const bodyWithFooter = await addFooter(ctx, body);
 
       const result = await ctx.octokit.rest.pulls.createReplyForReviewComment({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
         comment_id,
         body: bodyWithFooter,

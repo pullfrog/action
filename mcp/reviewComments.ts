@@ -95,8 +95,8 @@ export function GetReviewCommentsTool(ctx: ToolContext) {
     execute: execute(async ({ pull_number, review_id }) => {
         // fetch all review threads using graphql
         const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
-          owner: ctx.owner,
-          repo: ctx.name,
+          owner: ctx.repo.owner,
+          repo: ctx.repo.name,
           pullNumber: pull_number,
         });
 
@@ -197,8 +197,8 @@ export function ListPullRequestReviewsTool(ctx: ToolContext) {
     parameters: ListPullRequestReviews,
     execute: execute(async ({ pull_number }) => {
       const reviews = await ctx.octokit.paginate(ctx.octokit.rest.pulls.listReviews, {
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         pull_number,
       });
 

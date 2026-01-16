@@ -13,8 +13,8 @@ export function IssueInfoTool(ctx: ToolContext) {
     parameters: IssueInfo,
     execute: execute(async ({ issue_number }) => {
       const issue = await ctx.octokit.rest.issues.get({
-        owner: ctx.owner,
-        repo: ctx.name,
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
         issue_number,
       });
 
