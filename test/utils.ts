@@ -21,9 +21,20 @@ interface Spinner {
 }
 
 function startSpinner(message: string): Spinner {
-  let frameIndex = 0;
   const startTime = Date.now();
 
+  // skip animated spinner in CI
+  if (process.env.CI) {
+    console.log(`${message}...`);
+    return {
+      stop: () => {
+        const elapsed = formatElapsed(Date.now() - startTime);
+        console.log(`✓ completed in ${elapsed}\n`);
+      },
+    };
+  }
+
+  let frameIndex = 0;
   const interval = setInterval(() => {
     const elapsed = formatElapsed(Date.now() - startTime);
     const frame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
