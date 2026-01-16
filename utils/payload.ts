@@ -108,7 +108,9 @@ export function resolvePayload(repoSettings: RepoSettings) {
   return {
     "~pullfrog": true as const,
     agent: resolvedAgent,
-    prompt: inputs.prompt ?? jsonPayload?.prompt,
+    // inverted: jsonPayload.prompt extracts the text from the JSON payload,
+    // whereas inputs.prompt IS the raw JSON string when internally dispatched
+    prompt: jsonPayload?.prompt ?? inputs.prompt,
     event,
     effort: inputs.effort ?? jsonPayload?.effort ?? "auto",
     cwd: resolveCwd(inputs.cwd),

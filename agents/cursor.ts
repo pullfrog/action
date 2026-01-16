@@ -205,7 +205,7 @@ export const cursor = agent({
       // build CLI args
       const baseArgs = [
         "--print",
-        ctx.instructions,
+        ctx.instructions.full,
         "--output-format",
         "stream-json",
         "--approve-mcps",

@@ -73,7 +73,7 @@ export const claude = agent({
     };
 
     const queryInstance = query({
-      prompt: ctx.instructions,
+      prompt: ctx.instructions.full,
       options: queryOptions,
     });
 

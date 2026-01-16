@@ -188,7 +188,7 @@ export const gemini = agent({
       "--yolo",
       "--output-format=stream-json",
       "-p",
-      ctx.instructions,
+      ctx.instructions.full,
     ];
 
     let finalOutput = "";

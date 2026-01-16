@@ -1,9 +1,9 @@
 import { ensureProgressCommentUpdated } from "./mcp/comment.ts";
-import { startMcpHttpServer, type ToolContext, type ToolState } from "./mcp/server.ts";
+import { initToolState, startMcpHttpServer } from "./mcp/server.ts";
 import { computeModes } from "./modes.ts";
 import { resolveAgent } from "./utils/agent.ts";
 import { validateApiKey } from "./utils/apiKeys.ts";
-import { log } from "./utils/cli.ts";
+import { log, writeSummary } from "./utils/cli.ts";
 import { reportErrorToComment } from "./utils/errorReport.ts";
 import { createOctokit } from "./utils/github.ts";
 import { resolveInstructions } from "./utils/instructions.ts";
@@ -37,7 +37,7 @@ export async function main(): Promise<MainResult> {
 
   const octokit = createOctokit(tokenRef.token);
   const runInfo = await resolveRun({ octokit });
-  const hasProgressComment = runInfo.workflowRunInfo.progressCommentId !== null;
+  const toolState = initToolState({ runInfo });
 
   try {
     const repo = await resolveRepoData({ octokit, token: tokenRef.token });
@@ -50,7 +50,7 @@ export async function main(): Promise<MainResult> {
       process.chdir(payload.cwd);
     }
 
-    const tmpdir = await createTempDirectory();
+    const tmpdir = createTempDirectory();
 
     const agent = resolveAgent({ payload, repoSettings: repo.repoSettings });
 
@@ -60,7 +60,6 @@ export async function main(): Promise<MainResult> {
       name: repo.name,
     });
 
-    const toolState: ToolState = {};
     await setupGit({
       token: tokenRef.token,
       owner: repo.owner,
@@ -71,9 +70,9 @@ export async function main(): Promise<MainResult> {
     });
     timer.checkpoint("git");
 
-    const modes = [...computeModes({ hasProgressComment }), ...repo.repoSettings.modes];
+    const modes = [...computeModes(), ...repo.repoSettings.modes];
 
-    const toolContext: ToolContext = {
+    await using mcpHttpServer = await startMcpHttpServer({
       repo,
       payload,
       octokit,
@@ -83,19 +82,14 @@ export async function main(): Promise<MainResult> {
       toolState,
       runId: runInfo.runId,
       jobId: runInfo.jobId,
-      hasProgressComment,
-    };
-
-    await using mcpHttpServer = await startMcpHttpServer(toolContext);
+    });
     log.info(`» MCP server started at ${mcpHttpServer.url}`);
     timer.checkpoint("mcpServer");
 
     const instructions = resolveInstructions({
-      prompt: payload.prompt,
-      event: payload.event,
+      payload,
       repoData: repo,
       modes,
-      bash: payload.bash,
     });
 
     const result = await agent.run({
@@ -104,13 +98,19 @@ export async function main(): Promise<MainResult> {
       tmpdir,
       instructions,
     });
+
+    // write last progress body to job summary
+    if (toolState.lastProgressBody) {
+      writeSummary(toolState.lastProgressBody);
+    }
+
     const mainResult = await handleAgentResult(result);
     return mainResult;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     log.error(errorMessage);
     try {
-      await reportErrorToComment({ error: errorMessage });
+      await reportErrorToComment({ toolState, error: errorMessage });
     } catch {
       // error reporting failed, but don't let it mask the original error
     }
@@ -122,7 +122,7 @@ export async function main(): Promise<MainResult> {
     // ensure progress comment is updated if it was never updated during execution
     // do this before revoking the token so we can still make API calls
     try {
-      await ensureProgressCommentUpdated({ hasProgressComment });
+      await ensureProgressCommentUpdated(toolState);
     } catch {
       // error updating comment, but don't let it mask the original error
     }

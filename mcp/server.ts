@@ -23,6 +23,29 @@ export interface ToolState {
     promise: Promise<PrepResult[]> | undefined;
     results: PrepResult[] | undefined;
   };
+  progressComment: {
+    id: number | null;
+    wasUpdated: boolean;
+  };
+  lastProgressBody?: string;
+}
+
+import type { ResolveRunResult } from "../utils/workflow.ts";
+
+interface InitToolStateParams {
+  runInfo: ResolveRunResult;
+}
+
+export function initToolState(ctx: InitToolStateParams): ToolState {
+  const progressCommentIdStr = ctx.runInfo.workflowRunInfo.progressCommentId;
+  const progressCommentId = progressCommentIdStr ? parseInt(progressCommentIdStr, 10) : null;
+
+  return {
+    progressComment: {
+      id: Number.isNaN(progressCommentId) ? null : progressCommentId,
+      wasUpdated: false,
+    },
+  };
 }
 
 export interface ToolContext {
@@ -35,8 +58,6 @@ export interface ToolContext {
   toolState: ToolState;
   runId: string;
   jobId: string | undefined;
-  /** true if a progress comment was pre-created for this run */
-  hasProgressComment: boolean;
 }
 
 import { BashTool } from "./bash.ts";
@@ -141,9 +162,7 @@ export async function startMcpHttpServer(
     tools.push(BashTool(ctx));
   }
 
-  if (ctx.hasProgressComment) {
-    tools.push(ReportProgressTool(ctx));
-  }
+  tools.push(ReportProgressTool(ctx));
 
   addTools(ctx, server, tools);
 

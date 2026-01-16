@@ -129,7 +129,7 @@ export const codex = agent({
     const thread = codex.startThread(threadOptions);
 
     try {
-      const streamedTurn = await thread.runStreamed(ctx.instructions);
+      const streamedTurn = await thread.runStreamed(ctx.instructions.full);
 
       let finalOutput = "";
       for await (const event of streamedTurn.events) {

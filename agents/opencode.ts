@@ -30,7 +30,7 @@ export const opencode = agent({
     configureOpenCode(ctx);
 
     // message positional must come right after "run", before flags
-    const args = ["run", ctx.instructions, "--format", "json"];
+    const args = ["run", ctx.instructions.full, "--format", "json"];
 
     process.env.HOME = tempHome;
 

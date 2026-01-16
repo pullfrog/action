@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PayloadEvent } from "../external.ts";
@@ -16,8 +16,8 @@ export interface SetupOptions {
 /**
  * Create a shared temp directory for the action
  */
-export async function createTempDirectory(): Promise<string> {
-  const sharedTempDir = await mkdtemp(join(tmpdir(), "pullfrog-"));
+export function createTempDirectory(): string {
+  const sharedTempDir = mkdtempSync(join(tmpdir(), "pullfrog-"));
   process.env.PULLFROG_TEMP_DIR = sharedTempDir;
   log.info(`» created temp dir at ${sharedTempDir}`);
   return sharedTempDir;

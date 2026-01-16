@@ -27,7 +27,6 @@ export async function resolveRun(params: ResolveRunParams): Promise<ResolveRunRe
   const workflowRunInfo = runId ? await fetchWorkflowRunInfo(runId) : { progressCommentId: null };
 
   if (workflowRunInfo.progressCommentId) {
-    process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
     log.info(`» using pre-created progress comment: ${workflowRunInfo.progressCommentId}`);
   }
 

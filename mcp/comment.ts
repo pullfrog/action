@@ -1,11 +1,10 @@
 import { type } from "arktype";
 import type { Agent } from "../agents/index.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
-import { writeSummary } from "../utils/cli.ts";
 import { createOctokit, type OctokitWithPlugins, parseRepoContext } from "../utils/github.ts";
 import { getGitHubInstallationToken } from "../utils/token.ts";
 import { fetchWorkflowRunInfo } from "../utils/workflowRun.ts";
-import type { ToolContext } from "./server.ts";
+import type { ToolContext, ToolState } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 /**
@@ -153,42 +152,6 @@ export function EditCommentTool(ctx: ToolContext) {
   });
 }
 
-/**
- * Get progress comment ID from environment variable.
- * This allows the webhook handler to pre-create a "leaping into action" comment
- * and pass the ID to the action for updates.
- */
-function getProgressCommentIdFromEnv(): number | null {
-  const envCommentId = process.env.PULLFROG_PROGRESS_COMMENT_ID;
-  if (envCommentId) {
-    const parsed = parseInt(envCommentId, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
-// progress comment state - initialized lazily on first use to allow env var to be set after module load
-const progressComment = {
-  id: null as number | null,
-  idInitialized: false,
-  wasUpdated: false,
-};
-
-function getProgressCommentId(): number | null {
-  if (!progressComment.idInitialized) {
-    progressComment.id = getProgressCommentIdFromEnv();
-    progressComment.idInitialized = true;
-  }
-  return progressComment.id;
-}
-
-function setProgressCommentId(id: number): void {
-  progressComment.id = id;
-  progressComment.idInitialized = true;
-}
-
 export const ReportProgress = type({
   body: type.string.describe("the progress update content to share"),
 });
@@ -196,21 +159,22 @@ export const ReportProgress = type({
 /**
  * Standalone function to report progress to GitHub comment.
  * Can be called directly without going through the MCP tool interface.
- * Returns result data if successful, undefined if comment cannot be created.
+ * Returns result data if successful.
+ * When there's no comment target (no progressCommentId and no issueNumber), returns a "skipped" result.
  */
 export async function reportProgress(
   ctx: ToolContext,
   { body }: { body: string }
-): Promise<
-  | {
-      commentId: number;
-      url: string;
-      body: string;
-      action: "created" | "updated";
-    }
-  | undefined
-> {
-  const existingCommentId = getProgressCommentId();
+): Promise<{
+  commentId?: number;
+  url?: string;
+  body: string;
+  action: "created" | "updated" | "skipped";
+}> {
+  // always track the body for job summary
+  ctx.toolState.lastProgressBody = body;
+
+  const existingCommentId = ctx.toolState.progressComment.id;
   const issueNumber =
     ctx.toolState.prNumber ?? ctx.toolState.issueNumber ?? ctx.payload.event.issue_number;
   const isPlanMode = ctx.toolState.selectedMode === "Plan";
@@ -237,9 +201,7 @@ export async function reportProgress(
       body: bodyWithFooter,
     });
 
-    progressComment.wasUpdated = true;
-
-    writeSummary(bodyWithFooter);
+    ctx.toolState.progressComment.wasUpdated = true;
 
     return {
       commentId: result.data.id,
@@ -249,11 +211,12 @@ export async function reportProgress(
     };
   }
 
-  // no existing comment - create one
+  // no existing comment - need an issue/PR to create one on
   // use fallback chain: dynamically set context > event payload
   if (issueNumber === undefined) {
-    // cannot create comment without issue_number (e.g., workflow_dispatch events)
-    return undefined;
+    // no-op: no comment target (e.g., workflow_dispatch events)
+    // body is already tracked for job summary
+    return { body, action: "skipped" };
   }
 
   // for new comments, we need to create first, then update with Plan link if in Plan mode
@@ -267,8 +230,10 @@ export async function reportProgress(
   });
 
   // store the comment ID for future updates
-  setProgressCommentId(result.data.id);
-  progressComment.wasUpdated = true;
+  ctx.toolState.progressComment = {
+    id: result.data.id,
+    wasUpdated: true,
+  };
 
   // if Plan mode, update the comment to add the "Implement plan" link
   if (isPlanMode) {
@@ -290,8 +255,6 @@ export async function reportProgress(
       body: bodyWithPlanLink,
     });
 
-    writeSummary(bodyWithPlanLink);
-
     return {
       commentId: updateResult.data.id,
       url: updateResult.data.html_url,
@@ -299,8 +262,6 @@ export async function reportProgress(
       action: "created",
     };
   }
-
-  writeSummary(initialBody);
 
   return {
     commentId: result.data.id,
@@ -319,13 +280,12 @@ export function ReportProgressTool(ctx: ToolContext) {
     execute: execute(async ({ body }) => {
       const result = await reportProgress(ctx, { body });
 
-      if (!result) {
-        // gracefully handle case where no comment can be created
-        // this happens for workflow_dispatch events or when there's no associated issue/PR
+      if (result.action === "skipped") {
+        // no-op: no comment target, but progress is still tracked for job summary
         return {
-          success: false,
+          success: true,
           message:
-            "cannot create progress comment: no issue_number found in the payload event. this may occur for workflow_dispatch events or when there is no associated issue/PR. if you need to comment on a specific issue or PR, use create_issue_comment with an explicit issueNumber.",
+            "progress recorded (no GitHub comment created - this may occur for workflow_dispatch events or when there is no associated issue/PR)",
         };
       }
 
@@ -338,18 +298,11 @@ export function ReportProgressTool(ctx: ToolContext) {
 }
 
 /**
- * Check if the progress comment was updated during execution
- */
-export function wasProgressCommentUpdated(): boolean {
-  return progressComment.wasUpdated;
-}
-
-/**
  * Delete the progress comment if it exists.
  * Used after submitting a PR review since the review body contains all necessary info.
  */
 export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> {
-  const existingCommentId = getProgressCommentId();
+  const existingCommentId = ctx.toolState.progressComment.id;
   if (!existingCommentId) {
     return false;
   }
@@ -370,15 +323,12 @@ export async function deleteProgressComment(ctx: ToolContext): Promise<boolean> 
   }
 
   // reset state but mark as "updated" so ensureProgressCommentUpdated doesn't try to handle it
-  progressComment.id = null;
-  progressComment.idInitialized = true; // keep initialized so we don't re-fetch from env
-  progressComment.wasUpdated = true; // mark as handled so ensureProgressCommentUpdated skips
+  ctx.toolState.progressComment = {
+    id: null,
+    wasUpdated: true,
+  };
 
   return true;
-}
-
-interface EnsureProgressCommentUpdatedParams {
-  hasProgressComment: boolean;
 }
 
 /**
@@ -387,25 +337,23 @@ interface EnsureProgressCommentUpdatedParams {
  * exited without ever calling reportProgress.
  *
  * Works even if MCP context is not initialized (e.g., if error occurs before MCP server starts).
- * Will fetch comment ID from database if not available in environment variable.
+ * Will fetch comment ID from database if not available in toolState.
  */
-export async function ensureProgressCommentUpdated(
-  params: EnsureProgressCommentUpdatedParams
-): Promise<void> {
+export async function ensureProgressCommentUpdated(toolState: ToolState): Promise<void> {
   // skip if comment was already updated during execution
-  if (progressComment.wasUpdated) {
+  if (toolState.progressComment.wasUpdated) {
     return;
   }
 
-  // skip if no progress comment was created for this run
-  if (!params.hasProgressComment) {
+  // skip if there's already a progress body recorded (agent called report_progress)
+  if (toolState.lastProgressBody) {
     return;
   }
 
-  // try to get comment ID from env var first, then from database if needed
-  let existingCommentId = getProgressCommentId();
+  // try to get comment ID from toolState first, then from database if needed
+  let existingCommentId = toolState.progressComment.id;
 
-  // if not in env var, try fetching from database using run ID
+  // if not in toolState, try fetching from database using run ID
   if (!existingCommentId) {
     const runId = process.env.GITHUB_RUN_ID;
     if (runId) {
@@ -413,9 +361,8 @@ export async function ensureProgressCommentUpdated(
         const workflowRunInfo = await fetchWorkflowRunInfo(runId);
         if (workflowRunInfo.progressCommentId) {
           existingCommentId = parseInt(workflowRunInfo.progressCommentId, 10);
-          // cache it in env var for future use
-          if (!Number.isNaN(existingCommentId)) {
-            process.env.PULLFROG_PROGRESS_COMMENT_ID = workflowRunInfo.progressCommentId;
+          if (Number.isNaN(existingCommentId)) {
+            existingCommentId = null;
           }
         }
       } catch {
@@ -496,7 +443,7 @@ export function ReplyToReviewCommentTool(ctx: ToolContext) {
       });
 
       // mark progress as updated so ensureProgressCommentUpdated doesn't think the run failed
-      progressComment.wasUpdated = true;
+      ctx.toolState.progressComment.wasUpdated = true;
 
       return {
         success: true,

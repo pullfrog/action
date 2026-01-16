@@ -1,6 +1,7 @@
 import type { show } from "@ark/util";
 import { type AgentManifest, type AgentName, agentsManifest } from "../external.ts";
 import { log } from "../utils/cli.ts";
+import type { ResolvedInstructions } from "../utils/instructions.ts";
 import type { ResolvedPayload } from "../utils/payload.ts";
 
 /**
@@ -20,7 +21,7 @@ export interface AgentRunContext {
   payload: ResolvedPayload;
   mcpServerUrl: string;
   tmpdir: string;
-  instructions: string;
+  instructions: ResolvedInstructions;
 }
 
 export const agent = <const input extends AgentInput>(input: input): defineAgent<input> => {
@@ -32,7 +33,9 @@ export const agent = <const input extends AgentInput>(input: input): defineAgent
       const search = ctx.payload.search;
       const write = ctx.payload.write;
       log.info(`» running ${input.name} with effort=${ctx.payload.effort}...`);
-      log.box(ctx.instructions, { title: "Instructions" });
+      log.box(ctx.instructions.user.trim() + "\n\n" + ctx.instructions.event.trim(), {
+        title: "Instructions",
+      });
       log.info(`» tool permissions: web=${web}, search=${search}, write=${write}, bash=${bash}`);
       return input.run(ctx);
     },
