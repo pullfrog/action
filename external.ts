@@ -201,30 +201,13 @@ interface WorkflowDispatchEvent extends BasePayloadEvent {
   trigger: "workflow_dispatch";
 }
 
-/** simplified review comment data for payload */
-export interface ReviewCommentData {
-  id: number;
-  body: string;
-  path: string;
-  line: number | null;
-  user: string | null;
-  html_url: string;
-  in_reply_to_id: number | null;
-}
-
 interface FixReviewEvent extends BasePayloadEvent {
   trigger: "fix_review";
   issue_number: number;
   is_pr: true;
   review_id: number;
-  /** username of the person who triggered this action */
+  /** username of the person who triggered this action - use with get_review_comments approved_by */
   triggerer: string;
-  /** "all" to fix all comments, or specific comment IDs to fix */
-  comment_ids: number[] | "all";
-  /** comments the triggerer approved (via thumbs up) - these should be addressed */
-  approved_comments: ReviewCommentData[];
-  /** other comments in the review - for context only, do not address unless asked */
-  unapproved_comments: ReviewCommentData[];
 }
 
 interface ImplementPlanEvent extends BasePayloadEvent {

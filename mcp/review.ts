@@ -1,9 +1,9 @@
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
-import type { ToolContext } from "./server.ts";
 import { buildPullfrogFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { deleteProgressComment } from "./comment.ts";
+import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
 
 // one-shot review tool
@@ -20,7 +20,7 @@ export const CreatePullRequestReview = type({
   comments: type({
     path: type.string.describe("The file path to comment on (relative to repo root)"),
     line: type.number.describe(
-      "Line number from the diff. Each code line shows 'OLD | NEW | TYPE | CODE'. Use the NEW column (second column)."
+      "End line of the comment range (or the only line if no start_line). From diff format 'OLD | NEW | TYPE | CODE', use the NEW column."
     ),
     side: type
       .enumerated("LEFT", "RIGHT")
@@ -28,11 +28,18 @@ export const CreatePullRequestReview = type({
         "Side of the diff: LEFT (old code, lines starting with -) or RIGHT (new code, lines starting with + or unchanged). Defaults to RIGHT."
       )
       .optional(),
-    body: type.string.describe(
-      "The comment text for this specific line. For issues appearing multiple times, comment on the first occurrence and reference others. When providing code suggestions, use GitHub's suggestion format with ```suggestion blocks to enable one-click apply. Only include explanatory text if the suggested code requires clarification."
-    ),
+    body: type.string
+      .describe("Explanatory comment text (optional if suggestion is provided)")
+      .optional(),
+    suggestion: type.string
+      .describe(
+        "Full replacement code for the line range. Replaces the commented lines entirely - can be more, fewer, or same number of lines."
+      )
+      .optional(),
     start_line: type.number
-      .describe("Start line for multi-line comments (optional, for commenting on ranges)")
+      .describe(
+        "Start line for multi-line comments/suggestions. The range [start_line, line] defines which lines get replaced."
+      )
       .optional(),
   })
     .array()
@@ -49,7 +56,7 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       "Submit a review for an existing pull request. " +
       "IMPORTANT: 95%+ of feedback should be in 'comments' array with file paths and line numbers. " +
       "Only use 'body' for a 1-2 sentence summary with urgency and critical callouts. " +
-      "When suggesting code changes in comments, use GitHub's suggestion format (```suggestion blocks) to enable one-click apply.",
+      "Use 'suggestion' field to suggest a FULL REPLACEMENT of the associated line range. This will show up for users as a one-click apply suggestion. It doesn't need to be the same length as the original range, but the suggested code must work when applied.",
     parameters: CreatePullRequestReview,
     execute: execute(async ({ pull_number, body, commit_id, comments = [] }) => {
       // set PR context
@@ -78,8 +85,17 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
         type ReviewComment = (typeof params.comments & {})[number];
         // convert comments to the format expected by GitHub API
         params.comments = comments.map((comment) => {
+          // build comment body with suggestion block if provided
+          let commentBody = comment.body || "";
+          if (comment.suggestion !== undefined) {
+            const suggestionBlock = "```suggestion\n" + comment.suggestion + "\n```";
+            commentBody = commentBody ? commentBody + "\n\n" + suggestionBlock : suggestionBlock;
+          }
+
           const reviewComment: ReviewComment = {
-            ...comment,
+            path: comment.path,
+            line: comment.line,
+            body: commentBody,
           };
           reviewComment.side = comment.side || "RIGHT";
           if (comment.start_line) {
@@ -102,7 +118,12 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       const fixApprovedUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
 
       const footer = buildPullfrogFooter({
-        workflowRun: { owner: ctx.repo.owner, repo: ctx.repo.name, runId: ctx.runId, jobId: ctx.jobId },
+        workflowRun: {
+          owner: ctx.repo.owner,
+          repo: ctx.repo.name,
+          runId: ctx.runId,
+          jobId: ctx.jobId,
+        },
         customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
       });
 

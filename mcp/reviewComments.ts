@@ -1,187 +1,108 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { type } from "arktype";
+import { log } from "../utils/log.ts";
 import type { ToolContext } from "./server.ts";
 import { execute, tool } from "./shared.ts";
-
-// graphql query to fetch all review threads with comments and replies
-// note: diffSide and startDiffSide are on the thread, not the comment
-const REVIEW_THREADS_QUERY = `
-query ($owner: String!, $repo: String!, $pullNumber: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pullNumber) {
-      reviewThreads(first: 100) {
-        nodes {
-          diffSide
-          startDiffSide
-          comments(first: 100) {
-            nodes {
-              id
-              databaseId
-              body
-              path
-              line
-              startLine
-              url
-              author {
-                login
-              }
-              createdAt
-              updatedAt
-              pullRequestReview {
-                databaseId
-              }
-              replyTo {
-                databaseId
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-`;
-
-// graphql response types (nodes arrays can contain nulls per GitHub GraphQL spec)
-type GraphQLReviewComment = {
-  id: string;
-  databaseId: number;
-  body: string;
-  path: string;
-  line: number | null;
-  startLine: number | null;
-  url: string;
-  author: {
-    login: string;
-  } | null;
-  createdAt: string;
-  updatedAt: string;
-  pullRequestReview: {
-    databaseId: number;
-  } | null;
-  replyTo: {
-    databaseId: number;
-  } | null;
-};
-
-type GraphQLReviewThread = {
-  diffSide: "LEFT" | "RIGHT";
-  startDiffSide: "LEFT" | "RIGHT" | null;
-  comments: {
-    nodes: (GraphQLReviewComment | null)[] | null;
-  } | null;
-} | null;
-
-type GraphQLResponse = {
-  repository: {
-    pullRequest: {
-      reviewThreads: {
-        nodes: (GraphQLReviewThread | null)[] | null;
-      } | null;
-    } | null;
-  } | null;
-};
 
 export const GetReviewComments = type({
   pull_number: type.number.describe("The pull request number"),
   review_id: type.number.describe("The review ID to get comments for"),
+  approved_by: type.string
+    .describe("Optional GitHub username - only return comments this user gave a 👍 to")
+    .optional(),
 });
 
 export function GetReviewCommentsTool(ctx: ToolContext) {
   return tool({
     name: "get_review_comments",
     description:
-      "Get all review comments and their replies for a specific pull request review. Returns line-by-line comments that were left on specific code locations, including any threaded replies.",
+      "Get review comments for a pull request review, including diff context. " +
+      "When approved_by is provided, only returns comments that user approved with 👍. " +
+      "Returns commentsPath pointing to a file with full comment details.",
     parameters: GetReviewComments,
-    execute: execute(async ({ pull_number, review_id }) => {
-        // fetch all review threads using graphql
-        const response = await ctx.octokit.graphql<GraphQLResponse>(REVIEW_THREADS_QUERY, {
-          owner: ctx.repo.owner,
-          repo: ctx.repo.name,
-          pullNumber: pull_number,
-        });
+    execute: execute(async ({ pull_number, review_id, approved_by }) => {
+      // fetch all review comments via REST API (includes diff_hunk)
+      const allComments = await ctx.octokit.paginate(ctx.octokit.rest.pulls.listReviewComments, {
+        owner: ctx.repo.owner,
+        repo: ctx.repo.name,
+        pull_number,
+      });
 
-        const pullRequest = response.repository?.pullRequest;
-        if (!pullRequest) {
-          return {
-            review_id,
-            pull_number,
-            comments: [],
-            count: 0,
-          };
-        }
+      // filter to target review
+      let reviewComments = allComments.filter((c) => c.pull_request_review_id === review_id);
 
-        const threadNodes = pullRequest.reviewThreads?.nodes;
-        if (!threadNodes) {
-          return {
-            review_id,
-            pull_number,
-            comments: [],
-            count: 0,
-          };
-        }
-
-        const allComments: {
-          id: number;
-          body: string;
-          path: string;
-          line: number | null;
-          side: "LEFT" | "RIGHT";
-          start_line: number | null;
-          start_side: "LEFT" | "RIGHT" | null;
-          user: string | null;
-          created_at: string;
-          updated_at: string;
-          html_url: string;
-          in_reply_to_id: number | null;
-          pull_request_review_id: number | null;
-        }[] = [];
-
-        // iterate through all threads (filter out nulls)
-        for (const thread of threadNodes) {
-          if (!thread?.comments?.nodes) continue;
-
-          // filter out null comments
-          const threadComments = thread.comments.nodes.filter(
-            (c): c is GraphQLReviewComment => c !== null
+      // filter by thumbs up if approved_by is specified
+      if (approved_by) {
+        const approvedIds = new Set<number>();
+        for (const comment of reviewComments) {
+          const reactions = await ctx.octokit.rest.reactions.listForPullRequestReviewComment({
+            owner: ctx.repo.owner,
+            repo: ctx.repo.name,
+            comment_id: comment.id,
+          });
+          const hasThumbsUp = reactions.data.some(
+            (r) => r.content === "+1" && r.user?.login === approved_by
           );
-          if (threadComments.length === 0) continue;
-
-          // find the root comment (the one with replyTo == null) to determine thread ownership
-          const rootComment = threadComments.find((c) => c.replyTo === null);
-          if (!rootComment) continue;
-
-          // check if this thread belongs to the target review using the root comment
-          const threadBelongsToReview = rootComment.pullRequestReview?.databaseId === review_id;
-          if (!threadBelongsToReview) continue;
-
-          // include all comments from this thread (original + replies)
-          // side info comes from thread level, not comment level
-          for (const comment of threadComments) {
-            allComments.push({
-              id: comment.databaseId,
-              body: comment.body,
-              path: comment.path,
-              line: comment.line,
-              start_line: comment.startLine,
-              side: thread.diffSide,
-              start_side: thread.startDiffSide,
-              user: comment.author?.login ?? null,
-              created_at: comment.createdAt,
-              updated_at: comment.updatedAt,
-              html_url: comment.url,
-              in_reply_to_id: comment.replyTo?.databaseId ?? null,
-              pull_request_review_id: comment.pullRequestReview?.databaseId ?? null,
-            });
-          }
+          if (hasThumbsUp) approvedIds.add(comment.id);
         }
+        reviewComments = reviewComments.filter((c) => approvedIds.has(c.id));
+      }
 
+      if (reviewComments.length === 0) {
         return {
           review_id,
           pull_number,
-          comments: allComments,
-          count: allComments.length,
+          count: 0,
+          commentsPath: null,
+          message: approved_by
+            ? `No comments with 👍 from ${approved_by}`
+            : "No comments found for this review",
         };
-      }),
+      }
+
+      // format comments with diff context
+      const lines: string[] = [];
+      for (const comment of reviewComments) {
+        lines.push(`${"=".repeat(60)}`);
+        lines.push(`COMMENT #${comment.id} by @${comment.user?.login ?? "unknown"}`);
+        lines.push(`File: ${comment.path}:${comment.line ?? comment.original_line ?? "?"}`);
+        if (comment.in_reply_to_id) {
+          lines.push(`Reply to: #${comment.in_reply_to_id}`);
+        }
+        lines.push("");
+        if (comment.diff_hunk) {
+          lines.push("```diff");
+          lines.push(comment.diff_hunk);
+          lines.push("```");
+          lines.push("");
+        }
+        lines.push("Comment:");
+        lines.push(comment.body);
+        lines.push("");
+      }
+
+      const content = lines.join("\n");
+
+      // write to temp file
+      const tempDir = process.env.PULLFROG_TEMP_DIR;
+      if (!tempDir) {
+        throw new Error("PULLFROG_TEMP_DIR not set");
+      }
+      const filename = approved_by
+        ? `review-${review_id}-approved-by-${approved_by}.txt`
+        : `review-${review_id}-comments.txt`;
+      const commentsPath = join(tempDir, filename);
+      writeFileSync(commentsPath, content);
+      log.debug(`wrote ${reviewComments.length} comments to ${commentsPath}`);
+
+      return {
+        review_id,
+        pull_number,
+        count: reviewComments.length,
+        commentsPath,
+      };
+    }),
   });
 }
 
@@ -209,9 +130,7 @@ export function ListPullRequestReviewsTool(ctx: ToolContext) {
           body: review.body,
           state: review.state,
           user: review.user?.login,
-          commit_id: review.commit_id,
           submitted_at: review.submitted_at,
-          html_url: review.html_url,
         })),
         count: reviews.length,
       };
