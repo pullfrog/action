@@ -9,10 +9,6 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: action
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -33,7 +29,7 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
-          cache-dependency-path: action/pnpm-lock.yaml
+          cache-dependency-path: ./pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
