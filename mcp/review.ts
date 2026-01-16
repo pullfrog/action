@@ -113,9 +113,14 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
       const reviewId = result.data.id;
 
       // build quick links footer and update the review body
-      const apiUrl = process.env.API_URL || "https://pullfrog.com";
-      const fixAllUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix&review_id=${reviewId}`;
-      const fixApprovedUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
+      // only include "Fix all" and "Fix 👍s" links if there are actual review comments
+      const customParts: string[] = [];
+      if (comments.length > 0) {
+        const apiUrl = process.env.API_URL || "https://pullfrog.com";
+        const fixAllUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix&review_id=${reviewId}`;
+        const fixApprovedUrl = `${apiUrl}/trigger/${ctx.repo.owner}/${ctx.repo.name}/${pull_number}?action=fix-approved&review_id=${reviewId}`;
+        customParts.push(`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`);
+      }
 
       const footer = buildPullfrogFooter({
         workflowRun: {
@@ -124,7 +129,7 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
           runId: ctx.runId,
           jobId: ctx.jobId,
         },
-        customParts: [`[Fix all ➔](${fixAllUrl})`, `[Fix 👍s ➔](${fixApprovedUrl})`],
+        customParts,
       });
 
       const updatedBody = (body || "") + footer;
