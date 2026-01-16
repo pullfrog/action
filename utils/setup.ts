@@ -31,7 +31,15 @@ export function setupTestRepo(options: SetupOptions): void {
   const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) throw new Error("GITHUB_REPOSITORY is required");
   log.info(`» cloning ${repo} into ${tempDir}...`);
-  $("git", ["clone", `git@github.com:${repo}.git`, tempDir]);
+
+  // use HTTPS with token in CI, SSH locally
+  if (process.env.CI) {
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) throw new Error("GITHUB_TOKEN is required in CI");
+    $("git", ["clone", `https://x-access-token:${token}@github.com/${repo}.git`, tempDir]);
+  } else {
+    $("git", ["clone", `git@github.com:${repo}.git`, tempDir]);
+  }
 }
 
 interface SetupGitParams {
